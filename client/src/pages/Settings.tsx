@@ -6,14 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, ArrowLeft } from "lucide-react";
 import { useEffect } from "react";
+import { useLocation } from "wouter";
 import type { z } from "zod";
 
 type SettingsFormValues = z.infer<typeof insertSettingsSchema>;
 
 export default function Settings() {
   const { settings, isLoading, updateSettings, isUpdating } = useSettings();
+  const [, setLocation] = useLocation();
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(insertSettingsSchema),
@@ -51,9 +53,19 @@ export default function Settings() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
-      <div>
-        <h1 className="text-3xl font-display font-bold text-foreground">Settings</h1>
-        <p className="text-muted-foreground mt-1">Configure your default rates and calculation logic.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-display font-bold text-foreground">Settings</h1>
+          <p className="text-muted-foreground mt-1">Configure your default rates and calculation logic.</p>
+        </div>
+        <Button 
+          variant="ghost" 
+          onClick={() => setLocation("/")}
+          className="md:self-start gap-2 text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft size={16} />
+          Back to Calculator
+        </Button>
       </div>
 
       <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
