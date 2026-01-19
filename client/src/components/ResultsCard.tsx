@@ -56,7 +56,7 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics }: Resul
             <Users size={120} />
           </div>
           <div className="relative z-10">
-            <p className="text-muted-foreground font-medium mb-1">Estimated Labor Fund</p>
+            <p className="text-muted-foreground font-medium mb-1">Estimated Labor Field</p>
             <h2 className="text-4xl font-display font-bold tracking-tight text-emerald-600">
               {formatCurrency(estimatedLabor)}
             </h2>

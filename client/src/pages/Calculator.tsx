@@ -271,13 +271,6 @@ export default function Calculator() {
                 onChange={(e) => setAdditionalMaterials(e.target.value)}
               />
 
-              <InputMoney
-                label="Discount ($)"
-                placeholder="0.00"
-                value={discount}
-                onChange={(e) => setDiscount(e.target.value)}
-              />
-              
               {settings.laborMode === 'hours' && (
                 <div className="pt-4 border-t border-border">
                   <InputMoney
@@ -292,6 +285,13 @@ export default function Calculator() {
                   </p>
                 </div>
               )}
+
+              <InputMoney
+                label="Discount ($)"
+                placeholder="0.00"
+                value={discount}
+                onChange={(e) => setDiscount(e.target.value)}
+              />
             </div>
           </div>
         </div>
