@@ -17,6 +17,14 @@ export default function Calculator() {
   const [materials, setMaterials] = useState<string>("");
   const [equipment, setEquipment] = useState<string>("");
   const [laborHours, setLaborHours] = useState<string>("10");
+  const [targetMe, setTargetMe] = useState<string>("23.00");
+  
+  // Set default target from settings when they load
+  useEffect(() => {
+    if (settings && targetMe === "23.00") {
+      setTargetMe(settings.targetMePercent);
+    }
+  }, [settings]);
   
   // Save Dialog State
   const [isSaveOpen, setIsSaveOpen] = useState(false);
@@ -56,7 +64,7 @@ export default function Calculator() {
     const totalMe = matVal + equipVal + tax;
 
     // 2. Calculate Price
-    const targetMeRate = parseFloat(settings.targetMePercent) / 100;
+    const targetMeRate = (parseFloat(targetMe) || 0) / 100;
     // Avoid division by zero
     const price = targetMeRate > 0 ? totalMe / targetMeRate : 0;
 
@@ -119,7 +127,7 @@ export default function Calculator() {
       calculatedPrice: results.price.toFixed(2),
       calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
       calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
-      calculatedMePercent: results.metrics.mePercent.toFixed(2),
+      calculatedMePercent: targetMe,
     }, {
       onSuccess: () => {
         setIsSaveOpen(false);
@@ -132,6 +140,9 @@ export default function Calculator() {
     setMaterials("");
     setEquipment("");
     setLaborHours("10");
+    if (settings) {
+      setTargetMe(settings.targetMePercent);
+    }
   };
 
   if (settingsLoading) {
@@ -211,16 +222,23 @@ export default function Calculator() {
             
             <div className="space-y-6">
               <div className="space-y-2">
-                <div className="flex justify-between items-end">
-                  <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                    Target M&E %
-                  </Label>
-                  <span className="text-sm font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">
-                    {settings.targetMePercent}%
-                  </span>
+                <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                  Target M&E %
+                </Label>
+                <div className="relative group">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none group-focus-within:text-primary transition-colors">
+                    <span className="text-sm font-mono">%</span>
+                  </div>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    value={targetMe}
+                    onChange={(e) => setTargetMe(e.target.value)}
+                    className="pl-9 h-12 text-lg font-medium bg-background border-border shadow-sm transition-all focus:ring-primary/20"
+                  />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  The calculator uses this target to determine the total price.
+                  Adjust this percentage to see how it affects the final price.
                 </p>
               </div>
 
