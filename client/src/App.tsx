@@ -3,16 +3,26 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Navigation } from "@/components/Navigation";
 import NotFound from "@/pages/not-found";
+import Calculator from "@/pages/Calculator";
+import Settings from "@/pages/Settings";
+import History from "@/pages/History";
 
 function Router() {
   return (
-    <Switch>
-      {/* Add pages below */}
-      {/* <Route path="/" component={Home}/> */}
-      {/* Fallback to 404 */}
-      <Route component={NotFound} />
-    </Switch>
+    <div className="flex flex-col lg:flex-row min-h-screen bg-background text-foreground font-body">
+      <Navigation />
+      
+      <main className="flex-1 w-full p-4 md:p-8 lg:p-12 overflow-y-auto h-screen">
+        <Switch>
+          <Route path="/" component={Calculator} />
+          <Route path="/settings" component={Settings} />
+          <Route path="/history" component={History} />
+          <Route component={NotFound} />
+        </Switch>
+      </main>
+    </div>
   );
 }
 
