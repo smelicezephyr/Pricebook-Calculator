@@ -210,6 +210,20 @@ export default function Calculator() {
             </h2>
             
             <div className="space-y-6">
+              <div className="space-y-2">
+                <div className="flex justify-between items-end">
+                  <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                    Target M&E %
+                  </Label>
+                  <span className="text-sm font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">
+                    {settings.targetMePercent}%
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  The calculator uses this target to determine the total price.
+                </p>
+              </div>
+
               <InputMoney
                 label="Materials Cost"
                 placeholder="0.00"
