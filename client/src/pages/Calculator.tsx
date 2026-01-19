@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSettings } from "@/hooks/use-settings";
 import { useCreateQuote } from "@/hooks/use-quotes";
 import { InputMoney } from "@/components/InputMoney";
@@ -8,11 +8,15 @@ import { Save, RefreshCw, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toPng } from "html-to-image";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Calculator() {
   const { settings, isLoading: settingsLoading } = useSettings();
   const createQuote = useCreateQuote();
-  
+  const { toast } = useToast();
+  const resultsRef = useRef<HTMLDivElement>(null);
+
   // Input State
   const [materials, setMaterials] = useState<string>("");
   const [equipment, setEquipment] = useState<string>("");
@@ -20,14 +24,14 @@ export default function Calculator() {
   const [laborHours, setLaborHours] = useState<string>("10");
   const [targetMe, setTargetMe] = useState<string>("23.00");
   const [discount, setDiscount] = useState<string>("0.00");
-  
+
   // Set default target from settings when they load
   useEffect(() => {
     if (settings && targetMe === "23.00") {
       setTargetMe(settings.targetMePercent);
     }
   }, [settings]);
-  
+
   // Save Dialog State
   const [isSaveOpen, setIsSaveOpen] = useState(false);
   const [quoteTitle, setQuoteTitle] = useState("");
@@ -122,11 +126,34 @@ export default function Calculator() {
       }
     });
 
-  }, [matVal, equipVal, hoursVal, settings]);
+  }, [matVal, equipVal, addMatVal, hoursVal, discount, targetMe, settings]);
 
-  const handleSave = () => {
+  const downloadImage = async () => {
+    if (resultsRef.current === null) return;
+
+    try {
+      const dataUrl = await toPng(resultsRef.current, { cacheBust: true, backgroundColor: "#fff" });
+      const link = document.createElement('a');
+      link.download = `${quoteTitle || 'quote'}-${new Date().toISOString().split('T')[0]}.png`;
+      link.href = dataUrl;
+      link.click();
+      toast({
+        title: "Image Saved",
+        description: "The quote image has been downloaded successfully.",
+      });
+    } catch (err) {
+      console.error('Error saving image:', err);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to save the image.",
+      });
+    }
+  };
+
+  const handleSave = async () => {
     if (!settings) return;
-    
+
     createQuote.mutate({
       title: quoteTitle || "Untitled Quote",
       materialsCost: matVal.toString(),
@@ -137,7 +164,8 @@ export default function Calculator() {
       calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
       calculatedMePercent: targetMe,
     }, {
-      onSuccess: () => {
+      onSuccess: async () => {
+        await downloadImage();
         setIsSaveOpen(false);
         setQuoteTitle("");
       }
@@ -149,6 +177,7 @@ export default function Calculator() {
     setEquipment("");
     setAdditionalMaterials("");
     setLaborHours("10");
+    setDiscount("0.00");
     if (settings) {
       setTargetMe(settings.targetMePercent);
     }
@@ -171,13 +200,13 @@ export default function Calculator() {
           <h1 className="text-3xl font-display font-bold text-foreground">Calculator</h1>
           <p className="text-muted-foreground mt-1">Estimate pricing and labor for HVAC installations.</p>
         </div>
-        
+
         <div className="flex gap-2">
           <Button variant="outline" onClick={resetInputs} className="gap-2">
             <RefreshCw size={16} />
             Reset
           </Button>
-          
+
           <Dialog open={isSaveOpen} onOpenChange={setIsSaveOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30">
@@ -192,8 +221,8 @@ export default function Calculator() {
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
                   <Label>Quote Title</Label>
-                  <Input 
-                    placeholder="e.g. Smith Residence - 3 Ton Unit" 
+                  <Input
+                    placeholder="e.g. Smith Residence - 3 Ton Unit"
                     value={quoteTitle}
                     onChange={(e) => setQuoteTitle(e.target.value)}
                   />
@@ -212,7 +241,7 @@ export default function Calculator() {
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsSaveOpen(false)}>Cancel</Button>
                 <Button onClick={handleSave} disabled={createQuote.isPending}>
-                  {createQuote.isPending ? "Saving..." : "Save to History"}
+                  {createQuote.isPending ? "Saving..." : "Save & Download"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -228,7 +257,7 @@ export default function Calculator() {
               <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-sm font-bold">1</span>
               Job Costs
             </h2>
-            
+
             <div className="space-y-6">
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
@@ -238,7 +267,7 @@ export default function Calculator() {
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none group-focus-within:text-primary transition-colors">
                     <span className="text-sm font-mono">%</span>
                   </div>
-                  <Input 
+                  <Input
                     type="number"
                     step="0.01"
                     value={targetMe}
@@ -297,9 +326,9 @@ export default function Calculator() {
         </div>
 
         {/* Results Column */}
-        <div className="lg:col-span-8">
-          <div className="space-y-6">
-            <ResultsCard 
+        <div className="lg:col-span-8" ref={resultsRef}>
+          <div className="space-y-6 bg-background p-4 rounded-2xl">
+            <ResultsCard
               price={results.price}
               estimatedLabor={results.estimatedLabor}
               breakdown={results.breakdown}
