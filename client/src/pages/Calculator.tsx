@@ -18,6 +18,7 @@ export default function Calculator() {
   const [equipment, setEquipment] = useState<string>("");
   const [laborHours, setLaborHours] = useState<string>("10");
   const [targetMe, setTargetMe] = useState<string>("23.00");
+  const [discount, setDiscount] = useState<string>("0.00");
   
   // Set default target from settings when they load
   useEffect(() => {
@@ -65,8 +66,11 @@ export default function Calculator() {
 
     // 2. Calculate Price
     const targetMeRate = (parseFloat(targetMe) || 0) / 100;
-    // Avoid division by zero
-    const price = targetMeRate > 0 ? totalMe / targetMeRate : 0;
+    const discountVal = parseFloat(discount) || 0;
+    // Base price before discount
+    const basePrice = targetMeRate > 0 ? totalMe / targetMeRate : 0;
+    // Final price after discount
+    const price = Math.max(0, basePrice - discountVal);
 
     // 3. Calculate Commission Cost
     const commissionRate = parseFloat(settings.commissionPercent) / 100;
@@ -253,6 +257,13 @@ export default function Calculator() {
                 placeholder="0.00"
                 value={equipment}
                 onChange={(e) => setEquipment(e.target.value)}
+              />
+
+              <InputMoney
+                label="Discount ($)"
+                placeholder="0.00"
+                value={discount}
+                onChange={(e) => setDiscount(e.target.value)}
               />
               
               {settings.laborMode === 'hours' && (

@@ -17,7 +17,7 @@ export function Navigation() {
     <>
       {/* Mobile Header */}
       <div className="lg:hidden flex items-center justify-between p-4 bg-card border-b border-border sticky top-0 z-50">
-        <h1 className="font-display font-bold text-xl text-primary">PriceCalc</h1>
+        <h1 className="font-display font-bold text-xl text-primary">PricebookCalc</h1>
         <button 
           onClick={() => setIsOpen(!isOpen)}
           className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
@@ -35,7 +35,7 @@ export function Navigation() {
           <div className="hidden lg:block mb-8">
             <h1 className="font-display font-bold text-2xl text-primary flex items-center gap-2">
               <Calculator className="w-8 h-8" />
-              PriceCalc
+              PricebookCalc
             </h1>
           </div>
 
