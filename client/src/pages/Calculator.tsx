@@ -16,6 +16,7 @@ export default function Calculator() {
   // Input State
   const [materials, setMaterials] = useState<string>("");
   const [equipment, setEquipment] = useState<string>("");
+  const [additionalMaterials, setAdditionalMaterials] = useState<string>("");
   const [laborHours, setLaborHours] = useState<string>("10");
   const [targetMe, setTargetMe] = useState<string>("23.00");
   const [discount, setDiscount] = useState<string>("0.00");
@@ -34,6 +35,7 @@ export default function Calculator() {
   // Derived Values
   const matVal = parseFloat(materials) || 0;
   const equipVal = parseFloat(equipment) || 0;
+  const addMatVal = parseFloat(additionalMaterials) || 0;
   const hoursVal = parseFloat(laborHours) || 0;
 
   // Calculation State
@@ -43,6 +45,7 @@ export default function Calculator() {
     breakdown: {
       materials: 0,
       equipment: 0,
+      additionalMaterials: 0,
       tax: 0,
       commission: 0,
       financing: 0,
@@ -61,8 +64,8 @@ export default function Calculator() {
 
     // 1. Calculate Tax & M&E
     const salesTaxRate = parseFloat(settings.salesTaxPercent) / 100;
-    const tax = (matVal + equipVal) * salesTaxRate;
-    const totalMe = matVal + equipVal + tax;
+    const tax = (matVal + equipVal + addMatVal) * salesTaxRate;
+    const totalMe = matVal + equipVal + addMatVal + tax;
 
     // 2. Calculate Price
     const targetMeRate = (parseFloat(targetMe) || 0) / 100;
@@ -106,6 +109,7 @@ export default function Calculator() {
       breakdown: {
         materials: matVal,
         equipment: equipVal,
+        additionalMaterials: addMatVal,
         tax,
         commission: commissionCost,
         financing: financingCost,
@@ -143,6 +147,7 @@ export default function Calculator() {
   const resetInputs = () => {
     setMaterials("");
     setEquipment("");
+    setAdditionalMaterials("");
     setLaborHours("10");
     if (settings) {
       setTargetMe(settings.targetMePercent);
@@ -257,6 +262,13 @@ export default function Calculator() {
                 placeholder="0.00"
                 value={equipment}
                 onChange={(e) => setEquipment(e.target.value)}
+              />
+
+              <InputMoney
+                label="Additional Materials"
+                placeholder="Pad, Risers, Lineset, etc."
+                value={additionalMaterials}
+                onChange={(e) => setAdditionalMaterials(e.target.value)}
               />
 
               <InputMoney
