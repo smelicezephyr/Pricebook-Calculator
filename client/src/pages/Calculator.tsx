@@ -33,6 +33,9 @@ export default function Calculator() {
       setLaborPercent(settings.laborPercent);
       if (settings.laborMode === 'hours') {
         setLaborHours("0");
+      } else {
+        // If mode is percent, ensure laborHours is also 0 but UI shows percent
+        setLaborHours("0");
       }
     }
   }, [settings]);
