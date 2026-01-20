@@ -90,9 +90,6 @@ export default function Calculator() {
     const financingRate = parseFloat(settings.financingFeePercent) / 100;
     const financingCost = price * financingRate;
 
-    // 5. Estimated Labor (The Output)
-    const estimatedLabor = price - totalMe - commissionCost - financingCost;
-
     // 6. Labor Cost (For Margin Calculation)
     let laborCost = 0;
     if (settings.laborMode === 'hours') {
@@ -103,6 +100,10 @@ export default function Calculator() {
       const laborPercentRate = (parseFloat(laborPercent) || 0) / 100;
       laborCost = price * laborPercentRate;
     }
+
+    // 5. Estimated Labor (The Output)
+    // Formula per user: burdened labor + burdened commission + sales tax of M&E
+    const estimatedLabor = laborCost + commissionCost + tax;
 
     // 7. Gross Margin
     const grossMarginAmount = price - (totalMe + commissionCost + financingCost + laborCost);
