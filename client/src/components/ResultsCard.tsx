@@ -199,17 +199,17 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
         </div>
 
         {/* Pie Chart */}
-        <div className="bg-card rounded-2xl border border-border p-6 shadow-sm flex flex-col items-center justify-center min-h-[300px]">
+        <div className="bg-card rounded-2xl border border-border p-6 shadow-sm flex flex-col items-center justify-center min-h-[300px] overflow-hidden">
           <h3 className="font-display font-bold text-lg mb-2 text-center w-full">Distribution</h3>
-          <div className="w-full h-[250px]">
+          <div className="w-full h-[200px] flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
+              <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
                 <Pie
                   data={chartData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
+                  innerRadius={50}
+                  outerRadius={70}
                   paddingAngle={5}
                   dataKey="value"
                 >
