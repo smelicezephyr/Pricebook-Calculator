@@ -125,7 +125,7 @@ export default function Settings() {
                       <FormControl>
                         <RadioGroup
                           onValueChange={field.onChange}
-                          defaultValue={field.value}
+                          value={field.value}
                           className="flex flex-col sm:flex-row gap-4"
                         >
                           <FormItem className="flex items-center space-x-3 space-y-0 bg-background p-4 rounded-lg border border-border shadow-sm flex-1">
