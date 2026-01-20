@@ -99,7 +99,7 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics }: Resul
               { label: "Sales Tax", value: breakdown.tax, color: "bg-slate-400" },
               { label: "Commission & Burden", value: breakdown.commission, color: "bg-amber-500" },
               { label: "Financing Fees", value: breakdown.financing, color: "bg-violet-500" },
-              { label: "Estimated Labor", value: estimatedLabor, color: "bg-emerald-500", highlight: true },
+              { label: "Estimated Labor", value: breakdown.laborCost, color: "bg-emerald-500", highlight: true },
             ].map((item) => (
               <div key={item.label} className={`flex items-center justify-between p-3 rounded-lg ${item.highlight ? 'bg-emerald-50 border border-emerald-100' : 'hover:bg-muted/50'}`}>
                 <div className="flex items-center gap-3">
