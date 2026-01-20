@@ -29,8 +29,8 @@ export default function Calculator() {
   // Set default target from settings when they load
   useEffect(() => {
     if (settings) {
-      if (targetMe === "23.00") setTargetMe(settings.targetMePercent);
-      if (laborPercent === "10.00") setLaborPercent(settings.laborPercent);
+      setTargetMe(settings.targetMePercent);
+      setLaborPercent(settings.laborPercent);
     }
   }, [settings]);
 
@@ -160,7 +160,7 @@ export default function Calculator() {
       title: quoteTitle || "Untitled Quote",
       materialsCost: matVal.toString(),
       equipmentCost: equipVal.toString(),
-      laborHoursInput: hoursVal.toString(),
+      laborHoursInput: settings.laborMode === 'hours' ? hoursVal.toString() : laborPercent,
       calculatedPrice: results.price.toFixed(2),
       calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
       calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
@@ -182,6 +182,7 @@ export default function Calculator() {
     setDiscount("0.00");
     if (settings) {
       setTargetMe(settings.targetMePercent);
+      setLaborPercent(settings.laborPercent);
     }
   };
 
