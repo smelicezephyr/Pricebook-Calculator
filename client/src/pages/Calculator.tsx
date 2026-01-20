@@ -21,13 +21,13 @@ export default function Calculator() {
   const [materials, setMaterials] = useState<string>("");
   const [equipment, setEquipment] = useState<string>("");
   const [additionalMaterials, setAdditionalMaterials] = useState<string>("");
-  const [laborHours, setLaborHours] = useState<string>("");
-  const [laborPercent, setLaborPercent] = useState<string>("");
+  const [laborHours, setLaborHours] = useState<string>("0.00");
+  const [laborPercent, setLaborPercent] = useState<string>("0.00");
   const [targetMe, setTargetMe] = useState<string>("23.0");
   const [discount, setDiscount] = useState<string>("0.00");
-  const [subcontractor, setSubcontractor] = useState<string>("");
-  const [crane, setCrane] = useState<string>("");
-  const [permit, setPermit] = useState<string>("");
+  const [subcontractor, setSubcontractor] = useState<string>("0.00");
+  const [crane, setCrane] = useState<string>("0.00");
+  const [permit, setPermit] = useState<string>("0.00");
 
   // Set default target from settings when they load
   useEffect(() => {
