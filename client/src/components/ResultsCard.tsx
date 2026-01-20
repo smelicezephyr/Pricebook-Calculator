@@ -60,6 +60,9 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics }: Resul
             <h2 className="text-4xl font-display font-bold tracking-tight text-emerald-600">
               {formatCurrency(estimatedLabor)}
             </h2>
+            <p className="text-[10px] text-muted-foreground mt-2 italic leading-tight">
+              * This is for the estimated labor field of the service in ServiceTitan
+            </p>
           </div>
         </div>
       </div>
@@ -89,15 +92,18 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics }: Resul
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Breakdown List */}
         <div className="lg:col-span-2 bg-card rounded-2xl border border-border p-6 shadow-sm">
-          <h3 className="font-display font-bold text-lg mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-primary" /> Cost Breakdown
-          </h3>
+          <div className="mb-4">
+            <h3 className="font-display font-bold text-lg flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-primary" /> Cost Breakdown
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Note: Labor and Commission include burdens</p>
+          </div>
           <div className="space-y-3">
             {[
               { label: "Materials", value: breakdown.materials, color: "bg-blue-500" },
               { label: "Equipment", value: breakdown.equipment, color: "bg-sky-500" },
               { label: "Sales Tax", value: breakdown.tax, color: "bg-slate-400" },
-              { label: "Commission & Burden", value: breakdown.commission, color: "bg-amber-500" },
+              { label: "Commission", value: breakdown.commission, color: "bg-amber-500" },
               { label: "Financing Fees", value: breakdown.financing, color: "bg-violet-500" },
               { label: "Estimated Labor", value: breakdown.laborCost, color: "bg-emerald-500", highlight: true },
             ].map((item) => (
@@ -108,9 +114,14 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics }: Resul
                     {item.label}
                   </span>
                 </div>
-                <span className={`font-mono font-medium ${item.highlight ? 'text-emerald-700' : 'text-muted-foreground'}`}>
-                  {formatCurrency(item.value)}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground font-medium">
+                    ({formatPercent(price > 0 ? (item.value / price) * 100 : 0)})
+                  </span>
+                  <span className={`font-mono font-medium ${item.highlight ? 'text-emerald-700' : 'text-muted-foreground'}`}>
+                    {formatCurrency(item.value)}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
