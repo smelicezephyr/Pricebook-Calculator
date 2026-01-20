@@ -8,7 +8,7 @@ export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
 
   const navItems = [
-    { href: "/", label: "Calculator", icon: Calculator },
+    { href: "/", label: "Complete System Calculator", icon: Calculator },
     { href: "/history", label: "History", icon: History },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
