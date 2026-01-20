@@ -176,11 +176,15 @@ export default function Settings() {
                             <div className="relative">
                               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">$</span>
                               <Input 
-                                {...field} 
-                                type="text"
-                                inputMode="decimal"
-                                pattern="[0-9]*\.?[0-9]*"
-                                className="pl-8" 
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className="pl-8"
+                                value={field.value ?? ""}
+                                onChange={(e) => field.onChange(e.target.value)}
+                                onBlur={field.onBlur}
+                                name={field.name}
+                                ref={field.ref}
                               />
                             </div>
                           </FormControl>
@@ -198,11 +202,15 @@ export default function Settings() {
                           <FormControl>
                             <div className="relative">
                               <Input 
-                                {...field} 
-                                type="text"
-                                inputMode="decimal"
-                                pattern="[0-9]*\.?[0-9]*"
-                                className="pr-8" 
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className="pr-8"
+                                value={field.value ?? ""}
+                                onChange={(e) => field.onChange(e.target.value)}
+                                onBlur={field.onBlur}
+                                name={field.name}
+                                ref={field.ref}
                               />
                               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">%</span>
                             </div>
