@@ -10,8 +10,8 @@ export const settings = pgTable("settings", {
   
   // Labor Settings
   laborMode: text("labor_mode", { enum: ["hours", "percent"] }).notNull().default("hours"),
-  laborHourlyRate: numeric("labor_hourly_rate").notNull().default("125.00"), // Derived from $1250/10hrs
-  laborPercent: numeric("labor_percent").notNull().default("10.00"), // Fallback if percent mode
+  laborHourlyRate: numeric("labor_hourly_rate").notNull().default("0.00"),
+  laborPercent: numeric("labor_percent").notNull().default("0.00"),
   laborBurdenPercent: numeric("labor_burden_percent").notNull().default("20.00"),
   
   // Commission Settings

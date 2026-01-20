@@ -21,8 +21,8 @@ export default function Calculator() {
   const [materials, setMaterials] = useState<string>("");
   const [equipment, setEquipment] = useState<string>("");
   const [additionalMaterials, setAdditionalMaterials] = useState<string>("");
-  const [laborHours, setLaborHours] = useState<string>("10");
-  const [laborPercent, setLaborPercent] = useState<string>("10.00");
+  const [laborHours, setLaborHours] = useState<string>("0");
+  const [laborPercent, setLaborPercent] = useState<string>("0.00");
   const [targetMe, setTargetMe] = useState<string>("23.00");
   const [discount, setDiscount] = useState<string>("0.00");
 
@@ -179,7 +179,7 @@ export default function Calculator() {
     setMaterials("");
     setEquipment("");
     setAdditionalMaterials("");
-    setLaborHours("10");
+    setLaborHours("0");
     setDiscount("0.00");
     if (settings) {
       setTargetMe(settings.targetMePercent);
