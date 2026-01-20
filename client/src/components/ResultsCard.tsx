@@ -34,13 +34,13 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
   const totalOtherCogs = (breakdown.financing || 0) + (breakdown.subcontractor || 0) + (breakdown.crane || 0) + (breakdown.permit || 0);
   const mAndECost = (breakdown.materials || 0) + (breakdown.equipment || 0) + (breakdown.tax || 0);
   const directLaborCost = (breakdown.laborCost || 0) + (breakdown.commission || 0);
+  const grossMargin = metrics.grossMarginAmount;
 
-  const totalCogs = mAndECost + directLaborCost + totalOtherCogs;
-  
   const chartData = [
-    { name: 'M&E', value: mAndECost, color: '#3b82f6', percent: totalCogs > 0 ? (mAndECost / totalCogs) * 100 : 0 }, 
-    { name: 'Direct Labor', value: directLaborCost, color: '#10b981', percent: totalCogs > 0 ? (directLaborCost / totalCogs) * 100 : 0 },
-    { name: 'Other COGS', value: totalOtherCogs, color: '#8b5cf6', percent: totalCogs > 0 ? (totalOtherCogs / totalCogs) * 100 : 0 },
+    { name: 'Gross Margin', value: grossMargin, color: '#f59e0b', percent: price > 0 ? (grossMargin / price) * 100 : 0 },
+    { name: 'M&E', value: mAndECost, color: '#3b82f6', percent: price > 0 ? (mAndECost / price) * 100 : 0 }, 
+    { name: 'Direct Labor', value: directLaborCost, color: '#10b981', percent: price > 0 ? (directLaborCost / price) * 100 : 0 },
+    { name: 'Other COGS', value: totalOtherCogs, color: '#8b5cf6', percent: price > 0 ? (totalOtherCogs / price) * 100 : 0 },
   ].filter(d => d.value > 0);
 
   const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, payload }: any) => {
