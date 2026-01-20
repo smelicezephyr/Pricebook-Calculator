@@ -43,13 +43,13 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
     { name: 'Other COGS', value: totalOtherCogs, color: '#8b5cf6', percent: totalCogs > 0 ? (totalOtherCogs / totalCogs) * 100 : 0 },
   ].filter(d => d.value > 0);
 
-  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
+  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, payload }: any) => {
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
     
-    if (percent < 0.05) return null;
+    if (payload.percent < 5) return null;
     
     return (
       <text 
@@ -61,7 +61,7 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
         fontSize={11}
         fontWeight="bold"
       >
-        {`${(percent * 100).toFixed(2)}%`}
+        {`${payload.percent.toFixed(2)}%`}
       </text>
     );
   };
