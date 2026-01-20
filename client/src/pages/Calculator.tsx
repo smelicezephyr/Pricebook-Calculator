@@ -102,7 +102,8 @@ export default function Calculator() {
 
     // 6. Labor Cost (For Margin Calculation)
     let laborCost = 0;
-    if (settings.laborMode === 'hours') {
+    const laborMode = settings.laborMode || 'hours';
+    if (laborMode === 'hours') {
       const hourlyRate = parseFloat(settings.laborHourlyRate);
       const laborBurdenRate = parseFloat(settings.laborBurdenPercent) / 100;
       laborCost = (hoursVal * hourlyRate) * (1 + laborBurdenRate);
@@ -328,7 +329,7 @@ export default function Calculator() {
                 onChange={(e) => setAdditionalMaterials(e.target.value)}
               />
 
-              {settings.laborMode === 'hours' ? (
+              {(settings.laborMode || 'hours') === 'hours' ? (
                 <div className="pt-4 border-t border-border">
                   <InputMoney
                     label="Labor Hours"
