@@ -21,8 +21,8 @@ export default function Calculator() {
   const [materials, setMaterials] = useState<string>("");
   const [equipment, setEquipment] = useState<string>("");
   const [additionalMaterials, setAdditionalMaterials] = useState<string>("");
-  const [laborHours, setLaborHours] = useState<string>("0");
-  const [laborPercent, setLaborPercent] = useState<string>("0.00");
+  const [laborHours, setLaborHours] = useState<string>("");
+  const [laborPercent, setLaborPercent] = useState<string>("");
   const [targetMe, setTargetMe] = useState<string>("23.00");
   const [discount, setDiscount] = useState<string>("0.00");
 
@@ -30,13 +30,8 @@ export default function Calculator() {
   useEffect(() => {
     if (settings) {
       setTargetMe(settings.targetMePercent);
-      setLaborPercent(settings.laborPercent);
-      if (settings.laborMode === 'hours') {
-        setLaborHours("0");
-      } else {
-        // If mode is percent, ensure laborHours is also 0 but UI shows percent
-        setLaborHours("0");
-      }
+      setLaborPercent(settings.laborPercent || "0.00");
+      setLaborHours(settings.laborHourlyRate === "0.00" ? "" : "0");
     }
   }, [settings]);
 
