@@ -1,5 +1,5 @@
 import { DollarSign, TrendingUp, Users } from "lucide-react";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Label } from "recharts";
 
 interface ResultsCardProps {
   price: number;
@@ -35,11 +35,36 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
   const mAndECost = (breakdown.materials || 0) + (breakdown.equipment || 0) + (breakdown.tax || 0);
   const directLaborCost = (breakdown.laborCost || 0) + (breakdown.commission || 0);
 
+  const totalCogs = mAndECost + directLaborCost + totalOtherCogs;
+  
   const chartData = [
-    { name: 'M&E', value: mAndECost, color: '#3b82f6' }, 
-    { name: 'Direct Labor', value: directLaborCost, color: '#10b981' },
-    { name: 'Other COGS', value: totalOtherCogs, color: '#8b5cf6' },
+    { name: 'M&E', value: mAndECost, color: '#3b82f6', percent: totalCogs > 0 ? (mAndECost / totalCogs) * 100 : 0 }, 
+    { name: 'Direct Labor', value: directLaborCost, color: '#10b981', percent: totalCogs > 0 ? (directLaborCost / totalCogs) * 100 : 0 },
+    { name: 'Other COGS', value: totalOtherCogs, color: '#8b5cf6', percent: totalCogs > 0 ? (totalOtherCogs / totalCogs) * 100 : 0 },
   ].filter(d => d.value > 0);
+
+  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    
+    if (percent < 0.05) return null;
+    
+    return (
+      <text 
+        x={x} 
+        y={y} 
+        fill="white" 
+        textAnchor="middle" 
+        dominantBaseline="central"
+        fontSize={11}
+        fontWeight="bold"
+      >
+        {`${(percent * 100).toFixed(2)}%`}
+      </text>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -205,36 +230,47 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
         </div>
 
         {/* Pie Chart */}
-        <div className="bg-card rounded-2xl border border-border p-6 shadow-sm flex flex-col items-center justify-center min-h-[300px] overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border p-6 shadow-sm flex flex-col items-center justify-center min-h-[300px]">
           <h3 className="font-display font-bold text-lg mb-2 text-center w-full">Distribution</h3>
-          <div className="w-full h-[200px] flex items-center justify-center">
+          <div className="w-full h-[220px] flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+              <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                 <Pie
                   data={chartData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={50}
-                  outerRadius={70}
-                  paddingAngle={5}
+                  innerRadius={40}
+                  outerRadius={65}
+                  paddingAngle={3}
                   dataKey="value"
+                  label={renderCustomLabel}
+                  labelLine={false}
                 >
                   {chartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
                   ))}
                 </Pie>
                 <Tooltip 
-                  formatter={(value: number) => formatCurrency(value)}
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  formatter={(value: number, name: string, props: any) => [
+                    `${formatCurrency(value)} (${props.payload.percent.toFixed(2)}%)`,
+                    name
+                  ]}
+                  contentStyle={{ 
+                    borderRadius: '8px', 
+                    border: 'none', 
+                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                    zIndex: 1000 
+                  }}
+                  wrapperStyle={{ zIndex: 1000 }}
                 />
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex flex-wrap justify-center gap-2 text-xs mt-2">
+          <div className="flex flex-wrap justify-center gap-3 text-xs mt-2">
             {chartData.map(d => (
-              <div key={d.name} className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }} />
-                <span className="text-muted-foreground">{d.name}</span>
+              <div key={d.name} className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
+                <span className="text-muted-foreground font-medium">{d.name}: {d.percent.toFixed(2)}%</span>
               </div>
             ))}
           </div>
