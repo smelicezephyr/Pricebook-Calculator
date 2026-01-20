@@ -108,8 +108,8 @@ export default function Calculator() {
     }
 
     // 5. Estimated Labor (The Output)
-    // Formula per user: burdened labor + burdened commission + sales tax of M&E
-    const estimatedLabor = laborCost + commissionCost + tax;
+    // Formula per user: burdened labor + burdened commission + sales tax of M&E + financing fee
+    const estimatedLabor = laborCost + commissionCost + tax + financingCost;
 
     // 7. Gross Margin
     const grossMarginAmount = price - (totalMe + commissionCost + financingCost + laborCost);
