@@ -34,7 +34,7 @@ export default function Calculator() {
     if (settings) {
       setTargetMe(parseFloat(settings.targetMePercent).toFixed(1));
       setLaborPercent(settings.laborPercent || "0.00");
-      setLaborHours(settings.laborHourlyRate === "0.00" ? "" : "0");
+      setLaborHours("0.00");
     }
   }, [settings]);
 
