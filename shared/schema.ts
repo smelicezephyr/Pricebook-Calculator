@@ -19,7 +19,7 @@ export const settings = pgTable("settings", {
   commissionBurdenPercent: numeric("commission_burden_percent").notNull().default("20.00"),
   
   // Financing Settings
-  financingFeePercent: numeric("financing_fee_percent").notNull().default("8.00"),
+  financingFeePercent: numeric("financing_fee_percent").notNull().default("6.00"),
 });
 
 // Saved Quotes/Calculations

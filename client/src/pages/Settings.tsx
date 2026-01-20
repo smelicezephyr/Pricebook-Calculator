@@ -22,13 +22,13 @@ export default function Settings() {
     defaultValues: {
       targetMePercent: "23.00",
       salesTaxPercent: "6.35",
-      laborMode: "hours",
+      laborMode: "percent",
       laborHourlyRate: "0.00",
-      laborPercent: "0.00",
+      laborPercent: "7.00",
       laborBurdenPercent: "20.00",
-      commissionPercent: "8.00",
+      commissionPercent: "10.00",
       commissionBurdenPercent: "20.00",
-      financingFeePercent: "8.00",
+      financingFeePercent: "6.00",
     },
   });
 
@@ -130,20 +130,20 @@ export default function Settings() {
                         >
                           <FormItem className="flex items-center space-x-3 space-y-0 bg-background p-4 rounded-lg border border-border shadow-sm flex-1">
                             <FormControl>
-                              <RadioGroupItem value="hours" />
-                            </FormControl>
-                            <FormLabel className="font-normal cursor-pointer flex-1">
-                              Hourly Rate
-                              <span className="block text-xs text-muted-foreground mt-1">Based on input hours × hourly rate</span>
-                            </FormLabel>
-                          </FormItem>
-                          <FormItem className="flex items-center space-x-3 space-y-0 bg-background p-4 rounded-lg border border-border shadow-sm flex-1">
-                            <FormControl>
                               <RadioGroupItem value="percent" />
                             </FormControl>
                             <FormLabel className="font-normal cursor-pointer flex-1">
                               Percentage of Job
                               <span className="block text-xs text-muted-foreground mt-1">Fixed percentage of total price</span>
+                            </FormLabel>
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-3 space-y-0 bg-background p-4 rounded-lg border border-border shadow-sm flex-1">
+                            <FormControl>
+                              <RadioGroupItem value="hours" />
+                            </FormControl>
+                            <FormLabel className="font-normal cursor-pointer flex-1">
+                              Hourly Rate
+                              <span className="block text-xs text-muted-foreground mt-1">Based on input hours × hourly rate</span>
                             </FormLabel>
                           </FormItem>
                         </RadioGroup>

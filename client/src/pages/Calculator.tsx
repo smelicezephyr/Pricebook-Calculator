@@ -223,6 +223,9 @@ export default function Calculator() {
     targetMeOptions.push(i.toFixed(1));
   }
 
+  const formatCurrency = (val: number) => 
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -244,7 +247,7 @@ export default function Calculator() {
                 Save Quote
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Save Quote</DialogTitle>
               </DialogHeader>
@@ -257,14 +260,33 @@ export default function Calculator() {
                     onChange={(e) => setQuoteTitle(e.target.value)}
                   />
                 </div>
-                <div className="bg-muted p-4 rounded-lg space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Price:</span>
-                    <span className="font-bold">${results.price.toFixed(2)}</span>
+                <div className="bg-muted p-4 rounded-lg space-y-3 text-sm">
+                  <div className="space-y-1 pb-2 border-b border-border/50">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">M&E Breakdown</p>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Materials:</span>
+                      <span className="font-medium">{formatCurrency(matVal)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Equipment:</span>
+                      <span className="font-medium">{formatCurrency(equipVal)}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Est. Labor:</span>
-                    <span className="font-bold text-emerald-600">${results.estimatedLabor.toFixed(2)}</span>
+                  
+                  {parseFloat(discount) > 0 && (
+                    <div className="flex justify-between text-destructive">
+                      <span className="font-medium">Discount:</span>
+                      <span className="font-bold">-{formatCurrency(parseFloat(discount))}</span>
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex justify-between items-baseline">
+                    <span className="text-muted-foreground font-bold">Total Price:</span>
+                    <span className="text-xl font-bold text-primary">${results.price.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-baseline border-t border-border/50 pt-2">
+                    <span className="text-muted-foreground font-bold">Est. Labor Field:</span>
+                    <span className="text-lg font-bold text-emerald-600">${results.estimatedLabor.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
