@@ -23,13 +23,16 @@ export default function Calculator() {
   const [additionalMaterials, setAdditionalMaterials] = useState<string>("");
   const [laborHours, setLaborHours] = useState<string>("");
   const [laborPercent, setLaborPercent] = useState<string>("");
-  const [targetMe, setTargetMe] = useState<string>("23.00");
+  const [targetMe, setTargetMe] = useState<string>("23.0");
   const [discount, setDiscount] = useState<string>("0.00");
+  const [subcontractor, setSubcontractor] = useState<string>("");
+  const [crane, setCrane] = useState<string>("");
+  const [permit, setPermit] = useState<string>("");
 
   // Set default target from settings when they load
   useEffect(() => {
     if (settings) {
-      setTargetMe(settings.targetMePercent);
+      setTargetMe(parseFloat(settings.targetMePercent).toFixed(1));
       setLaborPercent(settings.laborPercent || "0.00");
       setLaborHours(settings.laborHourlyRate === "0.00" ? "" : "0");
     }
@@ -44,6 +47,9 @@ export default function Calculator() {
   const equipVal = parseFloat(equipment) || 0;
   const addMatVal = parseFloat(additionalMaterials) || 0;
   const hoursVal = parseFloat(laborHours) || 0;
+  const subVal = parseFloat(subcontractor) || 0;
+  const craneVal = parseFloat(crane) || 0;
+  const permitVal = parseFloat(permit) || 0;
 
   // Calculation State
   const [results, setResults] = useState({
@@ -57,6 +63,9 @@ export default function Calculator() {
       commission: 0,
       financing: 0,
       laborCost: 0,
+      subcontractor: 0,
+      crane: 0,
+      permit: 0,
     },
     metrics: {
       grossMarginPercent: 0,
@@ -103,11 +112,11 @@ export default function Calculator() {
     }
 
     // 5. Estimated Labor (The Output)
-    // Formula per user: burdened labor + burdened commission + sales tax of M&E + financing fee
     const estimatedLabor = laborCost + commissionCost + tax + financingCost;
 
     // 7. Gross Margin
-    const grossMarginAmount = price - (totalMe + commissionCost + financingCost + laborCost);
+    const totalOtherCogs = subVal + craneVal + permitVal;
+    const grossMarginAmount = price - (totalMe + commissionCost + financingCost + laborCost + totalOtherCogs);
     const grossMarginPercent = price > 0 ? (grossMarginAmount / price) * 100 : 0;
     const mePercent = price > 0 ? (totalMe / price) * 100 : 0;
 
@@ -122,6 +131,9 @@ export default function Calculator() {
         commission: commissionCost,
         financing: financingCost,
         laborCost,
+        subcontractor: subVal,
+        crane: craneVal,
+        permit: permitVal,
       },
       metrics: {
         grossMarginPercent,
@@ -130,7 +142,7 @@ export default function Calculator() {
       }
     });
 
-  }, [matVal, equipVal, addMatVal, hoursVal, laborPercent, discount, targetMe, settings]);
+  }, [matVal, equipVal, addMatVal, hoursVal, laborPercent, discount, targetMe, subVal, craneVal, permitVal, settings]);
 
   const downloadImage = async () => {
     if (resultsRef.current === null) return;
@@ -167,6 +179,9 @@ export default function Calculator() {
       calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
       calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
       calculatedMePercent: targetMe,
+      subcontractorCost: subVal.toString(),
+      craneCost: craneVal.toString(),
+      permitCost: permitVal.toString(),
     }, {
       onSuccess: async () => {
         await downloadImage();
@@ -180,10 +195,13 @@ export default function Calculator() {
     setMaterials("");
     setEquipment("");
     setAdditionalMaterials("");
-    setLaborHours("0");
+    setLaborHours("");
     setDiscount("0.00");
+    setSubcontractor("");
+    setCrane("");
+    setPermit("");
     if (settings) {
-      setTargetMe(settings.targetMePercent);
+      setTargetMe(parseFloat(settings.targetMePercent).toFixed(1));
       setLaborPercent(settings.laborPercent);
     }
   };
@@ -197,6 +215,12 @@ export default function Calculator() {
   }
 
   if (!settings) return null;
+
+  // Generate target M&E options: 20% to 25% with 0.5% intervals
+  const targetMeOptions = [];
+  for (let i = 20; i <= 25; i += 0.5) {
+    targetMeOptions.push(i.toFixed(1));
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
@@ -268,18 +292,17 @@ export default function Calculator() {
                 <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                   Target M&E %
                 </Label>
-                <div className="relative group">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none group-focus-within:text-primary transition-colors">
-                    <span className="text-sm font-mono">%</span>
-                  </div>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={targetMe}
-                    onChange={(e) => setTargetMe(e.target.value)}
-                    className="pl-9 h-12 text-lg font-medium bg-background border-border shadow-sm transition-all focus:ring-primary/20"
-                  />
-                </div>
+                <select
+                  value={targetMe}
+                  onChange={(e) => setTargetMe(e.target.value)}
+                  className="flex h-12 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-lg font-medium ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {targetMeOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}%
+                    </option>
+                  ))}
+                </select>
                 <p className="text-xs text-muted-foreground">
                   Adjust this percentage to see how it affects the final price.
                 </p>
@@ -340,12 +363,36 @@ export default function Calculator() {
                 </div>
               )}
 
-              <InputMoney
-                label="Discount ($)"
-                placeholder="0.00"
-                value={discount}
-                onChange={(e) => setDiscount(e.target.value)}
-              />
+              <div className="pt-4 border-t border-border space-y-4">
+                <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Other COGS</h3>
+                <InputMoney
+                  label="Subcontractor"
+                  placeholder="0.00"
+                  value={subcontractor}
+                  onChange={(e) => setSubcontractor(e.target.value)}
+                />
+                <InputMoney
+                  label="Crane"
+                  placeholder="0.00"
+                  value={crane}
+                  onChange={(e) => setCrane(e.target.value)}
+                />
+                <InputMoney
+                  label="Permit"
+                  placeholder="0.00"
+                  value={permit}
+                  onChange={(e) => setPermit(e.target.value)}
+                />
+              </div>
+
+              <div className="pt-4 border-t border-border">
+                <InputMoney
+                  label="Discount ($)"
+                  placeholder="0.00"
+                  value={discount}
+                  onChange={(e) => setDiscount(e.target.value)}
+                />
+              </div>
             </div>
           </div>
         </div>

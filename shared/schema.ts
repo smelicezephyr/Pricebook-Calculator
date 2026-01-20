@@ -1,4 +1,4 @@
-import { pgTable, text, serial, numeric, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, numeric, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -35,6 +35,11 @@ export const quotes = pgTable("quotes", {
   calculatedGrossMargin: numeric("calculated_gross_margin").notNull(),
   calculatedEstimatedLabor: numeric("calculated_estimated_labor").notNull(),
   calculatedMePercent: numeric("calculated_me_percent").notNull(),
+  
+  // Other COGS
+  subcontractorCost: numeric("subcontractor_cost").notNull().default("0.00"),
+  craneCost: numeric("crane_cost").notNull().default("0.00"),
+  permitCost: numeric("permit_cost").notNull().default("0.00"),
   
   createdAt: timestamp("created_at").defaultNow(),
 });
