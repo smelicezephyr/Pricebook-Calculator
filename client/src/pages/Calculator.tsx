@@ -31,6 +31,9 @@ export default function Calculator() {
     if (settings) {
       setTargetMe(settings.targetMePercent);
       setLaborPercent(settings.laborPercent);
+      if (settings.laborMode === 'hours') {
+        setLaborHours("0");
+      }
     }
   }, [settings]);
 
