@@ -120,14 +120,15 @@ export default function Calculator() {
     // 7. Estimated Labor (The Output)
     const estimatedLabor = laborCost + commissionCost + tax + financingCost;
 
-    // 8. Gross Margin
+    // 8. Gross Margin - use displayPrice (rounded or not) for final metrics
+    const displayPrice = roundUp ? Math.ceil(price) : price;
     const totalAllCogs = totalMe + commissionCost + financingCost + laborCost + totalOtherCogs;
-    const grossMarginAmount = price - totalAllCogs;
-    const grossMarginPercent = price > 0 ? (grossMarginAmount / price) * 100 : 0;
-    const mePercent = price > 0 ? (totalMe / price) * 100 : 0;
+    const grossMarginAmount = displayPrice - totalAllCogs;
+    const grossMarginPercent = displayPrice > 0 ? (grossMarginAmount / displayPrice) * 100 : 0;
+    const mePercent = displayPrice > 0 ? (totalMe / displayPrice) * 100 : 0;
 
     setResults({
-      price,
+      price: displayPrice,
       estimatedLabor,
       breakdown: {
         materials: matVal,
@@ -147,7 +148,7 @@ export default function Calculator() {
       }
     });
 
-  }, [matVal, equipVal, hoursVal, laborPercent, discount, targetMe, subVal, craneVal, permitVal, settings]);
+  }, [matVal, equipVal, hoursVal, laborPercent, discount, targetMe, subVal, craneVal, permitVal, settings, roundUp]);
 
   const downloadImage = async () => {
     if (resultsRef.current === null) return;
