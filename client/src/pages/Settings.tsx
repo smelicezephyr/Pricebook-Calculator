@@ -35,9 +35,20 @@ export default function Settings() {
   // Reset form when settings load
   useEffect(() => {
     if (settings) {
-      form.reset(settings);
+      form.reset({
+        targetMePercent: settings.targetMePercent,
+        salesTaxPercent: settings.salesTaxPercent,
+        laborMode: settings.laborMode,
+        laborHourlyRate: settings.laborHourlyRate,
+        laborPercent: settings.laborPercent,
+        laborBurdenPercent: settings.laborBurdenPercent,
+        commissionPercent: settings.commissionPercent,
+        commissionBurdenPercent: settings.commissionBurdenPercent,
+        financingFeePercent: settings.financingFeePercent,
+      });
     }
-  }, [settings, form]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings]);
 
   const onSubmit = (data: SettingsFormValues) => {
     updateSettings(data);
