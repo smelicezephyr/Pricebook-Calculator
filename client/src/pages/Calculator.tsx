@@ -20,9 +20,8 @@ export default function Calculator() {
   // Input State
   const [materials, setMaterials] = useState<string>("");
   const [equipment, setEquipment] = useState<string>("");
-  const [additionalMaterials, setAdditionalMaterials] = useState<string>("");
   const [laborHours, setLaborHours] = useState<string>("0.00");
-  const [laborPercent, setLaborPercent] = useState<string>("0.00");
+  const [laborPercent, setLaborPercent] = useState<string>("7.00");
   const [targetMe, setTargetMe] = useState<string>("23.0");
   const [discount, setDiscount] = useState<string>("0.00");
   const [subcontractor, setSubcontractor] = useState<string>("0.00");
@@ -33,7 +32,7 @@ export default function Calculator() {
   useEffect(() => {
     if (settings) {
       setTargetMe(parseFloat(settings.targetMePercent).toFixed(1));
-      setLaborPercent(settings.laborPercent || "0.00");
+      setLaborPercent(settings.laborPercent || "7.00");
       setLaborHours("0.00");
     }
   }, [settings]);
@@ -45,7 +44,6 @@ export default function Calculator() {
   // Derived Values
   const matVal = parseFloat(materials) || 0;
   const equipVal = parseFloat(equipment) || 0;
-  const addMatVal = parseFloat(additionalMaterials) || 0;
   const hoursVal = parseFloat(laborHours) || 0;
   const subVal = parseFloat(subcontractor) || 0;
   const craneVal = parseFloat(crane) || 0;
@@ -58,7 +56,6 @@ export default function Calculator() {
     breakdown: {
       materials: 0,
       equipment: 0,
-      additionalMaterials: 0,
       tax: 0,
       commission: 0,
       financing: 0,
@@ -80,29 +77,32 @@ export default function Calculator() {
 
     // 1. Calculate Tax & M&E
     const salesTaxRate = parseFloat(settings.salesTaxPercent) / 100;
-    const tax = (matVal + equipVal + addMatVal) * salesTaxRate;
-    const totalMe = matVal + equipVal + addMatVal + tax;
+    const tax = (matVal + equipVal) * salesTaxRate;
+    const totalMe = matVal + equipVal + tax;
 
-    // 2. Calculate Price
+    // 2. Calculate Base Price
     const targetMeRate = (parseFloat(targetMe) || 0) / 100;
-    const discountVal = parseFloat(discount) || 0;
-    // Base price before discount
     const basePrice = targetMeRate > 0 ? totalMe / targetMeRate : 0;
-    // Final price after discount
-    const price = Math.max(0, basePrice - discountVal);
 
-    // 3. Calculate Commission Cost
+    // 3. Other COGS are added to final price like discount removal
+    const totalOtherCogs = subVal + craneVal + permitVal;
+    const discountVal = parseFloat(discount) || 0;
+    
+    // Price = basePrice + otherCogs - discount
+    const price = Math.max(0, basePrice + totalOtherCogs - discountVal);
+
+    // 4. Calculate Commission Cost
     const commissionRate = parseFloat(settings.commissionPercent) / 100;
     const commissionBurdenRate = parseFloat(settings.commissionBurdenPercent) / 100;
     const commissionCost = (price * commissionRate) * (1 + commissionBurdenRate);
 
-    // 4. Calculate Financing Cost
+    // 5. Calculate Financing Cost
     const financingRate = parseFloat(settings.financingFeePercent) / 100;
     const financingCost = price * financingRate;
 
     // 6. Labor Cost (For Margin Calculation)
     let laborCost = 0;
-    const laborMode = settings.laborMode || 'hours';
+    const laborMode = settings.laborMode || 'percent';
     if (laborMode === 'hours') {
       const hourlyRate = parseFloat(settings.laborHourlyRate);
       const laborBurdenRate = parseFloat(settings.laborBurdenPercent) / 100;
@@ -112,12 +112,12 @@ export default function Calculator() {
       laborCost = price * laborPercentRate;
     }
 
-    // 5. Estimated Labor (The Output)
+    // 7. Estimated Labor (The Output)
     const estimatedLabor = laborCost + commissionCost + tax + financingCost;
 
-    // 7. Gross Margin
-    const totalOtherCogs = subVal + craneVal + permitVal;
-    const grossMarginAmount = price - (totalMe + commissionCost + financingCost + laborCost + totalOtherCogs);
+    // 8. Gross Margin
+    const totalAllCogs = totalMe + commissionCost + financingCost + laborCost + totalOtherCogs;
+    const grossMarginAmount = price - totalAllCogs;
     const grossMarginPercent = price > 0 ? (grossMarginAmount / price) * 100 : 0;
     const mePercent = price > 0 ? (totalMe / price) * 100 : 0;
 
@@ -127,7 +127,6 @@ export default function Calculator() {
       breakdown: {
         materials: matVal,
         equipment: equipVal,
-        additionalMaterials: addMatVal,
         tax,
         commission: commissionCost,
         financing: financingCost,
@@ -143,7 +142,7 @@ export default function Calculator() {
       }
     });
 
-  }, [matVal, equipVal, addMatVal, hoursVal, laborPercent, discount, targetMe, subVal, craneVal, permitVal, settings]);
+  }, [matVal, equipVal, hoursVal, laborPercent, discount, targetMe, subVal, craneVal, permitVal, settings]);
 
   const downloadImage = async () => {
     if (resultsRef.current === null) return;
@@ -195,15 +194,14 @@ export default function Calculator() {
   const resetInputs = () => {
     setMaterials("");
     setEquipment("");
-    setAdditionalMaterials("");
-    setLaborHours("");
+    setLaborHours("0.00");
     setDiscount("0.00");
-    setSubcontractor("");
-    setCrane("");
-    setPermit("");
+    setSubcontractor("0.00");
+    setCrane("0.00");
+    setPermit("0.00");
     if (settings) {
       setTargetMe(parseFloat(settings.targetMePercent).toFixed(1));
-      setLaborPercent(settings.laborPercent);
+      setLaborPercent(settings.laborPercent || "7.00");
     }
   };
 
@@ -322,14 +320,7 @@ export default function Calculator() {
                 onChange={(e) => setEquipment(e.target.value)}
               />
 
-              <InputMoney
-                label="Additional Materials"
-                placeholder="Pad, Risers, Lineset, etc."
-                value={additionalMaterials}
-                onChange={(e) => setAdditionalMaterials(e.target.value)}
-              />
-
-              {(settings.laborMode || 'hours') === 'hours' ? (
+              {(settings.laborMode || 'percent') === 'hours' ? (
                 <div className="pt-4 border-t border-border">
                   <InputMoney
                     label="Labor Hours"

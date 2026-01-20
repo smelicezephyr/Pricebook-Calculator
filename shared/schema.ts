@@ -9,13 +9,13 @@ export const settings = pgTable("settings", {
   salesTaxPercent: numeric("sales_tax_percent").notNull().default("6.35"),
   
   // Labor Settings
-  laborMode: text("labor_mode", { enum: ["hours", "percent"] }).notNull().default("hours"),
+  laborMode: text("labor_mode", { enum: ["hours", "percent"] }).notNull().default("percent"),
   laborHourlyRate: numeric("labor_hourly_rate").notNull().default("0.00"),
-  laborPercent: numeric("labor_percent").notNull().default("0.00"),
+  laborPercent: numeric("labor_percent").notNull().default("7.00"),
   laborBurdenPercent: numeric("labor_burden_percent").notNull().default("20.00"),
   
   // Commission Settings
-  commissionPercent: numeric("commission_percent").notNull().default("8.00"),
+  commissionPercent: numeric("commission_percent").notNull().default("10.00"),
   commissionBurdenPercent: numeric("commission_burden_percent").notNull().default("20.00"),
   
   // Financing Settings

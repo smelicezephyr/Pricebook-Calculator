@@ -7,7 +7,6 @@ interface ResultsCardProps {
   breakdown: {
     materials: number;
     equipment: number;
-    additionalMaterials: number;
     tax: number;
     commission: number;
     financing: number;
@@ -31,7 +30,7 @@ const formatPercent = (val: number) =>
 
 export function ResultsCard({ price, estimatedLabor, breakdown, metrics }: ResultsCardProps) {
   const totalOtherCogs = (breakdown.financing || 0) + (breakdown.subcontractor || 0) + (breakdown.crane || 0) + (breakdown.permit || 0);
-  const mAndECost = (breakdown.materials || 0) + (breakdown.equipment || 0) + (breakdown.additionalMaterials || 0) + (breakdown.tax || 0);
+  const mAndECost = (breakdown.materials || 0) + (breakdown.equipment || 0) + (breakdown.tax || 0);
   const directLaborCost = (breakdown.laborCost || 0) + (breakdown.commission || 0);
 
   const chartData = [
