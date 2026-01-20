@@ -174,8 +174,14 @@ export default function Settings() {
                           <FormLabel>Hourly Rate ($)</FormLabel>
                           <FormControl>
                             <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                              <Input {...field} type="number" step="0.01" className="pl-8" />
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">$</span>
+                              <Input 
+                                {...field} 
+                                type="text"
+                                inputMode="decimal"
+                                pattern="[0-9]*\.?[0-9]*"
+                                className="pl-8" 
+                              />
                             </div>
                           </FormControl>
                           <FormMessage />
@@ -191,8 +197,14 @@ export default function Settings() {
                           <FormLabel>Labor Percent</FormLabel>
                           <FormControl>
                             <div className="relative">
-                              <Input {...field} type="number" step="0.01" className="pr-8" />
-                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                              <Input 
+                                {...field} 
+                                type="text"
+                                inputMode="decimal"
+                                pattern="[0-9]*\.?[0-9]*"
+                                className="pr-8" 
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">%</span>
                             </div>
                           </FormControl>
                           <FormMessage />
