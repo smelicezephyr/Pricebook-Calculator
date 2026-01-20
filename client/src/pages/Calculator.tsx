@@ -20,20 +20,20 @@ export default function Calculator() {
   // Input State
   const [materials, setMaterials] = useState<string>("");
   const [equipment, setEquipment] = useState<string>("");
-  const [laborHours, setLaborHours] = useState<string>("0.00");
-  const [laborPercent, setLaborPercent] = useState<string>("7.00");
+  const [laborHours, setLaborHours] = useState<string>("");
+  const [laborPercent, setLaborPercent] = useState<string>("");
   const [targetMe, setTargetMe] = useState<string>("23.0");
-  const [discount, setDiscount] = useState<string>("0.00");
-  const [subcontractor, setSubcontractor] = useState<string>("0.00");
-  const [crane, setCrane] = useState<string>("0.00");
-  const [permit, setPermit] = useState<string>("0.00");
+  const [discount, setDiscount] = useState<string>("");
+  const [subcontractor, setSubcontractor] = useState<string>("");
+  const [crane, setCrane] = useState<string>("");
+  const [permit, setPermit] = useState<string>("");
 
   // Set default target from settings when they load
   useEffect(() => {
     if (settings) {
       setTargetMe(parseFloat(settings.targetMePercent).toFixed(1));
-      setLaborPercent(settings.laborPercent || "7.00");
-      setLaborHours("0.00");
+      setLaborPercent(settings.laborPercent || "");
+      setLaborHours("");
     }
   }, [settings]);
 
@@ -196,14 +196,14 @@ export default function Calculator() {
   const resetInputs = () => {
     setMaterials("");
     setEquipment("");
-    setLaborHours("0.00");
-    setDiscount("0.00");
-    setSubcontractor("0.00");
-    setCrane("0.00");
-    setPermit("0.00");
+    setLaborHours("");
+    setDiscount("");
+    setSubcontractor("");
+    setCrane("");
+    setPermit("");
     if (settings) {
       setTargetMe(parseFloat(settings.targetMePercent).toFixed(1));
-      setLaborPercent(settings.laborPercent || "7.00");
+      setLaborPercent(settings.laborPercent || "");
     }
   };
 
