@@ -165,61 +165,52 @@ export default function Settings() {
                 />
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {form.watch("laborMode") === "hours" ? (
-                    <FormField
-                      control={form.control}
-                      name="laborHourlyRate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Hourly Rate ($)</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">$</span>
-                              <Input 
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                className="pl-8"
-                                value={field.value ?? ""}
-                                onChange={(e) => field.onChange(e.target.value)}
-                                onBlur={field.onBlur}
-                                name={field.name}
-                                ref={field.ref}
-                              />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  ) : (
-                    <FormField
-                      control={form.control}
-                      name="laborPercent"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Labor Percent</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Input 
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                className="pr-8"
-                                value={field.value ?? ""}
-                                onChange={(e) => field.onChange(e.target.value)}
-                                onBlur={field.onBlur}
-                                name={field.name}
-                                ref={field.ref}
-                              />
-                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">%</span>
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
+                  <FormField
+                    control={form.control}
+                    name="laborHourlyRate"
+                    render={({ field }) => (
+                      <FormItem className={form.watch("laborMode") !== "hours" ? "hidden" : ""}>
+                        <FormLabel>Hourly Rate ($)</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">$</span>
+                            <Input 
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              className="pl-8"
+                              data-testid="input-labor-hourly-rate"
+                              {...field}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="laborPercent"
+                    render={({ field }) => (
+                      <FormItem className={form.watch("laborMode") !== "percent" ? "hidden" : ""}>
+                        <FormLabel>Labor Percent</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input 
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              className="pr-8"
+                              data-testid="input-labor-percent"
+                              {...field}
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">%</span>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   
                   <FormField
                     control={form.control}
