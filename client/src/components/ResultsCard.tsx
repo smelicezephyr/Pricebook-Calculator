@@ -5,6 +5,7 @@ interface ResultsCardProps {
   price: number;
   estimatedLabor: number;
   salesTaxRate?: string;
+  discount?: number;
   breakdown: {
     materials: number;
     equipment: number;
@@ -29,7 +30,7 @@ const formatCurrency = (val: number) =>
 const formatPercent = (val: number) => 
   `${val.toFixed(2)}%`;
 
-export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTaxRate }: ResultsCardProps) {
+export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTaxRate, discount = 0 }: ResultsCardProps) {
   const totalOtherCogs = (breakdown.financing || 0) + (breakdown.subcontractor || 0) + (breakdown.crane || 0) + (breakdown.permit || 0);
   const mAndECost = (breakdown.materials || 0) + (breakdown.equipment || 0) + (breakdown.tax || 0);
   const directLaborCost = (breakdown.laborCost || 0) + (breakdown.commission || 0);
@@ -53,6 +54,11 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
             <h2 className="text-4xl font-display font-bold tracking-tight">
               {formatCurrency(price)}
             </h2>
+            {discount > 0 && (
+              <p className="text-sm text-primary-foreground/80 mt-2 font-medium">
+                Includes discount of {formatCurrency(discount)}
+              </p>
+            )}
           </div>
         </div>
 

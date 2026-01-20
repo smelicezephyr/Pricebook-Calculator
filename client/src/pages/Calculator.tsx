@@ -422,6 +422,7 @@ export default function Calculator() {
               breakdown={results.breakdown}
               metrics={results.metrics}
               salesTaxRate={settings.salesTaxPercent}
+              discount={parseFloat(discount) || 0}
             />
           </div>
         </div>
