@@ -40,6 +40,9 @@ export default function Calculator() {
   // Save Dialog State
   const [isSaveOpen, setIsSaveOpen] = useState(false);
   const [quoteTitle, setQuoteTitle] = useState("");
+  
+  // Round up toggle
+  const [roundUp, setRoundUp] = useState(false);
 
   // Derived Values
   const matVal = parseFloat(materials) || 0;
@@ -423,6 +426,8 @@ export default function Calculator() {
               metrics={results.metrics}
               salesTaxRate={settings.salesTaxPercent}
               discount={parseFloat(discount) || 0}
+              roundUp={roundUp}
+              onRoundUpChange={setRoundUp}
             />
           </div>
         </div>

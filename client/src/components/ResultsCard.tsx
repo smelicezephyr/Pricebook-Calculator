@@ -1,11 +1,15 @@
 import { DollarSign, TrendingUp, Users } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Label } from "recharts";
+import { Switch } from "@/components/ui/switch";
+import { Label as UILabel } from "@/components/ui/label";
 
 interface ResultsCardProps {
   price: number;
   estimatedLabor: number;
   salesTaxRate?: string;
   discount?: number;
+  roundUp?: boolean;
+  onRoundUpChange?: (value: boolean) => void;
   breakdown: {
     materials: number;
     equipment: number;
@@ -30,7 +34,8 @@ const formatCurrency = (val: number) =>
 const formatPercent = (val: number) => 
   `${val.toFixed(2)}%`;
 
-export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTaxRate, discount = 0 }: ResultsCardProps) {
+export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTaxRate, discount = 0, roundUp = false, onRoundUpChange }: ResultsCardProps) {
+  const displayPrice = roundUp ? Math.ceil(price) : price;
   const totalOtherCogs = (breakdown.financing || 0) + (breakdown.subcontractor || 0) + (breakdown.crane || 0) + (breakdown.permit || 0);
   const mAndECost = (breakdown.materials || 0) + (breakdown.equipment || 0) + (breakdown.tax || 0);
   const directLaborCost = (breakdown.laborCost || 0) + (breakdown.commission || 0);
@@ -84,13 +89,28 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
           <div className="relative z-10">
             <p className="text-primary-foreground/80 font-medium mb-1">Total Price</p>
             <h2 className="text-4xl font-display font-bold tracking-tight">
-              {formatCurrency(price)}
+              {formatCurrency(displayPrice)}
             </h2>
             {discount > 0 && (
               <p className="text-sm text-primary-foreground/80 mt-2 font-medium">
                 Includes discount of {formatCurrency(discount)}
               </p>
             )}
+            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-primary-foreground/20">
+              <Switch
+                id="round-up-toggle"
+                checked={roundUp}
+                onCheckedChange={onRoundUpChange}
+                data-testid="switch-round-up"
+                className="data-[state=checked]:bg-primary-foreground data-[state=unchecked]:bg-primary-foreground/30"
+              />
+              <UILabel 
+                htmlFor="round-up-toggle" 
+                className="text-sm text-primary-foreground/90 cursor-pointer"
+              >
+                Round up to whole dollar
+              </UILabel>
+            </div>
           </div>
         </div>
 
