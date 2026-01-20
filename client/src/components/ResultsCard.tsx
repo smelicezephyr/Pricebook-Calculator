@@ -4,6 +4,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 interface ResultsCardProps {
   price: number;
   estimatedLabor: number;
+  salesTaxRate?: string;
   breakdown: {
     materials: number;
     equipment: number;
@@ -28,7 +29,7 @@ const formatCurrency = (val: number) =>
 const formatPercent = (val: number) => 
   `${val.toFixed(2)}%`;
 
-export function ResultsCard({ price, estimatedLabor, breakdown, metrics }: ResultsCardProps) {
+export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTaxRate }: ResultsCardProps) {
   const totalOtherCogs = (breakdown.financing || 0) + (breakdown.subcontractor || 0) + (breakdown.crane || 0) + (breakdown.permit || 0);
   const mAndECost = (breakdown.materials || 0) + (breakdown.equipment || 0) + (breakdown.tax || 0);
   const directLaborCost = (breakdown.laborCost || 0) + (breakdown.commission || 0);
@@ -128,7 +129,7 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics }: Resul
                   {[
                     { label: "Materials", value: breakdown.materials },
                     { label: "Equipment", value: breakdown.equipment },
-                    { label: "Sales Tax", value: breakdown.tax },
+                    { label: `Sales Tax (${salesTaxRate || "6.35"}%)`, value: breakdown.tax },
                   ].map((sub) => (
                     <div key={sub.label} className="flex justify-between items-center py-1">
                       <span className="text-xs text-muted-foreground">{sub.label}</span>

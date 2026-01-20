@@ -421,6 +421,7 @@ export default function Calculator() {
               estimatedLabor={results.estimatedLabor}
               breakdown={results.breakdown}
               metrics={results.metrics}
+              salesTaxRate={settings.salesTaxPercent}
             />
           </div>
         </div>
