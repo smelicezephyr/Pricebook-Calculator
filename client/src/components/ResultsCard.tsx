@@ -51,18 +51,25 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
     
     if (payload.percent < 5) return null;
     
+    const labelText = `${payload.percent.toFixed(2)}%`;
+    
     return (
-      <text 
-        x={x} 
-        y={y} 
-        fill="white" 
-        textAnchor="middle" 
-        dominantBaseline="central"
-        fontSize={11}
-        fontWeight="bold"
-      >
-        {`${payload.percent.toFixed(2)}%`}
-      </text>
+      <g>
+        <text 
+          x={x} 
+          y={y} 
+          fill="white" 
+          stroke="#000000"
+          strokeWidth={0.5}
+          textAnchor="middle" 
+          dominantBaseline="central"
+          fontSize={11}
+          fontWeight="bold"
+          style={{ paintOrder: 'stroke fill' }}
+        >
+          {labelText}
+        </text>
+      </g>
     );
   };
 
