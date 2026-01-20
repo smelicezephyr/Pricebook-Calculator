@@ -103,13 +103,15 @@ export default function Calculator() {
     // 6. Labor Cost (For Margin Calculation)
     let laborCost = 0;
     const laborMode = settings.laborMode || 'percent';
+    const laborBurdenRate = parseFloat(settings.laborBurdenPercent) / 100;
+
     if (laborMode === 'hours') {
       const hourlyRate = parseFloat(settings.laborHourlyRate);
-      const laborBurdenRate = parseFloat(settings.laborBurdenPercent) / 100;
       laborCost = (hoursVal * hourlyRate) * (1 + laborBurdenRate);
     } else {
       const laborPercentRate = (parseFloat(laborPercent) || 0) / 100;
-      laborCost = price * laborPercentRate;
+      // Apply burden to the percentage-based labor as well
+      laborCost = (price * laborPercentRate) * (1 + laborBurdenRate);
     }
 
     // 7. Estimated Labor (The Output)
