@@ -22,6 +22,7 @@ export default function Calculator() {
   const [equipment, setEquipment] = useState<string>("");
   const [additionalMaterials, setAdditionalMaterials] = useState<string>("");
   const [laborHours, setLaborHours] = useState<string>("10");
+  const [laborPercent, setLaborPercent] = useState<string>("10.00");
   const [targetMe, setTargetMe] = useState<string>("23.00");
   const [discount, setDiscount] = useState<string>("0.00");
 
@@ -29,6 +30,7 @@ export default function Calculator() {
   useEffect(() => {
     if (settings) {
       if (targetMe === "23.00") setTargetMe(settings.targetMePercent);
+      if (laborPercent === "10.00") setLaborPercent(settings.laborPercent);
     }
   }, [settings]);
 
@@ -98,7 +100,7 @@ export default function Calculator() {
       const laborBurdenRate = parseFloat(settings.laborBurdenPercent) / 100;
       laborCost = (hoursVal * hourlyRate) * (1 + laborBurdenRate);
     } else {
-      const laborPercentRate = parseFloat(settings.laborPercent) / 100;
+      const laborPercentRate = (parseFloat(laborPercent) || 0) / 100;
       laborCost = price * laborPercentRate;
     }
 
@@ -126,7 +128,7 @@ export default function Calculator() {
       }
     });
 
-  }, [matVal, equipVal, addMatVal, hoursVal, discount, targetMe, settings]);
+  }, [matVal, equipVal, addMatVal, hoursVal, laborPercent, discount, targetMe, settings]);
 
   const downloadImage = async () => {
     if (resultsRef.current === null) return;
@@ -300,7 +302,7 @@ export default function Calculator() {
                 onChange={(e) => setAdditionalMaterials(e.target.value)}
               />
 
-              {settings.laborMode === 'hours' && (
+              {settings.laborMode === 'hours' ? (
                 <div className="pt-4 border-t border-border">
                   <InputMoney
                     label="Labor Hours"
@@ -312,6 +314,26 @@ export default function Calculator() {
                   <p className="text-xs text-muted-foreground mt-2">
                     Using rate of ${parseFloat(settings.laborHourlyRate).toFixed(2)}/hr
                   </p>
+                </div>
+              ) : (
+                <div className="pt-4 border-t border-border">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                      Labor %
+                    </Label>
+                    <div className="relative group">
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none group-focus-within:text-primary transition-colors">
+                        <span className="text-sm font-mono">%</span>
+                      </div>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={laborPercent}
+                        onChange={(e) => setLaborPercent(e.target.value)}
+                        className="pl-9 h-12 text-lg font-medium bg-background border-border shadow-sm transition-all focus:ring-primary/20"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
