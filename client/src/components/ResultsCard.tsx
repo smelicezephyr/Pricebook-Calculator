@@ -107,18 +107,34 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics }: Resul
             {/* M&E Group */}
             <div className="space-y-2">
               <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">M&E (Includes Tax)</h4>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50/50 border border-blue-100/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-blue-500" />
-                  <span className="text-sm font-semibold text-blue-900">Total M&E</span>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50/50 border border-blue-100/50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full bg-blue-500" />
+                    <span className="text-sm font-semibold text-blue-900">Total M&E</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground font-medium">
+                      ({formatPercent(price > 0 ? (mAndECost / price) * 100 : 0)})
+                    </span>
+                    <span className="font-mono font-medium text-blue-700">
+                      {formatCurrency(mAndECost)}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground font-medium">
-                    ({formatPercent(price > 0 ? (mAndECost / price) * 100 : 0)})
-                  </span>
-                  <span className="font-mono font-medium text-blue-700">
-                    {formatCurrency(mAndECost)}
-                  </span>
+                
+                {/* M&E Breakdown Sub-items */}
+                <div className="ml-6 space-y-1 pt-1 border-l-2 border-blue-100/50 pl-4">
+                  {[
+                    { label: "Materials", value: breakdown.materials },
+                    { label: "Equipment", value: breakdown.equipment },
+                    { label: "Sales Tax", value: breakdown.tax },
+                  ].map((sub) => (
+                    <div key={sub.label} className="flex justify-between items-center py-1">
+                      <span className="text-xs text-muted-foreground">{sub.label}</span>
+                      <span className="text-xs font-mono text-muted-foreground">{formatCurrency(sub.value)}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
