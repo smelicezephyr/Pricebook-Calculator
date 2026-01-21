@@ -100,7 +100,7 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
       {/* Primary Result - Two Cards Side by Side */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="md:col-span-3 bg-primary text-primary-foreground rounded-xl p-5 shadow-xl shadow-primary/20 relative overflow-hidden group">
-          <div className="absolute bottom-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
             <DollarSign size={100} />
           </div>
           <div className="relative z-10">
@@ -108,7 +108,7 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-sm font-medium text-primary-foreground/90">{marginHealth.label}</span>
               </div>
-              <div className="h-1.5 w-full bg-primary-foreground/20 rounded-full overflow-hidden">
+              <div className="h-1.5 w-1/2 bg-primary-foreground/20 rounded-full overflow-hidden">
                 <div 
                   className={`h-full rounded-full transition-all duration-300 ${marginHealth.color}`}
                   style={{ width: '100%' }}
