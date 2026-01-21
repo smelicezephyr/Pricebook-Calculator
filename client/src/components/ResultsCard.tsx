@@ -49,7 +49,7 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
     
     if (currentMargin >= minMargin) {
       return { status: 'strong', label: 'Margin Health: Strong', color: 'bg-emerald-500', glow: '0 0 8px 2px rgba(16, 185, 129, 0.6)' };
-    } else if (currentMargin >= minMargin - 1) {
+    } else if (currentMargin >= minMargin - 2) {
       return { status: 'caution', label: 'Margin Health: Caution', color: 'bg-amber-500', glow: '0 0 8px 2px rgba(245, 158, 11, 0.6)' };
     } else {
       return { status: 'danger', label: 'Margin Health: Low', color: 'bg-red-500', glow: '0 0 8px 2px rgba(239, 68, 68, 0.6)' };
