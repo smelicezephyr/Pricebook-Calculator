@@ -1,19 +1,29 @@
 import { Link, useLocation } from "wouter";
-import { Calculator, Settings, History, Menu, X, Upload, Building2 } from "lucide-react";
+import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Lock } from "lucide-react";
 import { useState } from "react";
 import clsx from "clsx";
+import { useServiceTitanAuth } from "@/contexts/ServiceTitanAuthContext";
 
 export function Navigation() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const [stExpanded, setStExpanded] = useState(() => {
+    return location.startsWith("/push") || location.startsWith("/tenants");
+  });
+  const { isUnlocked, lock } = useServiceTitanAuth();
 
-  const navItems = [
+  const mainNavItems = [
     { href: "/", label: "Complete System Calculator", icon: Calculator },
-    { href: "/push", label: "Push to ServiceTitan", icon: Upload },
     { href: "/history", label: "History", icon: History },
-    { href: "/tenants", label: "Manage Tenants", icon: Building2 },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
+
+  const stNavItems = [
+    { href: "/push", label: "Push to Pricebook", icon: Upload },
+    { href: "/tenants", label: "Manage Tenants", icon: Building2 },
+  ];
+
+  const isStActive = location.startsWith("/push") || location.startsWith("/tenants");
 
   return (
     <>
@@ -42,24 +52,108 @@ export function Navigation() {
           </div>
 
           <div className="space-y-2 flex-1">
-            {navItems.map((item) => {
-              const isActive = location === item.href;
-              return (
-                <Link key={item.href} href={item.href}>
-                  <div className={clsx(
-                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer font-medium",
-                    isActive 
-                      ? "bg-primary/10 text-primary shadow-sm" 
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            {/* Calculator link */}
+            <Link href="/">
+              <div className={clsx(
+                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer font-medium",
+                location === "/" 
+                  ? "bg-primary/10 text-primary shadow-sm" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+              onClick={() => setIsOpen(false)}
+              >
+                <Calculator size={20} className={location === "/" ? "stroke-[2.5px]" : "stroke-2"} />
+                Calculator
+              </div>
+            </Link>
+
+            {/* ServiceTitan Section */}
+            <div className="pt-2">
+              <button
+                onClick={() => setStExpanded(!stExpanded)}
+                className={clsx(
+                  "w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer font-medium",
+                  isStActive 
+                    ? "bg-primary/10 text-primary shadow-sm" 
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <Upload size={20} className={isStActive ? "stroke-[2.5px]" : "stroke-2"} />
+                  ServiceTitan
+                  {!isUnlocked && <Lock size={14} className="text-muted-foreground" />}
+                </div>
+                <ChevronDown 
+                  size={16} 
+                  className={clsx(
+                    "transition-transform duration-200",
+                    stExpanded ? "rotate-180" : ""
+                  )} 
+                />
+              </button>
+              
+              {stExpanded && (
+                <div className="ml-4 mt-1 space-y-1 border-l-2 border-border pl-4">
+                  {stNavItems.map((item) => {
+                    const isActive = location === item.href;
+                    return (
+                      <Link key={item.href} href={item.href}>
+                        <div className={clsx(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer text-sm",
+                          isActive 
+                            ? "bg-primary/10 text-primary font-medium" 
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        )}
+                        onClick={() => setIsOpen(false)}
+                        >
+                          <item.icon size={16} />
+                          {item.label}
+                        </div>
+                      </Link>
+                    );
+                  })}
+                  {isUnlocked && (
+                    <button
+                      onClick={() => lock()}
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted w-full"
+                    >
+                      <Lock size={16} />
+                      Lock Section
+                    </button>
                   )}
-                  onClick={() => setIsOpen(false)}
-                  >
-                    <item.icon size={20} className={isActive ? "stroke-[2.5px]" : "stroke-2"} />
-                    {item.label}
-                  </div>
-                </Link>
-              );
-            })}
+                </div>
+              )}
+            </div>
+
+            {/* History link */}
+            <Link href="/history">
+              <div className={clsx(
+                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer font-medium",
+                location === "/history" 
+                  ? "bg-primary/10 text-primary shadow-sm" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+              onClick={() => setIsOpen(false)}
+              >
+                <History size={20} className={location === "/history" ? "stroke-[2.5px]" : "stroke-2"} />
+                History
+              </div>
+            </Link>
+
+            {/* Settings link */}
+            <Link href="/settings">
+              <div className={clsx(
+                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer font-medium",
+                location === "/settings" 
+                  ? "bg-primary/10 text-primary shadow-sm" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+              onClick={() => setIsOpen(false)}
+              >
+                <Settings size={20} className={location === "/settings" ? "stroke-[2.5px]" : "stroke-2"} />
+                Settings
+              </div>
+            </Link>
           </div>
 
           <div className="mt-auto pt-6 border-t border-border">
