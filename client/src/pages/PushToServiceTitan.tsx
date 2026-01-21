@@ -40,6 +40,9 @@ export default function PushToServiceTitan() {
   const [laborHourlyRate, setLaborHourlyRate] = useState<string>("125.00");
   const [laborPercent, setLaborPercent] = useState<string>("7.00");
   const [laborBurdenPercent, setLaborBurdenPercent] = useState<string>("20.00");
+  const [commissionPercent, setCommissionPercent] = useState<string>("10.00");
+  const [commissionBurdenPercent, setCommissionBurdenPercent] = useState<string>("20.00");
+  const [financingFeePercent, setFinancingFeePercent] = useState<string>("6.00");
 
   // Initialize local settings from global settings when they load
   useEffect(() => {
@@ -50,6 +53,9 @@ export default function PushToServiceTitan() {
       setLaborHourlyRate(settings.laborHourlyRate);
       setLaborPercent(settings.laborPercent);
       setLaborBurdenPercent(settings.laborBurdenPercent);
+      setCommissionPercent(settings.commissionPercent);
+      setCommissionBurdenPercent(settings.commissionBurdenPercent);
+      setFinancingFeePercent(settings.financingFeePercent);
     }
   }, [settings]);
 
@@ -141,6 +147,9 @@ export default function PushToServiceTitan() {
           laborHourlyRate: parseFloat(laborHourlyRate),
           laborPercent: parseFloat(laborPercent),
           laborBurdenPercent: parseFloat(laborBurdenPercent),
+          commissionPercent: parseFloat(commissionPercent),
+          commissionBurdenPercent: parseFloat(commissionBurdenPercent),
+          financingFeePercent: parseFloat(financingFeePercent),
         }),
       });
       
@@ -512,8 +521,91 @@ export default function PushToServiceTitan() {
                     </div>
                   </div>
 
+                  {/* Commission Settings */}
+                  <div className="space-y-4 pt-4 border-t">
+                    <Label className="flex items-center gap-2 text-base font-medium">
+                      <Percent className="w-4 h-4 text-primary" />
+                      Commission
+                    </Label>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                      <div className="space-y-2">
+                        <Label htmlFor="commissionPercent">Commission %</Label>
+                        <div className="relative">
+                          <Input
+                            id="commissionPercent"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            value={commissionPercent}
+                            onChange={(e) => setCommissionPercent(e.target.value)}
+                            className="pr-8"
+                            data-testid="input-commission-percent"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Sales commission as percentage of price
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="commissionBurdenPercent">Commission Burden %</Label>
+                        <div className="relative">
+                          <Input
+                            id="commissionBurdenPercent"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            value={commissionBurdenPercent}
+                            onChange={(e) => setCommissionBurdenPercent(e.target.value)}
+                            className="pr-8"
+                            data-testid="input-commission-burden-percent"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Additional burden on commission
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Financing Settings */}
+                  <div className="space-y-4 pt-4 border-t">
+                    <Label className="flex items-center gap-2 text-base font-medium">
+                      <DollarSign className="w-4 h-4 text-primary" />
+                      Financing
+                    </Label>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                      <div className="space-y-2">
+                        <Label htmlFor="financingFeePercent">Financing Fee %</Label>
+                        <div className="relative">
+                          <Input
+                            id="financingFeePercent"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            value={financingFeePercent}
+                            onChange={(e) => setFinancingFeePercent(e.target.value)}
+                            className="pr-8"
+                            data-testid="input-financing-fee-percent"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Financing fee as percentage of price
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Summary Badge */}
-                  <div className="flex flex-wrap gap-2 pt-2">
+                  <div className="flex flex-wrap gap-2 pt-4 border-t">
                     <Badge variant="secondary" className="text-xs">
                       Target M&E: {targetMePercent}%
                     </Badge>
@@ -524,7 +616,16 @@ export default function PushToServiceTitan() {
                       Labor: {laborMode === "percent" ? `${laborPercent}%` : `$${laborHourlyRate}/hr`}
                     </Badge>
                     <Badge variant="secondary" className="text-xs">
-                      Burden: {laborBurdenPercent}%
+                      Labor Burden: {laborBurdenPercent}%
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      Commission: {commissionPercent}%
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      Comm. Burden: {commissionBurdenPercent}%
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      Financing: {financingFeePercent}%
                     </Badge>
                   </div>
                 </CardContent>
