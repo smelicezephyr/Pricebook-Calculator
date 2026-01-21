@@ -12,22 +12,22 @@ interface InputMoneyProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 export function InputMoney({ label, type = "currency", error, className, ...props }: InputMoneyProps) {
   return (
-    <div className={clsx("space-y-2", className)}>
-      <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+    <div className={clsx("space-y-1", className)}>
+      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
         {label}
       </Label>
       <div className="relative group">
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none group-focus-within:text-primary transition-colors">
-          {type === "currency" && <DollarSign size={16} />}
-          {type === "percent" && <Percent size={16} />}
-          {type === "number" && <span className="text-sm font-mono">#</span>}
+        <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none group-focus-within:text-primary transition-colors">
+          {type === "currency" && <DollarSign size={14} />}
+          {type === "percent" && <Percent size={14} />}
+          {type === "number" && <span className="text-xs font-mono">#</span>}
         </div>
         <Input
           {...props}
           type="number"
           step={type === "number" ? "1" : "0.01"}
           className={clsx(
-            "pl-9 h-12 text-lg font-medium bg-background border-border shadow-sm transition-all focus:ring-primary/20",
+            "pl-8 h-9 text-sm font-medium bg-background border-border shadow-sm transition-all focus:ring-primary/20",
             error && "border-destructive focus:ring-destructive/20"
           )}
         />

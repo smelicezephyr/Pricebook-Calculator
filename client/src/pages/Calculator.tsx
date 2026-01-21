@@ -344,26 +344,26 @@ export default function Calculator() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Input Column */}
-        <div className="lg:col-span-3 flex flex-col gap-3">
+        <div className="lg:col-span-3 space-y-2">
           {/* Job Costs Section */}
-          <div className="bg-card rounded-xl p-4 shadow-sm border border-border">
-            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
-              <span className="w-6 h-6 rounded-md bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">1</span>
-              <h2 className="font-display font-semibold text-base">Job Costs</h2>
+          <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
+            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+              <span className="w-5 h-5 rounded bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">1</span>
+              <h2 className="font-display font-semibold text-sm">Job Costs</h2>
             </div>
 
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Target M&E %
                 </Label>
                 <select
                   value={targetMe}
                   onChange={(e) => setTargetMe(e.target.value)}
                   data-testid="select-target-me"
-                  className="flex h-12 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-lg font-medium ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-medium ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {targetMeOptions.map((opt) => (
                     <option key={opt} value={opt}>
@@ -391,10 +391,10 @@ export default function Calculator() {
           </div>
 
           {/* Labor Section */}
-          <div className="bg-card rounded-xl p-4 shadow-sm border border-border">
-            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
-              <span className="w-6 h-6 rounded-md bg-blue-500/10 text-blue-600 flex items-center justify-center text-xs font-bold">2</span>
-              <h2 className="font-display font-semibold text-base">Labor</h2>
+          <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
+            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+              <span className="w-5 h-5 rounded bg-blue-500/10 text-blue-600 flex items-center justify-center text-[10px] font-bold">2</span>
+              <h2 className="font-display font-semibold text-sm">Labor</h2>
             </div>
 
             {(settings.laborMode || 'percent') === 'hours' ? (
@@ -412,13 +412,13 @@ export default function Calculator() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Labor %
                 </Label>
                 <div className="relative group">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none group-focus-within:text-primary transition-colors">
-                    <span className="text-sm font-mono">%</span>
+                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none group-focus-within:text-primary transition-colors">
+                    <span className="text-xs font-mono">%</span>
                   </div>
                   <Input
                     type="number"
@@ -426,7 +426,7 @@ export default function Calculator() {
                     value={laborPercent}
                     onChange={(e) => setLaborPercent(e.target.value)}
                     data-testid="input-labor-percent"
-                    className="pl-9 h-12 text-lg font-medium bg-background border-border shadow-sm transition-all focus:ring-primary/20"
+                    className="pl-8 h-9 text-sm font-medium bg-background border-border shadow-sm transition-all focus:ring-primary/20"
                   />
                 </div>
               </div>
@@ -434,13 +434,13 @@ export default function Calculator() {
           </div>
 
           {/* Other COGS Section */}
-          <div className="bg-card rounded-xl p-4 shadow-sm border border-border">
-            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
-              <span className="w-6 h-6 rounded-md bg-amber-500/10 text-amber-600 flex items-center justify-center text-xs font-bold">3</span>
-              <h2 className="font-display font-semibold text-base">Other COGS</h2>
+          <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
+            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+              <span className="w-5 h-5 rounded bg-amber-500/10 text-amber-600 flex items-center justify-center text-[10px] font-bold">3</span>
+              <h2 className="font-display font-semibold text-sm">Other COGS</h2>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <InputMoney
                 label="Subcontractor"
                 placeholder="0.00"
@@ -465,14 +465,14 @@ export default function Calculator() {
             </div>
           </div>
 
-          {/* Discounts Section - flex-1 to fill remaining space */}
-          <div className="bg-card rounded-xl p-4 shadow-sm border border-border flex-1">
-            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
-              <span className="w-6 h-6 rounded-md bg-red-500/10 text-red-600 flex items-center justify-center text-xs font-bold">4</span>
-              <h2 className="font-display font-semibold text-base">Discounts</h2>
+          {/* Discounts Section */}
+          <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
+            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+              <span className="w-5 h-5 rounded bg-red-500/10 text-red-600 flex items-center justify-center text-[10px] font-bold">4</span>
+              <h2 className="font-display font-semibold text-sm">Discounts</h2>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="flex gap-1 p-1 bg-muted rounded-lg">
                 <button
                   type="button"
@@ -509,13 +509,13 @@ export default function Calculator() {
                   data-testid="input-discount-dollar"
                 />
               ) : (
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     Discount %
                   </Label>
                   <div className="relative group">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none group-focus-within:text-primary transition-colors">
-                      <span className="text-sm font-mono">%</span>
+                    <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none group-focus-within:text-primary transition-colors">
+                      <span className="text-xs font-mono">%</span>
                     </div>
                     <Input
                       type="number"
@@ -524,7 +524,7 @@ export default function Calculator() {
                       value={discount}
                       onChange={(e) => setDiscount(e.target.value)}
                       data-testid="input-discount-percent"
-                      className="pl-9 h-12 text-lg font-medium bg-background border-border shadow-sm transition-all focus:ring-primary/20"
+                      className="pl-8 h-9 text-sm font-medium bg-background border-border shadow-sm transition-all focus:ring-primary/20"
                     />
                   </div>
                   {parseFloat(discount) > 0 && (
@@ -540,7 +540,7 @@ export default function Calculator() {
 
         {/* Results Column */}
         <div className="lg:col-span-9" ref={resultsRef}>
-          <div className="space-y-4 bg-background p-3 rounded-xl">
+          <div className="space-y-3 bg-background p-2 rounded-lg">
             <ResultsCard
               price={results.price}
               estimatedLabor={results.estimatedLabor}
