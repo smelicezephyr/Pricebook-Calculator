@@ -40,10 +40,11 @@ export function Navigation() {
 
       {/* Sidebar / Drawer */}
       <nav className={clsx(
-        "fixed inset-y-0 left-0 z-40 w-64 bg-card border-r border-border transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static",
+        "fixed left-0 z-40 w-64 bg-card border-r border-border transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-y-0",
+        "top-[57px] bottom-0 lg:top-0",
         isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
       )}>
-        <div className="h-full flex flex-col p-6">
+        <div className="h-full flex flex-col p-6 pt-4 lg:pt-6">
           <div className="hidden lg:block mb-8">
             <h1 className="font-display font-bold text-2xl text-primary flex items-center gap-2">
               <Calculator className="w-8 h-8" />
