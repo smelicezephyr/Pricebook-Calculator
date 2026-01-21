@@ -151,12 +151,15 @@ export class ServiceTitanAPI {
         `/pricebook/v2/tenant/${this.tenant.tenantId}/categories?pageSize=500&page=${page}`
       );
       
-      console.log(`[ServiceTitan] Page ${page}: fetched ${response.data.length} categories, totalCount: ${response.totalCount}, hasMore: ${response.hasMore}`);
-      if (response.data.length > 0) {
-        console.log(`[ServiceTitan] Sample category:`, JSON.stringify(response.data[0], null, 2));
+      console.log(`[ServiceTitan] Page ${page}: fetched ${response.data.length} categories, hasMore: ${response.hasMore}`);
+      
+      // Flatten categories - ServiceTitan returns nested subcategories
+      for (const category of response.data) {
+        allCategories.push(category);
+        // Recursively add all nested subcategories
+        this.flattenSubcategories(category, allCategories);
       }
       
-      allCategories.push(...response.data);
       hasMore = response.hasMore;
       page++;
       
@@ -164,8 +167,18 @@ export class ServiceTitanAPI {
       if (page > 50) break;
     }
     
-    console.log(`[ServiceTitan] Total categories fetched: ${allCategories.length}`);
+    console.log(`[ServiceTitan] Total categories (including subcategories): ${allCategories.length}`);
     return allCategories;
+  }
+  
+  private flattenSubcategories(category: PricebookCategory, result: PricebookCategory[]): void {
+    if (category.subcategories && Array.isArray(category.subcategories)) {
+      for (const sub of category.subcategories) {
+        result.push(sub);
+        // Recursively handle deeper nesting if present
+        this.flattenSubcategories(sub, result);
+      }
+    }
   }
 
   async getServices(categoryId?: number): Promise<PricebookService[]> {
