@@ -8,7 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTenantSchema, updateTenantSchema } from "@shared/schema";
-import { Loader2, Plus, Trash2, Edit, Building2, ArrowLeft, Plug, CheckCircle2, XCircle, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown } from "lucide-react";
+import { Loader2, Plus, Trash2, Edit, Building2, ArrowLeft, Plug, CheckCircle2, XCircle } from "lucide-react";
 import { useLocation } from "wouter";
 import { z } from "zod";
 import type { Tenant } from "@shared/schema";
@@ -23,7 +23,7 @@ interface TestResult {
 }
 
 export default function Tenants() {
-  const { tenants, isLoading, createTenant, updateTenant, deleteTenant, reorderTenants, isCreating, isUpdating, isReordering } = useTenants();
+  const { tenants, isLoading, createTenant, updateTenant, deleteTenant, isCreating, isUpdating } = useTenants();
   const [, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
@@ -127,44 +127,6 @@ export default function Tenants() {
     setIsOpen(false);
   };
 
-  const moveToTop = (tenantId: number) => {
-    const currentOrder = tenants.map(t => t.id);
-    const index = currentOrder.indexOf(tenantId);
-    if (index > 0) {
-      currentOrder.splice(index, 1);
-      currentOrder.unshift(tenantId);
-      reorderTenants(currentOrder);
-    }
-  };
-
-  const moveToBottom = (tenantId: number) => {
-    const currentOrder = tenants.map(t => t.id);
-    const index = currentOrder.indexOf(tenantId);
-    if (index < currentOrder.length - 1) {
-      currentOrder.splice(index, 1);
-      currentOrder.push(tenantId);
-      reorderTenants(currentOrder);
-    }
-  };
-
-  const moveUp = (tenantId: number) => {
-    const currentOrder = tenants.map(t => t.id);
-    const index = currentOrder.indexOf(tenantId);
-    if (index > 0) {
-      [currentOrder[index], currentOrder[index - 1]] = [currentOrder[index - 1], currentOrder[index]];
-      reorderTenants(currentOrder);
-    }
-  };
-
-  const moveDown = (tenantId: number) => {
-    const currentOrder = tenants.map(t => t.id);
-    const index = currentOrder.indexOf(tenantId);
-    if (index < currentOrder.length - 1) {
-      [currentOrder[index], currentOrder[index + 1]] = [currentOrder[index + 1], currentOrder[index]];
-      reorderTenants(currentOrder);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -212,57 +174,10 @@ export default function Tenants() {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {tenants.map((tenant, index) => (
+          {tenants.map((tenant) => (
             <Card key={tenant.id} className="overflow-hidden">
               <CardHeader className="flex flex-row items-center justify-between gap-4 py-4">
                 <div className="flex items-center gap-3">
-                  {/* Reorder buttons */}
-                  <div className="flex flex-col gap-0.5">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5"
-                      onClick={() => moveToTop(tenant.id)}
-                      disabled={index === 0 || isReordering}
-                      title="Move to top"
-                      data-testid={`button-move-top-${tenant.id}`}
-                    >
-                      <ChevronsUp size={12} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5"
-                      onClick={() => moveUp(tenant.id)}
-                      disabled={index === 0 || isReordering}
-                      title="Move up"
-                      data-testid={`button-move-up-${tenant.id}`}
-                    >
-                      <ChevronUp size={12} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5"
-                      onClick={() => moveDown(tenant.id)}
-                      disabled={index === tenants.length - 1 || isReordering}
-                      title="Move down"
-                      data-testid={`button-move-down-${tenant.id}`}
-                    >
-                      <ChevronDown size={12} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5"
-                      onClick={() => moveToBottom(tenant.id)}
-                      disabled={index === tenants.length - 1 || isReordering}
-                      title="Move to bottom"
-                      data-testid={`button-move-bottom-${tenant.id}`}
-                    >
-                      <ChevronsDown size={12} />
-                    </Button>
-                  </div>
                   <div className={`w-3 h-3 rounded-full ${tenant.isActive ? 'bg-emerald-500' : 'bg-gray-400'}`} />
                   <CardTitle className="text-lg">{tenant.name}</CardTitle>
                 </div>

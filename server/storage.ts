@@ -10,7 +10,7 @@ import {
   type Tenant,
   type InsertTenant
 } from "@shared/schema";
-import { eq, desc, asc, sql } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   getSettings(): Promise<Settings>;
@@ -25,7 +25,6 @@ export interface IStorage {
   createTenant(tenant: InsertTenant): Promise<Tenant>;
   updateTenant(id: number, tenant: Partial<InsertTenant>): Promise<Tenant>;
   deleteTenant(id: number): Promise<void>;
-  reorderTenants(orderedIds: number[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -63,7 +62,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTenants(): Promise<Tenant[]> {
-    return await db.select().from(tenants).orderBy(asc(tenants.sortOrder));
+    return await db.select().from(tenants).orderBy(desc(tenants.createdAt));
   }
 
   async getTenant(id: number): Promise<Tenant | undefined> {
@@ -87,15 +86,6 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTenant(id: number): Promise<void> {
     await db.delete(tenants).where(eq(tenants.id, id));
-  }
-
-  async reorderTenants(orderedIds: number[]): Promise<void> {
-    for (let i = 0; i < orderedIds.length; i++) {
-      await db
-        .update(tenants)
-        .set({ sortOrder: i + 1 })
-        .where(eq(tenants.id, orderedIds[i]));
-    }
   }
 }
 
