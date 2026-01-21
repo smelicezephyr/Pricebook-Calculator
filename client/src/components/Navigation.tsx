@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Calculator, Settings, History, Menu, X } from "lucide-react";
+import { Calculator, Settings, History, Menu, X, Upload, Building2 } from "lucide-react";
 import { useState } from "react";
 import clsx from "clsx";
 
@@ -9,7 +9,9 @@ export function Navigation() {
 
   const navItems = [
     { href: "/", label: "Complete System Calculator", icon: Calculator },
+    { href: "/push", label: "Push to ServiceTitan", icon: Upload },
     { href: "/history", label: "History", icon: History },
+    { href: "/tenants", label: "Manage Tenants", icon: Building2 },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 

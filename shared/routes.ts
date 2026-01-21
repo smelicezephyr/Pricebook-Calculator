@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertSettingsSchema, insertQuoteSchema, settings, quotes } from './schema';
+import { insertSettingsSchema, insertQuoteSchema, insertTenantSchema, settings, quotes, tenants } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -58,6 +58,50 @@ export const api = {
         404: errorSchemas.notFound,
       },
     }
+  },
+  tenants: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/tenants',
+      responses: {
+        200: z.array(z.custom<typeof tenants.$inferSelect>()),
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/tenants/:id',
+      responses: {
+        200: z.custom<typeof tenants.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/tenants',
+      input: insertTenantSchema,
+      responses: {
+        201: z.custom<typeof tenants.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/tenants/:id',
+      input: insertTenantSchema.partial(),
+      responses: {
+        200: z.custom<typeof tenants.$inferSelect>(),
+        400: errorSchemas.validation,
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/tenants/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
   },
 };
 
