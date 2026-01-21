@@ -301,6 +301,22 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Tenant not found" });
     }
     
+    // Fetch app settings for labor calculation
+    const settings = await storage.getSettings();
+    if (!settings) {
+      return res.status(500).json({ message: "App settings not found" });
+    }
+    
+    // Parse settings values
+    const salesTaxRate = parseFloat(settings.salesTaxPercent) / 100;
+    const laborMode = settings.laborMode || 'percent';
+    const laborPercentRate = parseFloat(settings.laborPercent) / 100;
+    const laborHourlyRate = parseFloat(settings.laborHourlyRate);
+    const laborBurdenRate = parseFloat(settings.laborBurdenPercent) / 100;
+    const commissionRate = parseFloat(settings.commissionPercent) / 100;
+    const commissionBurdenRate = parseFloat(settings.commissionBurdenPercent) / 100;
+    const financingRate = parseFloat(settings.financingFeePercent) / 100;
+    
     try {
       const stApi = new ServiceTitanAPI(tenant);
       const results = {
@@ -309,6 +325,24 @@ export async function registerRoutes(
         errors: [] as string[],
       };
       
+      // Fetch all materials and equipment to build cost lookup maps
+      console.log('[Push] Fetching materials and equipment for cost lookup...');
+      const allMaterials = await stApi.getMaterials();
+      const allEquipment = await stApi.getEquipment();
+      
+      // Build lookup maps: skuId -> cost
+      const materialCostMap = new Map<number, number>();
+      for (const mat of allMaterials) {
+        materialCostMap.set(mat.id, mat.cost || 0);
+      }
+      
+      const equipmentCostMap = new Map<number, number>();
+      for (const equip of allEquipment) {
+        equipmentCostMap.set(equip.id, equip.cost || 0);
+      }
+      
+      console.log(`[Push] Loaded ${materialCostMap.size} materials and ${equipmentCostMap.size} equipment items`);
+      
       for (const categoryId of categoryIds) {
         try {
           const services = await stApi.getServices(categoryId);
@@ -316,36 +350,77 @@ export async function registerRoutes(
           for (const service of services) {
             results.processed++;
             
-            // Calculate total M&E cost from materials and equipment
-            let totalMeCost = 0;
+            // Calculate total M&E cost from linked materials and equipment
+            let materialsCost = 0;
+            let equipmentCost = 0;
             
-            if (service.materials) {
-              for (const mat of service.materials) {
-                totalMeCost += (mat.cost || 0) * (mat.quantity || 1);
+            // Use serviceMaterials (skuId references) from API response
+            if (service.serviceMaterials) {
+              for (const mat of service.serviceMaterials) {
+                const cost = materialCostMap.get(mat.skuId) || 0;
+                materialsCost += cost * (mat.quantity || 1);
               }
             }
             
-            if (service.equipment) {
-              for (const equip of service.equipment) {
-                totalMeCost += (equip.cost || 0) * (equip.quantity || 1);
+            // Use serviceEquipment (skuId references) from API response
+            if (service.serviceEquipment) {
+              for (const equip of service.serviceEquipment) {
+                const cost = equipmentCostMap.get(equip.skuId) || 0;
+                equipmentCost += cost * (equip.quantity || 1);
               }
             }
+            
+            const rawMeCost = materialsCost + equipmentCost;
             
             // Skip if no M&E cost
-            if (totalMeCost === 0) {
+            if (rawMeCost === 0) {
               continue;
             }
             
-            // Calculate new price: M&E cost / (M&E% / 100)
-            // If targetMePercent is 23%, then price = meCost / 0.23
-            const newPrice = totalMeCost / (targetMePercent / 100);
+            // Calculate sales tax on M&E (same as calculator)
+            const tax = rawMeCost * salesTaxRate;
             
-            // Only update if price changed significantly
+            // Total M&E includes tax (same as calculator: totalMe = materials + equipment + tax)
+            const totalMe = rawMeCost + tax;
+            
+            // Calculate new price: totalMe / (M&E% / 100) - matching calculator formula
+            const newPrice = totalMe / (targetMePercent / 100);
+            
+            // Calculate labor cost based on mode
+            let laborCost = 0;
+            if (laborMode === 'hours') {
+              const hours = service.hours || 0;
+              laborCost = (hours * laborHourlyRate) * (1 + laborBurdenRate);
+            } else {
+              // Percent mode: labor is percentage of price with burden
+              laborCost = (newPrice * laborPercentRate) * (1 + laborBurdenRate);
+            }
+            
+            // Calculate commission cost (percentage of price with burden)
+            const commissionCost = (newPrice * commissionRate) * (1 + commissionBurdenRate);
+            
+            // Calculate financing cost
+            const financingCost = newPrice * financingRate;
+            
+            // Calculate estimated labor (same formula as calculator)
+            // estimatedLabor = laborCost + commissionCost + tax + financingCost
+            const estimatedLabor = laborCost + commissionCost + tax + financingCost;
+            
+            // Round values
+            const roundedPrice = Math.round(newPrice * 100) / 100;
+            const roundedCost = Math.round(estimatedLabor * 100) / 100;
+            
+            // Check if either value changed significantly
             const currentPrice = service.price || 0;
-            if (Math.abs(newPrice - currentPrice) > 0.01) {
+            const currentCost = service.cost || 0;
+            const priceChanged = Math.abs(roundedPrice - currentPrice) > 0.01;
+            const costChanged = Math.abs(roundedCost - currentCost) > 0.01;
+            
+            if (priceChanged || costChanged) {
               try {
                 await stApi.updateService(service.id, { 
-                  price: Math.round(newPrice * 100) / 100 
+                  price: roundedPrice,
+                  cost: roundedCost
                 });
                 results.updated++;
               } catch (updateErr: any) {

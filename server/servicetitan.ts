@@ -25,8 +25,18 @@ interface PricebookService {
   price?: number;
   memberPrice?: number;
   addOnPrice?: number;
+  cost?: number; // Estimated Labor Cost field in ServiceTitan
+  hours?: number; // Hours field in ServiceTitan
   active: boolean;
   categoryId?: number;
+  serviceMaterials?: Array<{
+    skuId: number;
+    quantity: number;
+  }>;
+  serviceEquipment?: Array<{
+    skuId: number;
+    quantity: number;
+  }>;
   materials?: Array<{
     id: number;
     name: string;
@@ -191,26 +201,58 @@ export class ServiceTitanAPI {
   }
 
   async getMaterials(categoryId?: number): Promise<PricebookMaterial[]> {
-    let url = `/pricebook/v2/tenant/${this.tenant.tenantId}/materials?pageSize=500`;
-    if (categoryId) {
-      url += `&categoryId=${categoryId}`;
+    const allMaterials: PricebookMaterial[] = [];
+    let page = 1;
+    let hasMore = true;
+    
+    while (hasMore) {
+      let url = `/pricebook/v2/tenant/${this.tenant.tenantId}/materials?pageSize=500&page=${page}`;
+      if (categoryId) {
+        url += `&categoryId=${categoryId}`;
+      }
+      const response = await this.request<{ 
+        data: PricebookMaterial[]; 
+        hasMore: boolean;
+      }>(url);
+      
+      allMaterials.push(...response.data);
+      hasMore = response.hasMore;
+      page++;
+      
+      if (page > 50) break; // Safety limit
     }
-    const response = await this.request<{ data: PricebookMaterial[] }>(url);
-    return response.data;
+    
+    return allMaterials;
   }
 
   async getEquipment(categoryId?: number): Promise<PricebookEquipment[]> {
-    let url = `/pricebook/v2/tenant/${this.tenant.tenantId}/equipment?pageSize=500`;
-    if (categoryId) {
-      url += `&categoryId=${categoryId}`;
+    const allEquipment: PricebookEquipment[] = [];
+    let page = 1;
+    let hasMore = true;
+    
+    while (hasMore) {
+      let url = `/pricebook/v2/tenant/${this.tenant.tenantId}/equipment?pageSize=500&page=${page}`;
+      if (categoryId) {
+        url += `&categoryId=${categoryId}`;
+      }
+      const response = await this.request<{ 
+        data: PricebookEquipment[]; 
+        hasMore: boolean;
+      }>(url);
+      
+      allEquipment.push(...response.data);
+      hasMore = response.hasMore;
+      page++;
+      
+      if (page > 50) break; // Safety limit
     }
-    const response = await this.request<{ data: PricebookEquipment[] }>(url);
-    return response.data;
+    
+    return allEquipment;
   }
 
   async updateService(
     serviceId: number,
-    updates: { price?: number; memberPrice?: number }
+    updates: { price?: number; memberPrice?: number; cost?: number }
   ): Promise<PricebookService> {
     return this.request<PricebookService>(
       `/pricebook/v2/tenant/${this.tenant.tenantId}/services/${serviceId}`,
