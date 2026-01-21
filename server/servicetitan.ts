@@ -10,7 +10,11 @@ interface PricebookCategory {
   id: number;
   name: string;
   active: boolean;
-  parentId?: number;
+  parentId?: number | null;
+  level?: number;
+  categoryType?: string;
+  displayOrder?: number;
+  [key: string]: any; // Allow additional fields from API
 }
 
 interface PricebookService {
@@ -147,14 +151,20 @@ export class ServiceTitanAPI {
         `/pricebook/v2/tenant/${this.tenant.tenantId}/categories?pageSize=500&page=${page}`
       );
       
+      console.log(`[ServiceTitan] Page ${page}: fetched ${response.data.length} categories, totalCount: ${response.totalCount}, hasMore: ${response.hasMore}`);
+      if (response.data.length > 0) {
+        console.log(`[ServiceTitan] Sample category:`, JSON.stringify(response.data[0], null, 2));
+      }
+      
       allCategories.push(...response.data);
       hasMore = response.hasMore;
       page++;
       
       // Safety limit to prevent infinite loops
-      if (page > 20) break;
+      if (page > 50) break;
     }
     
+    console.log(`[ServiceTitan] Total categories fetched: ${allCategories.length}`);
     return allCategories;
   }
 
