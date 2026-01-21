@@ -29,6 +29,7 @@ export default function Settings() {
       commissionPercent: "10.00",
       commissionBurdenPercent: "20.00",
       financingFeePercent: "6.00",
+      grossMarginMinPercent: "45.00",
     },
   });
 
@@ -45,6 +46,7 @@ export default function Settings() {
         commissionPercent: settings.commissionPercent,
         commissionBurdenPercent: settings.commissionBurdenPercent,
         financingFeePercent: settings.financingFeePercent,
+        grossMarginMinPercent: settings.grossMarginMinPercent,
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -116,6 +118,23 @@ export default function Settings() {
                           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
                         </div>
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="grossMarginMinPercent"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Gross Margin Minimum</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input {...field} type="number" step="0.01" className="pr-8" data-testid="input-gross-margin-min" />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                        </div>
+                      </FormControl>
+                      <FormDescription>Target minimum for margin health indicator.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

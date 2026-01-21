@@ -553,6 +553,7 @@ export default function Calculator() {
               discount={discountDollarValue}
               roundUp={roundUp}
               onRoundUpChange={setRoundUp}
+              grossMarginMinPercent={parseFloat(settings.grossMarginMinPercent || "45")}
             />
           </div>
         </div>

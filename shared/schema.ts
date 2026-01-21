@@ -20,6 +20,9 @@ export const settings = pgTable("settings", {
   
   // Financing Settings
   financingFeePercent: numeric("financing_fee_percent").notNull().default("6.00"),
+  
+  // Margin Health Settings
+  grossMarginMinPercent: numeric("gross_margin_min_percent").notNull().default("45.00"),
 });
 
 // Saved Quotes/Calculations

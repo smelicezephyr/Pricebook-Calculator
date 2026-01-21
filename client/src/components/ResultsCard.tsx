@@ -10,6 +10,7 @@ interface ResultsCardProps {
   discount?: number;
   roundUp?: boolean;
   onRoundUpChange?: (value: boolean) => void;
+  grossMarginMinPercent?: number;
   breakdown: {
     materials: number;
     equipment: number;
@@ -34,12 +35,28 @@ const formatCurrency = (val: number) =>
 const formatPercent = (val: number) => 
   `${val.toFixed(2)}%`;
 
-export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTaxRate, discount = 0, roundUp = false, onRoundUpChange }: ResultsCardProps) {
+export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTaxRate, discount = 0, roundUp = false, onRoundUpChange, grossMarginMinPercent = 45 }: ResultsCardProps) {
   // price is already rounded if roundUp is enabled (handled in Calculator)
   const totalOtherCogs = (breakdown.financing || 0) + (breakdown.subcontractor || 0) + (breakdown.crane || 0) + (breakdown.permit || 0);
   const mAndECost = (breakdown.materials || 0) + (breakdown.equipment || 0) + (breakdown.tax || 0);
   const directLaborCost = (breakdown.laborCost || 0) + (breakdown.commission || 0);
   const grossMargin = metrics.grossMarginAmount;
+  
+  // Margin health calculation with 1% tolerance
+  const getMarginHealth = () => {
+    const currentMargin = metrics.grossMarginPercent;
+    const minMargin = grossMarginMinPercent;
+    
+    if (currentMargin >= minMargin) {
+      return { status: 'strong', label: 'Margin Health: Strong', color: 'bg-emerald-500', textColor: 'text-emerald-500' };
+    } else if (currentMargin >= minMargin - 1) {
+      return { status: 'caution', label: 'Margin Health: Caution', color: 'bg-amber-500', textColor: 'text-amber-500' };
+    } else {
+      return { status: 'danger', label: 'Margin Health: Low', color: 'bg-red-500', textColor: 'text-red-500' };
+    }
+  };
+  
+  const marginHealth = getMarginHealth();
 
   const chartData = [
     { name: 'Gross Margin', value: grossMargin, color: '#f59e0b', percent: price > 0 ? (grossMargin / price) * 100 : 0 },
@@ -87,7 +104,17 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
             <DollarSign size={100} />
           </div>
           <div className="relative z-10">
-            <p className="text-primary-foreground/80 font-medium text-sm mb-1">Total Price</p>
+            <div className="mb-3" data-testid="margin-health-bar">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-medium text-primary-foreground/90">{marginHealth.label}</span>
+              </div>
+              <div className="h-1.5 w-full bg-primary-foreground/20 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-300 ${marginHealth.color}`}
+                  style={{ width: '100%' }}
+                />
+              </div>
+            </div>
             <h2 className="text-5xl font-display font-bold tracking-tight">
               {formatCurrency(price)}
             </h2>
