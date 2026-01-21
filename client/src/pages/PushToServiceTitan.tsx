@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ArrowLeft, RefreshCw, Percent, Clock, DollarSign } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
@@ -30,6 +30,7 @@ export default function PushToServiceTitan() {
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle');
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<Set<number>>(new Set());
+  const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
 
@@ -107,8 +108,51 @@ export default function PushToServiceTitan() {
     }
   };
 
+  const getChildren = (parentId: number) => categories.filter(c => c.parentId === parentId);
+  
+  const getAllDescendants = (parentId: number): number[] => {
+    const children = getChildren(parentId);
+    let descendants: number[] = [];
+    for (const child of children) {
+      descendants.push(child.id);
+      descendants = descendants.concat(getAllDescendants(child.id));
+    }
+    return descendants;
+  };
+
   const toggleCategory = (categoryId: number) => {
+    const category = categories.find(c => c.id === categoryId);
+    if (!category) return;
+    
+    const children = getChildren(categoryId);
+    const hasChildren = children.length > 0;
+    
     setSelectedCategories(prev => {
+      const next = new Set(prev);
+      const isCurrentlySelected = next.has(categoryId);
+      
+      if (isCurrentlySelected) {
+        next.delete(categoryId);
+        if (hasChildren) {
+          const descendants = getAllDescendants(categoryId);
+          descendants.forEach(id => next.delete(id));
+        }
+      } else {
+        next.add(categoryId);
+        if (hasChildren) {
+          const descendants = getAllDescendants(categoryId);
+          descendants.filter(id => {
+            const cat = categories.find(c => c.id === id);
+            return cat?.active;
+          }).forEach(id => next.add(id));
+        }
+      }
+      return next;
+    });
+  };
+
+  const toggleExpanded = (categoryId: number) => {
+    setExpandedCategories(prev => {
       const next = new Set(prev);
       if (next.has(categoryId)) {
         next.delete(categoryId);
@@ -185,7 +229,6 @@ export default function PushToServiceTitan() {
   };
 
   const parentCategories = categories.filter(c => !c.parentId);
-  const getChildren = (parentId: number) => categories.filter(c => c.parentId === parentId);
 
   if (isTenantsLoading) {
     return (
@@ -313,70 +356,74 @@ export default function PushToServiceTitan() {
                       No categories found in this pricebook.
                     </p>
                   ) : (
-                    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                    <div className="space-y-1 max-h-[400px] overflow-y-auto pr-2">
                       {parentCategories.map(parent => {
                         const children = getChildren(parent.id);
                         const hasChildren = children.length > 0;
+                        const isExpanded = expandedCategories.has(parent.id);
                         
-                        return (
-                          <div key={parent.id} className="space-y-1">
-                            <div 
-                              className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                                selectedCategories.has(parent.id) 
-                                  ? 'bg-primary/5 border-primary/30' 
-                                  : 'border-border hover:bg-muted/50'
-                              }`}
-                            >
-                              <Checkbox
-                                id={`category-${parent.id}`}
-                                checked={selectedCategories.has(parent.id)}
-                                onCheckedChange={() => toggleCategory(parent.id)}
-                                disabled={!parent.active}
-                                data-testid={`checkbox-category-${parent.id}`}
-                              />
-                              <label 
-                                htmlFor={`category-${parent.id}`}
-                                className={`flex-1 cursor-pointer font-medium ${!parent.active ? 'text-muted-foreground' : ''}`}
+                        const renderCategory = (category: Category, depth: number = 0) => {
+                          const catChildren = getChildren(category.id);
+                          const hasCatChildren = catChildren.length > 0;
+                          const isCatExpanded = expandedCategories.has(category.id);
+                          
+                          return (
+                            <div key={category.id}>
+                              <div 
+                                className={`flex items-center gap-2 p-3 border-b transition-colors ${
+                                  selectedCategories.has(category.id) 
+                                    ? 'bg-primary/5' 
+                                    : 'hover:bg-muted/50'
+                                }`}
+                                style={{ paddingLeft: `${(depth * 24) + 12}px` }}
                               >
-                                {parent.name}
-                                {!parent.active && <Badge variant="outline" className="ml-2 text-xs">Inactive</Badge>}
-                              </label>
-                              {hasChildren && (
-                                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                                {hasCatChildren ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleExpanded(category.id)}
+                                    className="p-1 rounded hover:bg-muted"
+                                    data-testid={`button-expand-${category.id}`}
+                                  >
+                                    {isCatExpanded ? (
+                                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                    ) : (
+                                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                                    )}
+                                  </button>
+                                ) : (
+                                  <div className="w-6" />
+                                )}
+                                <Checkbox
+                                  id={`category-${category.id}`}
+                                  checked={selectedCategories.has(category.id)}
+                                  onCheckedChange={() => toggleCategory(category.id)}
+                                  disabled={!category.active}
+                                  data-testid={`checkbox-category-${category.id}`}
+                                />
+                                <label 
+                                  htmlFor={`category-${category.id}`}
+                                  className={`flex-1 cursor-pointer ${depth === 0 ? 'font-medium' : 'text-sm'} ${!category.active ? 'text-muted-foreground' : ''}`}
+                                >
+                                  {category.name}
+                                </label>
+                                {hasCatChildren && (
+                                  <span className="text-xs text-muted-foreground mr-2">
+                                    {catChildren.length} subcategories
+                                  </span>
+                                )}
+                                {!category.active && <Badge variant="outline" className="text-xs">Inactive</Badge>}
+                              </div>
+                              
+                              {hasCatChildren && isCatExpanded && (
+                                <div>
+                                  {catChildren.map(child => renderCategory(child, depth + 1))}
+                                </div>
                               )}
                             </div>
-                            
-                            {hasChildren && (
-                              <div className="ml-6 space-y-1">
-                                {children.map(child => (
-                                  <div 
-                                    key={child.id}
-                                    className={`flex items-center gap-3 p-2.5 rounded-lg border transition-colors ${
-                                      selectedCategories.has(child.id) 
-                                        ? 'bg-primary/5 border-primary/30' 
-                                        : 'border-border hover:bg-muted/50'
-                                    }`}
-                                  >
-                                    <Checkbox
-                                      id={`category-${child.id}`}
-                                      checked={selectedCategories.has(child.id)}
-                                      onCheckedChange={() => toggleCategory(child.id)}
-                                      disabled={!child.active}
-                                      data-testid={`checkbox-category-${child.id}`}
-                                    />
-                                    <label 
-                                      htmlFor={`category-${child.id}`}
-                                      className={`flex-1 cursor-pointer text-sm ${!child.active ? 'text-muted-foreground' : ''}`}
-                                    >
-                                      {child.name}
-                                      {!child.active && <Badge variant="outline" className="ml-2 text-xs">Inactive</Badge>}
-                                    </label>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
+                          );
+                        };
+                        
+                        return renderCategory(parent, 0);
                       })}
                     </div>
                   )}
