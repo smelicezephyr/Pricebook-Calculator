@@ -66,10 +66,22 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // Helper to sanitize tenant data (mask secrets)
+  const sanitizeTenant = (tenant: any) => ({
+    id: tenant.id,
+    name: tenant.name,
+    tenantId: tenant.tenantId,
+    clientId: tenant.clientId.substring(0, 8) + "...",
+    clientSecret: "••••••••",
+    appKey: tenant.appKey.substring(0, 8) + "...",
+    isActive: tenant.isActive,
+    createdAt: tenant.createdAt,
+  });
+
   // Tenant Routes
   app.get(api.tenants.list.path, async (req, res) => {
     const tenants = await storage.getTenants();
-    res.json(tenants);
+    res.json(tenants.map(sanitizeTenant));
   });
 
   app.get(api.tenants.get.path, async (req, res) => {
@@ -81,7 +93,7 @@ export async function registerRoutes(
     if (!tenant) {
       return res.status(404).json({ message: "Tenant not found" });
     }
-    res.json(tenant);
+    res.json(sanitizeTenant(tenant));
   });
 
   app.post(api.tenants.create.path, async (req, res) => {

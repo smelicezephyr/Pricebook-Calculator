@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTenantSchema } from "@shared/schema";
-import { Loader2, Plus, Trash2, Edit, Building2, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { Loader2, Plus, Trash2, Edit, Building2, ArrowLeft } from "lucide-react";
 import { useLocation } from "wouter";
 import type { z } from "zod";
 import type { Tenant } from "@shared/schema";
@@ -20,7 +20,6 @@ export default function Tenants() {
   const [, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
-  const [showSecrets, setShowSecrets] = useState<Record<number, boolean>>({});
 
   const form = useForm<TenantFormValues>({
     resolver: zodResolver(insertTenantSchema),
@@ -52,9 +51,9 @@ export default function Tenants() {
     form.reset({
       name: tenant.name,
       tenantId: tenant.tenantId,
-      clientId: tenant.clientId,
-      clientSecret: tenant.clientSecret,
-      appKey: tenant.appKey,
+      clientId: "",
+      clientSecret: "",
+      appKey: "",
       isActive: tenant.isActive,
     });
     setIsOpen(true);
@@ -67,10 +66,6 @@ export default function Tenants() {
       createTenant(data);
     }
     setIsOpen(false);
-  };
-
-  const toggleShowSecret = (id: number) => {
-    setShowSecrets(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   if (isLoading) {
@@ -150,22 +145,15 @@ export default function Tenants() {
                   </div>
                   <div>
                     <p className="text-muted-foreground text-xs font-medium mb-1">Client ID</p>
-                    <p className="font-mono truncate">{tenant.clientId.substring(0, 12)}...</p>
+                    <p className="font-mono truncate">{tenant.clientId}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground text-xs font-medium mb-1">Client Secret</p>
-                    <div className="flex items-center gap-2">
-                      <p className="font-mono">
-                        {showSecrets[tenant.id] ? tenant.clientSecret.substring(0, 12) + '...' : '••••••••'}
-                      </p>
-                      <button onClick={() => toggleShowSecret(tenant.id)} className="text-muted-foreground hover:text-foreground">
-                        {showSecrets[tenant.id] ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
-                    </div>
+                    <p className="font-mono">{tenant.clientSecret}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground text-xs font-medium mb-1">App Key</p>
-                    <p className="font-mono truncate">{tenant.appKey.substring(0, 12)}...</p>
+                    <p className="font-mono truncate">{tenant.appKey}</p>
                   </div>
                 </div>
               </CardContent>
@@ -207,6 +195,11 @@ export default function Tenants() {
                   </FormItem>
                 )}
               />
+              {editingTenant && (
+                <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
+                  For security, credentials are not displayed. Please re-enter all credentials when updating.
+                </p>
+              )}
               <FormField
                 control={form.control}
                 name="clientId"
