@@ -24,6 +24,7 @@ export default function Calculator() {
   const [laborPercent, setLaborPercent] = useState<string>("");
   const [targetMe, setTargetMe] = useState<string>("23.0");
   const [discount, setDiscount] = useState<string>("");
+  const [discountMode, setDiscountMode] = useState<"dollar" | "percent">("dollar");
   const [subcontractor, setSubcontractor] = useState<string>("");
   const [crane, setCrane] = useState<string>("");
   const [permit, setPermit] = useState<string>("");
@@ -89,7 +90,12 @@ export default function Calculator() {
 
     // 3. Other COGS are added to final price like discount removal
     const totalOtherCogs = subVal + craneVal + permitVal;
-    const discountVal = parseFloat(discount) || 0;
+    const discountInput = parseFloat(discount) || 0;
+    
+    // Calculate discount based on mode: dollar or percent of M&E
+    const discountVal = discountMode === 'percent' 
+      ? (totalMe * discountInput / 100) 
+      : discountInput;
     
     // Price = basePrice + otherCogs - discount
     const price = Math.max(0, basePrice + totalOtherCogs - discountVal);
@@ -148,7 +154,7 @@ export default function Calculator() {
       }
     });
 
-  }, [matVal, equipVal, hoursVal, laborPercent, discount, targetMe, subVal, craneVal, permitVal, settings, roundUp]);
+  }, [matVal, equipVal, hoursVal, laborPercent, discount, discountMode, targetMe, subVal, craneVal, permitVal, settings, roundUp]);
 
   const downloadImage = async () => {
     if (resultsRef.current === null) return;
@@ -202,6 +208,7 @@ export default function Calculator() {
     setEquipment("");
     setLaborHours("");
     setDiscount("");
+    setDiscountMode("dollar");
     setSubcontractor("");
     setCrane("");
     setPermit("");
@@ -229,6 +236,18 @@ export default function Calculator() {
 
   const formatCurrency = (val: number) => 
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+
+  // Calculate actual discount dollar amount based on mode
+  const calculateDiscountDollar = () => {
+    const discountInput = parseFloat(discount) || 0;
+    if (discountMode === 'percent') {
+      const salesTaxRate = parseFloat(settings.salesTaxPercent) / 100;
+      const totalMe = matVal + equipVal + (matVal + equipVal) * salesTaxRate;
+      return totalMe * discountInput / 100;
+    }
+    return discountInput;
+  };
+  const discountDollarValue = calculateDiscountDollar();
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
@@ -277,10 +296,10 @@ export default function Calculator() {
                     </div>
                   </div>
                   
-                  {parseFloat(discount) > 0 && (
+                  {discountDollarValue > 0 && (
                     <div className="flex justify-between text-destructive">
-                      <span className="font-medium">Discount:</span>
-                      <span className="font-bold">-{formatCurrency(parseFloat(discount))}</span>
+                      <span className="font-medium">Discount{discountMode === 'percent' ? ` (${discount}%)` : ''}:</span>
+                      <span className="font-bold">-{formatCurrency(discountDollarValue)}</span>
                     </div>
                   )}
 
@@ -307,14 +326,15 @@ export default function Calculator() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Input Column */}
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
-            <h2 className="font-display font-semibold text-lg mb-6 flex items-center gap-2">
+        <div className="lg:col-span-4 space-y-4">
+          {/* Job Costs Section */}
+          <div className="bg-card rounded-2xl p-5 shadow-sm border border-border">
+            <div className="flex items-center gap-3 mb-5 pb-3 border-b border-border">
               <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-sm font-bold">1</span>
-              Job Costs
-            </h2>
+              <h2 className="font-display font-semibold text-lg">Job Costs</h2>
+            </div>
 
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                   Target M&E %
@@ -322,6 +342,7 @@ export default function Calculator() {
                 <select
                   value={targetMe}
                   onChange={(e) => setTargetMe(e.target.value)}
+                  data-testid="select-target-me"
                   className="flex h-12 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-lg font-medium ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {targetMeOptions.map((opt) => (
@@ -330,9 +351,6 @@ export default function Calculator() {
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-muted-foreground">
-                  Adjust this percentage to see how it affects the final price.
-                </p>
               </div>
 
               <InputMoney
@@ -340,79 +358,162 @@ export default function Calculator() {
                 placeholder="0.00"
                 value={materials}
                 onChange={(e) => setMaterials(e.target.value)}
+                data-testid="input-materials"
               />
               <InputMoney
                 label="Equipment Cost"
                 placeholder="0.00"
                 value={equipment}
                 onChange={(e) => setEquipment(e.target.value)}
+                data-testid="input-equipment"
               />
+            </div>
+          </div>
 
-              {(settings.laborMode || 'percent') === 'hours' ? (
-                <div className="pt-4 border-t border-border">
-                  <InputMoney
-                    label="Labor Hours"
-                    type="number"
-                    placeholder="10"
-                    value={laborHours}
-                    onChange={(e) => setLaborHours(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Using rate of ${parseFloat(settings.laborHourlyRate).toFixed(2)}/hr
-                  </p>
-                </div>
-              ) : (
-                <div className="pt-4 border-t border-border">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                      Labor %
-                    </Label>
-                    <div className="relative group">
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none group-focus-within:text-primary transition-colors">
-                        <span className="text-sm font-mono">%</span>
-                      </div>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={laborPercent}
-                        onChange={(e) => setLaborPercent(e.target.value)}
-                        className="pl-9 h-12 text-lg font-medium bg-background border-border shadow-sm transition-all focus:ring-primary/20"
-                      />
-                    </div>
+          {/* Labor Section */}
+          <div className="bg-card rounded-2xl p-5 shadow-sm border border-border">
+            <div className="flex items-center gap-3 mb-5 pb-3 border-b border-border">
+              <span className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center text-sm font-bold">2</span>
+              <h2 className="font-display font-semibold text-lg">Labor</h2>
+            </div>
+
+            {(settings.laborMode || 'percent') === 'hours' ? (
+              <div className="space-y-2">
+                <InputMoney
+                  label="Labor Hours"
+                  type="number"
+                  placeholder="10"
+                  value={laborHours}
+                  onChange={(e) => setLaborHours(e.target.value)}
+                  data-testid="input-labor-hours"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Using rate of ${parseFloat(settings.laborHourlyRate).toFixed(2)}/hr
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                  Labor %
+                </Label>
+                <div className="relative group">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none group-focus-within:text-primary transition-colors">
+                    <span className="text-sm font-mono">%</span>
                   </div>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={laborPercent}
+                    onChange={(e) => setLaborPercent(e.target.value)}
+                    data-testid="input-labor-percent"
+                    className="pl-9 h-12 text-lg font-medium bg-background border-border shadow-sm transition-all focus:ring-primary/20"
+                  />
                 </div>
-              )}
+              </div>
+            )}
+          </div>
 
-              <div className="pt-4 border-t border-border space-y-4">
-                <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Other COGS</h3>
-                <InputMoney
-                  label="Subcontractor"
-                  placeholder="0.00"
-                  value={subcontractor}
-                  onChange={(e) => setSubcontractor(e.target.value)}
-                />
-                <InputMoney
-                  label="Crane"
-                  placeholder="0.00"
-                  value={crane}
-                  onChange={(e) => setCrane(e.target.value)}
-                />
-                <InputMoney
-                  label="Permit"
-                  placeholder="0.00"
-                  value={permit}
-                  onChange={(e) => setPermit(e.target.value)}
-                />
+          {/* Other COGS Section */}
+          <div className="bg-card rounded-2xl p-5 shadow-sm border border-border">
+            <div className="flex items-center gap-3 mb-5 pb-3 border-b border-border">
+              <span className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center text-sm font-bold">3</span>
+              <h2 className="font-display font-semibold text-lg">Other COGS</h2>
+            </div>
+
+            <div className="space-y-4">
+              <InputMoney
+                label="Subcontractor"
+                placeholder="0.00"
+                value={subcontractor}
+                onChange={(e) => setSubcontractor(e.target.value)}
+                data-testid="input-subcontractor"
+              />
+              <InputMoney
+                label="Crane"
+                placeholder="0.00"
+                value={crane}
+                onChange={(e) => setCrane(e.target.value)}
+                data-testid="input-crane"
+              />
+              <InputMoney
+                label="Permit"
+                placeholder="0.00"
+                value={permit}
+                onChange={(e) => setPermit(e.target.value)}
+                data-testid="input-permit"
+              />
+            </div>
+          </div>
+
+          {/* Discounts Section */}
+          <div className="bg-card rounded-2xl p-5 shadow-sm border border-border">
+            <div className="flex items-center gap-3 mb-5 pb-3 border-b border-border">
+              <span className="w-8 h-8 rounded-lg bg-red-500/10 text-red-600 flex items-center justify-center text-sm font-bold">4</span>
+              <h2 className="font-display font-semibold text-lg">Discounts</h2>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex gap-1 p-1 bg-muted rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setDiscountMode("dollar")}
+                  data-testid="button-discount-dollar"
+                  className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
+                    discountMode === "dollar"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  $ Dollar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDiscountMode("percent")}
+                  data-testid="button-discount-percent"
+                  className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
+                    discountMode === "percent"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  % of M&E
+                </button>
               </div>
 
-              <div className="pt-4 border-t border-border">
+              {discountMode === "dollar" ? (
                 <InputMoney
-                  label="Discount ($)"
+                  label="Discount Amount"
                   placeholder="0.00"
                   value={discount}
                   onChange={(e) => setDiscount(e.target.value)}
+                  data-testid="input-discount-dollar"
                 />
-              </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                    Discount %
+                  </Label>
+                  <div className="relative group">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none group-focus-within:text-primary transition-colors">
+                      <span className="text-sm font-mono">%</span>
+                    </div>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      placeholder="0"
+                      value={discount}
+                      onChange={(e) => setDiscount(e.target.value)}
+                      data-testid="input-discount-percent"
+                      className="pl-9 h-12 text-lg font-medium bg-background border-border shadow-sm transition-all focus:ring-primary/20"
+                    />
+                  </div>
+                  {parseFloat(discount) > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      = {formatCurrency((matVal + equipVal + (matVal + equipVal) * parseFloat(settings.salesTaxPercent) / 100) * parseFloat(discount) / 100)} off M&E total
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -426,7 +527,7 @@ export default function Calculator() {
               breakdown={results.breakdown}
               metrics={results.metrics}
               salesTaxRate={settings.salesTaxPercent}
-              discount={parseFloat(discount) || 0}
+              discount={discountDollarValue}
               roundUp={roundUp}
               onRoundUpChange={setRoundUp}
             />
