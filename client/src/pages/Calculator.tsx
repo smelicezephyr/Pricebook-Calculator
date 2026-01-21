@@ -290,7 +290,7 @@ export default function Calculator() {
             <DialogTrigger asChild>
               <Button className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30">
                 <Save size={16} />
-                Save Quote
+                Save Calc
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
