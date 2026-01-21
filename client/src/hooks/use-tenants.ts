@@ -31,15 +31,25 @@ export function useTenants() {
     },
   });
 
+  const reorderMutation = useMutation({
+    mutationFn: (orderedIds: number[]) =>
+      apiRequest("POST", "/api/tenants/reorder", { orderedIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tenants"] });
+    },
+  });
+
   return {
     tenants,
     isLoading,
     createTenant: createMutation.mutate,
     updateTenant: updateMutation.mutate,
     deleteTenant: deleteMutation.mutate,
+    reorderTenants: reorderMutation.mutate,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
+    isReordering: reorderMutation.isPending,
   };
 }
 

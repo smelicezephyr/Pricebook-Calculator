@@ -149,6 +149,41 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // Reorder tenants
+  app.post("/api/tenants/reorder", async (req, res) => {
+    try {
+      const { orderedIds } = req.body;
+      if (!Array.isArray(orderedIds) || !orderedIds.every(id => typeof id === 'number')) {
+        return res.status(400).json({ message: "orderedIds must be an array of numbers" });
+      }
+      
+      // Validate that orderedIds matches all existing tenant IDs
+      const existingTenants = await storage.getTenants();
+      const existingIds = new Set(existingTenants.map(t => t.id));
+      const submittedIds = new Set(orderedIds);
+      
+      if (orderedIds.length !== existingTenants.length) {
+        return res.status(400).json({ message: "orderedIds must contain all tenant IDs" });
+      }
+      
+      for (const id of orderedIds) {
+        if (!existingIds.has(id)) {
+          return res.status(400).json({ message: `Invalid tenant ID: ${id}` });
+        }
+      }
+      
+      if (submittedIds.size !== orderedIds.length) {
+        return res.status(400).json({ message: "orderedIds contains duplicate IDs" });
+      }
+      
+      await storage.reorderTenants(orderedIds);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Reorder error:", err);
+      res.status(500).json({ message: "Failed to reorder tenants" });
+    }
+  });
+
   // Get full tenant data (unmasked) for editing - only for password-protected section
   app.get("/api/tenants/:id/full", async (req, res) => {
     const id = Number(req.params.id);
