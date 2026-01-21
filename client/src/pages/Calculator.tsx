@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSettings } from "@/hooks/use-settings";
 import { useCreateQuote } from "@/hooks/use-quotes";
+import { useCalculatorState } from "@/contexts/CalculatorContext";
 import { InputMoney } from "@/components/InputMoney";
 import { ResultsCard } from "@/components/ResultsCard";
 import { Button } from "@/components/ui/button";
@@ -16,34 +17,42 @@ export default function Calculator() {
   const createQuote = useCreateQuote();
   const { toast } = useToast();
   const resultsRef = useRef<HTMLDivElement>(null);
+  const { state: calcState, setState: setCalcState, resetState } = useCalculatorState();
+  const [hasInitialized, setHasInitialized] = useState(false);
 
-  // Input State
-  const [materials, setMaterials] = useState<string>("");
-  const [equipment, setEquipment] = useState<string>("");
-  const [laborHours, setLaborHours] = useState<string>("");
-  const [laborPercent, setLaborPercent] = useState<string>("");
-  const [targetMe, setTargetMe] = useState<string>("23.0");
-  const [discount, setDiscount] = useState<string>("");
-  const [discountMode, setDiscountMode] = useState<"dollar" | "percent">("dollar");
-  const [subcontractor, setSubcontractor] = useState<string>("");
-  const [crane, setCrane] = useState<string>("");
-  const [permit, setPermit] = useState<string>("");
+  // Destructure calculator state for easier access
+  const { materials, equipment, laborHours, laborPercent, targetMe, discount, discountMode, subcontractor, crane, permit, roundUp } = calcState;
 
-  // Set default target from settings when they load
+  // Helper to update individual fields
+  const setMaterials = (v: string) => setCalcState({ materials: v });
+  const setEquipment = (v: string) => setCalcState({ equipment: v });
+  const setLaborHours = (v: string) => setCalcState({ laborHours: v });
+  const setLaborPercent = (v: string) => setCalcState({ laborPercent: v });
+  const setTargetMe = (v: string) => setCalcState({ targetMe: v });
+  const setDiscount = (v: string) => setCalcState({ discount: v });
+  const setDiscountMode = (v: "dollar" | "percent") => setCalcState({ discountMode: v });
+  const setSubcontractor = (v: string) => setCalcState({ subcontractor: v });
+  const setCrane = (v: string) => setCalcState({ crane: v });
+  const setPermit = (v: string) => setCalcState({ permit: v });
+  const setRoundUp = (v: boolean) => setCalcState({ roundUp: v });
+
+  // Initialize defaults from settings only once on first load (not on every settings change)
   useEffect(() => {
-    if (settings) {
-      setTargetMe(parseFloat(settings.targetMePercent).toFixed(1));
-      setLaborPercent(settings.laborPercent || "");
-      setLaborHours("");
+    if (settings && !hasInitialized) {
+      // Only set defaults if the fields are empty (first load)
+      if (!calcState.targetMe || calcState.targetMe === "23.0") {
+        setCalcState({ targetMe: parseFloat(settings.targetMePercent).toFixed(1) });
+      }
+      if (!calcState.laborPercent) {
+        setCalcState({ laborPercent: settings.laborPercent || "" });
+      }
+      setHasInitialized(true);
     }
-  }, [settings]);
+  }, [settings, hasInitialized, calcState.targetMe, calcState.laborPercent, setCalcState]);
 
   // Save Dialog State
   const [isSaveOpen, setIsSaveOpen] = useState(false);
   const [quoteTitle, setQuoteTitle] = useState("");
-  
-  // Round up toggle
-  const [roundUp, setRoundUp] = useState(false);
 
   // Derived Values
   const matVal = parseFloat(materials) || 0;
@@ -209,17 +218,11 @@ export default function Calculator() {
   };
 
   const resetInputs = () => {
-    setMaterials("");
-    setEquipment("");
-    setLaborHours("");
-    setDiscount("");
-    setDiscountMode("dollar");
-    setSubcontractor("");
-    setCrane("");
-    setPermit("");
     if (settings) {
-      setTargetMe(parseFloat(settings.targetMePercent).toFixed(1));
-      setLaborPercent(settings.laborPercent || "");
+      resetState({
+        targetMe: parseFloat(settings.targetMePercent).toFixed(1),
+        laborPercent: settings.laborPercent || "",
+      });
     }
   };
 
