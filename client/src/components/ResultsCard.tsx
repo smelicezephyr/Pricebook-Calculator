@@ -79,16 +79,16 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
   };
 
   return (
-    <div className="space-y-6">
-      {/* Primary Result */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-primary text-primary-foreground rounded-2xl p-6 shadow-xl shadow-primary/20 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <DollarSign size={120} />
+    <div className="space-y-4">
+      {/* Primary Result - Two Cards Side by Side */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="md:col-span-3 bg-primary text-primary-foreground rounded-xl p-5 shadow-xl shadow-primary/20 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+            <DollarSign size={100} />
           </div>
           <div className="relative z-10">
-            <p className="text-primary-foreground/80 font-medium mb-1">Total Price</p>
-            <h2 className="text-4xl font-display font-bold tracking-tight">
+            <p className="text-primary-foreground/80 font-medium text-sm mb-1">Total Price</p>
+            <h2 className="text-5xl font-display font-bold tracking-tight">
               {formatCurrency(price)}
             </h2>
             {discount > 0 && (
@@ -96,7 +96,7 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
                 Includes discount of {formatCurrency(discount)}
               </p>
             )}
-            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-primary-foreground/20">
+            <div className="flex items-center gap-2 mt-4 pt-3 border-t border-primary-foreground/20">
               <Switch
                 id="round-up-toggle"
                 checked={roundUp}
@@ -114,16 +114,16 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
           </div>
         </div>
 
-        <div className="bg-card border border-border rounded-2xl p-6 shadow-lg shadow-black/5 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 text-emerald-500 opacity-5 group-hover:opacity-10 transition-opacity">
-            <Users size={120} />
+        <div className="md:col-span-2 bg-card border border-border rounded-xl p-5 shadow-lg shadow-black/5 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-3 text-emerald-500 opacity-5 group-hover:opacity-10 transition-opacity">
+            <Users size={80} />
           </div>
           <div className="relative z-10">
-            <p className="text-muted-foreground font-medium mb-1">Estimated Labor Field</p>
+            <p className="text-muted-foreground font-medium text-sm mb-1">Estimated Labor Field</p>
             <h2 className="text-4xl font-display font-bold tracking-tight text-emerald-600">
               {formatCurrency(estimatedLabor)}
             </h2>
-            <p className="text-[10px] text-muted-foreground mt-2 italic leading-tight">
+            <p className="text-[10px] text-muted-foreground mt-3 italic leading-tight">
               * This is for the estimated labor field of the service in ServiceTitan
             </p>
           </div>
@@ -131,65 +131,65 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-4 border border-border shadow-sm">
-          <p className="text-xs text-muted-foreground uppercase font-bold mb-1">Gross Margin</p>
-          <p className="text-xl font-bold text-foreground">{formatPercent(metrics.grossMarginPercent)}</p>
-          <p className="text-xs text-muted-foreground mt-1">{formatCurrency(metrics.grossMarginAmount)}</p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
+          <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Gross Margin</p>
+          <p className="text-lg font-bold text-foreground">{formatPercent(metrics.grossMarginPercent)}</p>
+          <p className="text-xs text-muted-foreground">{formatCurrency(metrics.grossMarginAmount)}</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-border shadow-sm">
-          <p className="text-xs text-muted-foreground uppercase font-bold mb-1">M&E Percent</p>
-          <p className="text-xl font-bold text-foreground">{formatPercent(metrics.mePercent)}</p>
+        <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
+          <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">M&E Percent</p>
+          <p className="text-lg font-bold text-foreground">{formatPercent(metrics.mePercent)}</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-border shadow-sm">
-          <p className="text-xs text-muted-foreground uppercase font-bold mb-1">Direct Labor</p>
-          <p className="text-xl font-bold text-foreground">{formatCurrency(directLaborCost)}</p>
+        <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
+          <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Direct Labor</p>
+          <p className="text-lg font-bold text-foreground">{formatCurrency(directLaborCost)}</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-border shadow-sm">
-          <p className="text-xs text-muted-foreground uppercase font-bold mb-1">Other COGS</p>
-          <p className="text-xl font-bold text-foreground">{formatCurrency(totalOtherCogs)}</p>
+        <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
+          <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Other COGS</p>
+          <p className="text-lg font-bold text-foreground">{formatCurrency(totalOtherCogs)}</p>
         </div>
       </div>
 
       {/* Chart & Detailed Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Breakdown List */}
-        <div className="lg:col-span-2 bg-card rounded-2xl border border-border p-6 shadow-sm">
-          <div className="mb-4">
-            <h3 className="font-display font-bold text-lg flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-primary" /> Cost Breakdown
+        <div className="lg:col-span-2 bg-card rounded-xl border border-border p-4 shadow-sm">
+          <div className="mb-3">
+            <h3 className="font-display font-bold text-base flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-primary" /> Cost Breakdown
             </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Note: Labor and Commission include burdens</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Note: Labor and Commission include burdens</p>
           </div>
           
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* M&E Group */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">M&E (Includes Tax)</h4>
+            <div className="space-y-1.5">
+              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">M&E (Includes Tax)</h4>
               <div className="space-y-1">
-                <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50/50 border border-blue-100/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full bg-blue-500" />
-                    <span className="text-sm font-semibold text-blue-900">Total M&E</span>
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/30">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                    <span className="text-sm font-semibold text-blue-900 dark:text-blue-300">Total M&E</span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground font-medium">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground font-medium">
                       ({formatPercent(price > 0 ? (mAndECost / price) * 100 : 0)})
                     </span>
-                    <span className="font-mono font-medium text-blue-700">
+                    <span className="font-mono text-sm font-medium text-blue-700 dark:text-blue-400">
                       {formatCurrency(mAndECost)}
                     </span>
                   </div>
                 </div>
                 
                 {/* M&E Breakdown Sub-items */}
-                <div className="ml-6 space-y-1 pt-1 border-l-2 border-blue-100/50 pl-4">
+                <div className="ml-5 space-y-0.5 pt-1 border-l-2 border-blue-100/50 dark:border-blue-900/30 pl-3">
                   {[
                     { label: "Materials", value: breakdown.materials },
                     { label: "Equipment", value: breakdown.equipment },
                     { label: `Sales Tax (${salesTaxRate || "6.35"}%)`, value: breakdown.tax },
                   ].map((sub) => (
-                    <div key={sub.label} className="flex justify-between items-center py-1">
+                    <div key={sub.label} className="flex justify-between items-center py-0.5">
                       <span className="text-xs text-muted-foreground">{sub.label}</span>
                       <span className="text-xs font-mono text-muted-foreground">{formatCurrency(sub.value)}</span>
                     </div>
@@ -199,25 +199,25 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
             </div>
 
             {/* Direct Labor Group */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Direct Labor</h4>
+            <div className="space-y-1.5">
+              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">Direct Labor</h4>
               <div className="space-y-1">
                 {[
                   { label: "Burdened Labor", value: breakdown.laborCost, color: "bg-emerald-500", highlight: true },
                   { label: "Burdened Commission", value: breakdown.commission, color: "bg-amber-500" },
                 ].map((item) => (
-                  <div key={item.label} className={`flex items-center justify-between p-3 rounded-lg ${item.highlight ? 'bg-emerald-50 border border-emerald-100' : 'hover:bg-muted/50'}`}>
-                    <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${item.color}`} />
-                      <span className={`text-sm ${item.highlight ? 'font-semibold text-emerald-900' : 'text-foreground'}`}>
+                  <div key={item.label} className={`flex items-center justify-between p-2.5 rounded-lg ${item.highlight ? 'bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30' : 'hover:bg-muted/50'}`}>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2.5 h-2.5 rounded-full ${item.color}`} />
+                      <span className={`text-sm ${item.highlight ? 'font-semibold text-emerald-900 dark:text-emerald-300' : 'text-foreground'}`}>
                         {item.label}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground font-medium">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground font-medium">
                         ({formatPercent(price > 0 ? (item.value / price) * 100 : 0)})
                       </span>
-                      <span className={`font-mono font-medium ${item.highlight ? 'text-emerald-700' : 'text-muted-foreground'}`}>
+                      <span className={`font-mono text-sm font-medium ${item.highlight ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'}`}>
                         {formatCurrency(item.value)}
                       </span>
                     </div>
@@ -227,8 +227,8 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
             </div>
 
             {/* Other COGS Group */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Other COGS</h4>
+            <div className="space-y-1.5">
+              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">Other COGS</h4>
               <div className="space-y-1">
                 {[
                   { label: "Financing Fees", value: breakdown.financing, color: "bg-violet-500" },
@@ -236,16 +236,16 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
                   { label: "Crane", value: breakdown.crane, color: "bg-pink-400" },
                   { label: "Permit", value: breakdown.permit, color: "bg-cyan-400" },
                 ].map((item) => (
-                  <div key={item.label} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${item.color}`} />
+                  <div key={item.label} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-muted/50">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2.5 h-2.5 rounded-full ${item.color}`} />
                       <span className="text-sm text-foreground">{item.label}</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground font-medium">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground font-medium">
                         ({formatPercent(price > 0 ? ((item.value || 0) / price) * 100 : 0)})
                       </span>
-                      <span className="font-mono font-medium text-muted-foreground">
+                      <span className="font-mono text-sm font-medium text-muted-foreground">
                         {formatCurrency(item.value || 0)}
                       </span>
                     </div>
@@ -257,17 +257,17 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
         </div>
 
         {/* Pie Chart */}
-        <div className="bg-card rounded-2xl border border-border p-6 shadow-sm flex flex-col items-center justify-center min-h-[300px]">
-          <h3 className="font-display font-bold text-lg mb-2 text-center w-full">Distribution</h3>
-          <div className="w-full h-[220px] flex items-center justify-center">
+        <div className="bg-card rounded-xl border border-border p-4 shadow-sm flex flex-col items-center justify-start">
+          <h3 className="font-display font-bold text-base mb-2 text-center w-full">Distribution</h3>
+          <div className="w-full h-[180px] flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+              <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
                 <Pie
                   data={chartData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={40}
-                  outerRadius={65}
+                  innerRadius={35}
+                  outerRadius={60}
                   paddingAngle={3}
                   dataKey="value"
                   label={renderCustomLabel}
@@ -293,11 +293,11 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex flex-wrap justify-center gap-3 text-xs mt-2">
+          <div className="flex flex-wrap justify-center gap-2 text-[10px] mt-2">
             {chartData.map(d => (
-              <div key={d.name} className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
-                <span className="text-muted-foreground font-medium">{d.name}: {d.percent.toFixed(2)}%</span>
+              <div key={d.name} className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }} />
+                <span className="text-muted-foreground font-medium">{d.name}: {d.percent.toFixed(1)}%</span>
               </div>
             ))}
           </div>

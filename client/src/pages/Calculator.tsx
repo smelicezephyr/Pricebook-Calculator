@@ -344,9 +344,9 @@ export default function Calculator() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Input Column */}
-        <div className="lg:col-span-4 space-y-3">
+        <div className="lg:col-span-3 space-y-3">
           {/* Job Costs Section */}
           <div className="bg-card rounded-xl p-4 shadow-sm border border-border">
             <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
@@ -539,8 +539,8 @@ export default function Calculator() {
         </div>
 
         {/* Results Column */}
-        <div className="lg:col-span-8" ref={resultsRef}>
-          <div className="space-y-6 bg-background p-4 rounded-2xl">
+        <div className="lg:col-span-9" ref={resultsRef}>
+          <div className="space-y-4 bg-background p-3 rounded-xl">
             <ResultsCard
               price={results.price}
               estimatedLabor={results.estimatedLabor}
