@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertSettingsSchema, insertQuoteSchema, insertTenantSchema, settings, quotes, tenants } from './schema';
+import { insertSettingsSchema, insertQuoteSchema, insertTenantSchema, updateTenantSchema, settings, quotes, tenants } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -87,7 +87,7 @@ export const api = {
     update: {
       method: 'PUT' as const,
       path: '/api/tenants/:id',
-      input: insertTenantSchema.partial(),
+      input: updateTenantSchema,
       responses: {
         200: z.custom<typeof tenants.$inferSelect>(),
         400: errorSchemas.validation,

@@ -126,13 +126,9 @@ export class ServiceTitanAPI {
     return response.json();
   }
 
-  async testConnection(): Promise<boolean> {
-    try {
-      await this.getAccessToken();
-      return true;
-    } catch {
-      return false;
-    }
+  async testConnection(): Promise<void> {
+    // This will throw with a detailed error if authentication fails
+    await this.getAccessToken();
   }
 
   async getCategories(): Promise<PricebookCategory[]> {

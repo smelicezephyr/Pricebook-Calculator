@@ -71,6 +71,17 @@ export const insertTenantSchema = createInsertSchema(tenants).omit({
   updatedAt: true,
 });
 
+// Update schema makes credentials optional (keep existing if not provided)
+export const updateTenantSchema = createInsertSchema(tenants).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).partial({
+  clientId: true,
+  clientSecret: true,
+  appKey: true,
+});
+
 export type Settings = typeof settings.$inferSelect;
 export type InsertSettings = z.infer<typeof insertSettingsSchema>;
 export type Quote = typeof quotes.$inferSelect;

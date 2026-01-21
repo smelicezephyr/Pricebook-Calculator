@@ -118,7 +118,14 @@ export async function registerRoutes(
     }
     try {
       const input = api.tenants.update.input.parse(req.body);
-      const tenant = await storage.updateTenant(id, input);
+      
+      // If credentials are empty strings, remove them to preserve existing
+      const updateData: Record<string, any> = { ...input };
+      if (updateData.clientId === '') delete updateData.clientId;
+      if (updateData.clientSecret === '') delete updateData.clientSecret;
+      if (updateData.appKey === '') delete updateData.appKey;
+      
+      const tenant = await storage.updateTenant(id, updateData);
       if (!tenant) {
         return res.status(404).json({ message: "Tenant not found" });
       }
@@ -142,22 +149,44 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // Get full tenant data (unmasked) for editing - only for password-protected section
+  app.get("/api/tenants/:id/full", async (req, res) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid ID" });
+    }
+    const tenant = await storage.getTenant(id);
+    if (!tenant) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+    // Return full unmasked data since this is in a password-protected section
+    res.json(tenant);
+  });
+
   // ServiceTitan API Routes
   app.post("/api/servicetitan/:tenantId/test", async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     if (isNaN(tenantId)) {
-      return res.status(400).json({ message: "Invalid tenant ID" });
+      return res.status(400).json({ success: false, message: "Invalid tenant ID" });
     }
     const tenant = await storage.getTenant(tenantId);
     if (!tenant) {
-      return res.status(404).json({ message: "Tenant not found" });
+      return res.status(404).json({ success: false, message: "Tenant not found" });
     }
     try {
-      const api = new ServiceTitanAPI(tenant);
-      const success = await api.testConnection();
-      res.json({ success });
+      const stApi = new ServiceTitanAPI(tenant);
+      await stApi.testConnection();
+      // Also try to fetch categories to verify full API access
+      const categories = await stApi.getCategories();
+      res.json({ 
+        success: true, 
+        message: `Connected successfully! Found ${categories.length} categories.`
+      });
     } catch (err: any) {
-      res.status(500).json({ success: false, message: err.message });
+      res.json({ 
+        success: false, 
+        message: err.message || "Failed to connect to ServiceTitan"
+      });
     }
   });
 
