@@ -6,7 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ArrowLeft, RefreshCw } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ArrowLeft, RefreshCw, Percent, Clock, DollarSign } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
@@ -29,6 +32,26 @@ export default function PushToServiceTitan() {
   const [selectedCategories, setSelectedCategories] = useState<Set<number>>(new Set());
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
+
+  // Local pricing settings (initialized from global settings)
+  const [targetMePercent, setTargetMePercent] = useState<string>("23.00");
+  const [salesTaxPercent, setSalesTaxPercent] = useState<string>("6.35");
+  const [laborMode, setLaborMode] = useState<"hours" | "percent">("percent");
+  const [laborHourlyRate, setLaborHourlyRate] = useState<string>("125.00");
+  const [laborPercent, setLaborPercent] = useState<string>("7.00");
+  const [laborBurdenPercent, setLaborBurdenPercent] = useState<string>("20.00");
+
+  // Initialize local settings from global settings when they load
+  useEffect(() => {
+    if (settings) {
+      setTargetMePercent(settings.targetMePercent);
+      setSalesTaxPercent(settings.salesTaxPercent);
+      setLaborMode(settings.laborMode as "hours" | "percent");
+      setLaborHourlyRate(settings.laborHourlyRate);
+      setLaborPercent(settings.laborPercent);
+      setLaborBurdenPercent(settings.laborBurdenPercent);
+    }
+  }, [settings]);
 
   const { testConnection, isTesting } = useServiceTitan(selectedTenantId);
 
@@ -98,7 +121,7 @@ export default function PushToServiceTitan() {
   };
 
   const handlePush = async () => {
-    if (!selectedTenantId || selectedCategories.size === 0 || !settings) return;
+    if (!selectedTenantId || selectedCategories.size === 0) return;
     
     setIsPushing(true);
     try {
@@ -112,7 +135,12 @@ export default function PushToServiceTitan() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           categoryIds: Array.from(selectedCategories),
-          targetMePercent: parseFloat(settings.targetMePercent),
+          targetMePercent: parseFloat(targetMePercent),
+          salesTaxPercent: parseFloat(salesTaxPercent),
+          laborMode,
+          laborHourlyRate: parseFloat(laborHourlyRate),
+          laborPercent: parseFloat(laborPercent),
+          laborBurdenPercent: parseFloat(laborBurdenPercent),
         }),
       });
       
@@ -188,6 +216,7 @@ export default function PushToServiceTitan() {
         </Card>
       ) : (
         <div className="space-y-6">
+          {/* Section 1: Select Tenant */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">1. Select Tenant</CardTitle>
@@ -235,6 +264,7 @@ export default function PushToServiceTitan() {
 
           {connectionStatus === 'connected' && (
             <>
+              {/* Section 2: Select Categories */}
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -242,11 +272,6 @@ export default function PushToServiceTitan() {
                       <CardTitle className="text-lg">2. Select Categories</CardTitle>
                       <CardDescription>
                         Choose which pricebook categories to apply the M&E calculation
-                        {settings && (
-                          <Badge variant="secondary" className="ml-2">
-                            Target M&E: {settings.targetMePercent}%
-                          </Badge>
-                        )}
                       </CardDescription>
                     </div>
                     <div className="flex gap-2">
@@ -347,9 +372,168 @@ export default function PushToServiceTitan() {
                 </CardContent>
               </Card>
 
+              {/* Section 3: Pricing Settings */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">3. Push Updates</CardTitle>
+                  <CardTitle className="text-lg">3. Pricing Settings</CardTitle>
+                  <CardDescription>
+                    Configure the pricing calculations for this push (defaults from your global settings)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Target M&E and Sales Tax Row */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="targetMePercent" className="flex items-center gap-2">
+                        <Percent className="w-4 h-4 text-primary" />
+                        Target M&E %
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="targetMePercent"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={targetMePercent}
+                          onChange={(e) => setTargetMePercent(e.target.value)}
+                          className="pr-8"
+                          data-testid="input-target-me-percent"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Materials & Equipment as a percentage of total price
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="salesTaxPercent" className="flex items-center gap-2">
+                        <DollarSign className="w-4 h-4 text-primary" />
+                        Sales Tax %
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="salesTaxPercent"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={salesTaxPercent}
+                          onChange={(e) => setSalesTaxPercent(e.target.value)}
+                          className="pr-8"
+                          data-testid="input-sales-tax-percent"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Tax rate applied to the total price
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Labor Settings */}
+                  <div className="space-y-4 pt-4 border-t">
+                    <Label className="flex items-center gap-2 text-base font-medium">
+                      <Clock className="w-4 h-4 text-primary" />
+                      Labor Calculation
+                    </Label>
+                    
+                    <RadioGroup
+                      value={laborMode}
+                      onValueChange={(value) => setLaborMode(value as "hours" | "percent")}
+                      className="flex gap-6"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="percent" id="labor-percent" data-testid="radio-labor-percent" />
+                        <Label htmlFor="labor-percent" className="cursor-pointer">Percentage of Price</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="hours" id="labor-hours" data-testid="radio-labor-hours" />
+                        <Label htmlFor="labor-hours" className="cursor-pointer">Hourly Rate</Label>
+                      </div>
+                    </RadioGroup>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
+                      {laborMode === "percent" ? (
+                        <div className="space-y-2">
+                          <Label htmlFor="laborPercent">Labor %</Label>
+                          <div className="relative">
+                            <Input
+                              id="laborPercent"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              value={laborPercent}
+                              onChange={(e) => setLaborPercent(e.target.value)}
+                              className="pr-8"
+                              data-testid="input-labor-percent"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Label htmlFor="laborHourlyRate">Hourly Rate</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                            <Input
+                              id="laborHourlyRate"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={laborHourlyRate}
+                              onChange={(e) => setLaborHourlyRate(e.target.value)}
+                              className="pl-8"
+                              data-testid="input-labor-hourly-rate"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <Label htmlFor="laborBurdenPercent">Labor Burden %</Label>
+                        <div className="relative">
+                          <Input
+                            id="laborBurdenPercent"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            value={laborBurdenPercent}
+                            onChange={(e) => setLaborBurdenPercent(e.target.value)}
+                            className="pr-8"
+                            data-testid="input-labor-burden-percent"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Summary Badge */}
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <Badge variant="secondary" className="text-xs">
+                      Target M&E: {targetMePercent}%
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      Sales Tax: {salesTaxPercent}%
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      Labor: {laborMode === "percent" ? `${laborPercent}%` : `$${laborHourlyRate}/hr`}
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      Burden: {laborBurdenPercent}%
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Section 4: Push Updates */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">4. Push Updates</CardTitle>
                   <CardDescription>
                     Apply the M&E percentage calculation to all items in the selected categories
                   </CardDescription>
