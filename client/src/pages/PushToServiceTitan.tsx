@@ -453,7 +453,7 @@ export default function PushToServiceTitan() {
                         data-testid="select-target-me-percent"
                         className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-medium ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {Array.from({ length: 21 }, (_, i) => (20 + i * 0.5).toFixed(1)).map((opt) => (
+                        {Array.from({ length: 17 }, (_, i) => (20 + i * 0.5).toFixed(1)).map((opt) => (
                           <option key={opt} value={opt}>
                             {opt}%
                           </option>
