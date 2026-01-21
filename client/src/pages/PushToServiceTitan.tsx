@@ -399,20 +399,19 @@ export default function PushToServiceTitan() {
                         <Percent className="w-4 h-4 text-primary" />
                         Target M&E %
                       </Label>
-                      <div className="relative">
-                        <Input
-                          id="targetMePercent"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="100"
-                          value={targetMePercent}
-                          onChange={(e) => setTargetMePercent(e.target.value)}
-                          className="pr-8"
-                          data-testid="input-target-me-percent"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
-                      </div>
+                      <select
+                        id="targetMePercent"
+                        value={targetMePercent}
+                        onChange={(e) => setTargetMePercent(e.target.value)}
+                        data-testid="select-target-me-percent"
+                        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-medium ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {Array.from({ length: 11 }, (_, i) => (20 + i * 0.5).toFixed(1)).map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}%
+                          </option>
+                        ))}
+                      </select>
                       <p className="text-xs text-muted-foreground">
                         Materials & Equipment as a percentage of total price
                       </p>
