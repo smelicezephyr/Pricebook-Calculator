@@ -28,7 +28,10 @@ Preferred communication style: Simple, everyday language.
 ### Data Storage
 - **Database**: PostgreSQL
 - **ORM**: Drizzle ORM with drizzle-zod for schema validation
-- **Schema**: Two main tables - `settings` (calculator configuration) and `quotes` (saved calculations)
+- **Schema**: Three main tables:
+  - `settings` - Calculator configuration (singleton pattern)
+  - `quotes` - Saved calculation snapshots
+  - `tenants` - ServiceTitan API credentials for multi-tenant support
 
 ### Project Structure
 ```
@@ -57,6 +60,12 @@ shared/           # Shared code between client/server
 
 4. **Path Aliases**: TypeScript paths configured for clean imports (`@/` for client, `@shared/` for shared code).
 
+5. **ServiceTitan Integration**: Multi-tenant support for pushing M&E calculations to ServiceTitan pricebooks.
+   - Tenants store encrypted OAuth credentials (clientId, clientSecret, appKey)
+   - Credentials are masked in API responses (never exposed to frontend)
+   - OAuth tokens cached for 15 minutes per tenant
+   - Push endpoint calculates price = meCost / (targetMePercent / 100) for each service
+
 ## External Dependencies
 
 ### Database
@@ -76,3 +85,11 @@ shared/           # Shared code between client/server
 ### Key Environment Variables
 - `DATABASE_URL`: PostgreSQL connection string (required)
 - `NODE_ENV`: development/production mode
+
+## Recent Changes
+
+### ServiceTitan Multi-Tenant Integration (January 2026)
+- Added tenant management for multiple ServiceTitan accounts
+- Created Push to ServiceTitan page with category selection
+- Implemented M&E percentage calculation push functionality
+- Security: Tenant credentials masked in all API responses
