@@ -132,10 +132,30 @@ export class ServiceTitanAPI {
   }
 
   async getCategories(): Promise<PricebookCategory[]> {
-    const response = await this.request<{ data: PricebookCategory[] }>(
-      `/pricebook/v2/tenant/${this.tenant.tenantId}/categories?pageSize=500`
-    );
-    return response.data;
+    const allCategories: PricebookCategory[] = [];
+    let page = 1;
+    let hasMore = true;
+    
+    while (hasMore) {
+      const response = await this.request<{ 
+        data: PricebookCategory[]; 
+        page: number;
+        pageSize: number;
+        totalCount: number;
+        hasMore: boolean;
+      }>(
+        `/pricebook/v2/tenant/${this.tenant.tenantId}/categories?pageSize=500&page=${page}`
+      );
+      
+      allCategories.push(...response.data);
+      hasMore = response.hasMore;
+      page++;
+      
+      // Safety limit to prevent infinite loops
+      if (page > 20) break;
+    }
+    
+    return allCategories;
   }
 
   async getServices(categoryId?: number): Promise<PricebookService[]> {
