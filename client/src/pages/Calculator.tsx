@@ -92,9 +92,14 @@ export default function Calculator() {
     const totalOtherCogs = subVal + craneVal + permitVal;
     const discountInput = parseFloat(discount) || 0;
     
-    // Calculate discount based on mode: dollar or percent of M&E
+    // Calculate discount based on mode: dollar or percent of total price
+    // For percent mode, we need to solve: finalPrice = basePrice + otherCogs - (finalPrice * discountPercent/100)
+    // Rearranging: finalPrice * (1 + discountPercent/100) = basePrice + otherCogs
+    // finalPrice = (basePrice + otherCogs) / (1 + discountPercent/100)
+    // discountVal = (basePrice + otherCogs) - finalPrice
+    const priceBeforeDiscount = basePrice + totalOtherCogs;
     const discountVal = discountMode === 'percent' 
-      ? (totalMe * discountInput / 100) 
+      ? priceBeforeDiscount * discountInput / 100
       : discountInput;
     
     // Price = basePrice + otherCogs - discount
@@ -241,13 +246,28 @@ export default function Calculator() {
   const calculateDiscountDollar = () => {
     const discountInput = parseFloat(discount) || 0;
     if (discountMode === 'percent') {
+      // Calculate the price before discount to get the percent discount amount
       const salesTaxRate = parseFloat(settings.salesTaxPercent) / 100;
       const totalMe = matVal + equipVal + (matVal + equipVal) * salesTaxRate;
-      return totalMe * discountInput / 100;
+      const targetMeRate = (parseFloat(targetMe) || 0) / 100;
+      const basePrice = targetMeRate > 0 ? totalMe / targetMeRate : 0;
+      const totalOtherCogs = subVal + craneVal + permitVal;
+      const priceBeforeDiscount = basePrice + totalOtherCogs;
+      return priceBeforeDiscount * discountInput / 100;
     }
     return discountInput;
   };
   const discountDollarValue = calculateDiscountDollar();
+  
+  // Calculate price before discount for helper text
+  const getPriceBeforeDiscount = () => {
+    const salesTaxRate = parseFloat(settings.salesTaxPercent) / 100;
+    const totalMe = matVal + equipVal + (matVal + equipVal) * salesTaxRate;
+    const targetMeRate = (parseFloat(targetMe) || 0) / 100;
+    const basePrice = targetMeRate > 0 ? totalMe / targetMeRate : 0;
+    const totalOtherCogs = subVal + craneVal + permitVal;
+    return basePrice + totalOtherCogs;
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
@@ -326,15 +346,15 @@ export default function Calculator() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Input Column */}
-        <div className="lg:col-span-4 space-y-4">
+        <div className="lg:col-span-4 space-y-3">
           {/* Job Costs Section */}
-          <div className="bg-card rounded-2xl p-5 shadow-sm border border-border">
-            <div className="flex items-center gap-3 mb-5 pb-3 border-b border-border">
-              <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-sm font-bold">1</span>
-              <h2 className="font-display font-semibold text-lg">Job Costs</h2>
+          <div className="bg-card rounded-xl p-4 shadow-sm border border-border">
+            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
+              <span className="w-6 h-6 rounded-md bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">1</span>
+              <h2 className="font-display font-semibold text-base">Job Costs</h2>
             </div>
 
-            <div className="space-y-5">
+            <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                   Target M&E %
@@ -371,10 +391,10 @@ export default function Calculator() {
           </div>
 
           {/* Labor Section */}
-          <div className="bg-card rounded-2xl p-5 shadow-sm border border-border">
-            <div className="flex items-center gap-3 mb-5 pb-3 border-b border-border">
-              <span className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center text-sm font-bold">2</span>
-              <h2 className="font-display font-semibold text-lg">Labor</h2>
+          <div className="bg-card rounded-xl p-4 shadow-sm border border-border">
+            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
+              <span className="w-6 h-6 rounded-md bg-blue-500/10 text-blue-600 flex items-center justify-center text-xs font-bold">2</span>
+              <h2 className="font-display font-semibold text-base">Labor</h2>
             </div>
 
             {(settings.laborMode || 'percent') === 'hours' ? (
@@ -414,13 +434,13 @@ export default function Calculator() {
           </div>
 
           {/* Other COGS Section */}
-          <div className="bg-card rounded-2xl p-5 shadow-sm border border-border">
-            <div className="flex items-center gap-3 mb-5 pb-3 border-b border-border">
-              <span className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center text-sm font-bold">3</span>
-              <h2 className="font-display font-semibold text-lg">Other COGS</h2>
+          <div className="bg-card rounded-xl p-4 shadow-sm border border-border">
+            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
+              <span className="w-6 h-6 rounded-md bg-amber-500/10 text-amber-600 flex items-center justify-center text-xs font-bold">3</span>
+              <h2 className="font-display font-semibold text-base">Other COGS</h2>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <InputMoney
                 label="Subcontractor"
                 placeholder="0.00"
@@ -446,13 +466,13 @@ export default function Calculator() {
           </div>
 
           {/* Discounts Section */}
-          <div className="bg-card rounded-2xl p-5 shadow-sm border border-border">
-            <div className="flex items-center gap-3 mb-5 pb-3 border-b border-border">
-              <span className="w-8 h-8 rounded-lg bg-red-500/10 text-red-600 flex items-center justify-center text-sm font-bold">4</span>
-              <h2 className="font-display font-semibold text-lg">Discounts</h2>
+          <div className="bg-card rounded-xl p-4 shadow-sm border border-border">
+            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
+              <span className="w-6 h-6 rounded-md bg-red-500/10 text-red-600 flex items-center justify-center text-xs font-bold">4</span>
+              <h2 className="font-display font-semibold text-base">Discounts</h2>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex gap-1 p-1 bg-muted rounded-lg">
                 <button
                   type="button"
@@ -476,7 +496,7 @@ export default function Calculator() {
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  % of M&E
+                  % of Total
                 </button>
               </div>
 
@@ -509,7 +529,7 @@ export default function Calculator() {
                   </div>
                   {parseFloat(discount) > 0 && (
                     <p className="text-xs text-muted-foreground">
-                      = {formatCurrency((matVal + equipVal + (matVal + equipVal) * parseFloat(settings.salesTaxPercent) / 100) * parseFloat(discount) / 100)} off M&E total
+                      = {formatCurrency(discountDollarValue)} off {formatCurrency(getPriceBeforeDiscount())} total
                     </p>
                   )}
                 </div>
