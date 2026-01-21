@@ -11,6 +11,7 @@ export const tenants = pgTable("tenants", {
   clientSecret: text("client_secret").notNull(),
   appKey: text("app_key").notNull(),
   isActive: boolean("is_active").notNull().default(true),
+  sortOrder: serial("sort_order"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

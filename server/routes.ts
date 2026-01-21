@@ -149,6 +149,20 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // Reorder tenants
+  app.post("/api/tenants/reorder", async (req, res) => {
+    const { orderedIds } = req.body;
+    if (!Array.isArray(orderedIds)) {
+      return res.status(400).json({ message: "orderedIds must be an array" });
+    }
+    try {
+      await storage.reorderTenants(orderedIds);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // Get full tenant data (unmasked) for editing - only for password-protected section
   app.get("/api/tenants/:id/full", async (req, res) => {
     const id = Number(req.params.id);
