@@ -48,11 +48,11 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
     const minMargin = grossMarginMinPercent;
     
     if (currentMargin >= minMargin) {
-      return { status: 'strong', label: 'Margin Health: Strong', color: 'bg-emerald-500', textColor: 'text-emerald-500' };
+      return { status: 'strong', label: 'Margin Health: Strong', color: 'bg-emerald-500', glow: '0 0 8px 2px rgba(16, 185, 129, 0.6)' };
     } else if (currentMargin >= minMargin - 1) {
-      return { status: 'caution', label: 'Margin Health: Caution', color: 'bg-amber-500', textColor: 'text-amber-500' };
+      return { status: 'caution', label: 'Margin Health: Caution', color: 'bg-amber-500', glow: '0 0 8px 2px rgba(245, 158, 11, 0.6)' };
     } else {
-      return { status: 'danger', label: 'Margin Health: Low', color: 'bg-red-500', textColor: 'text-red-500' };
+      return { status: 'danger', label: 'Margin Health: Low', color: 'bg-red-500', glow: '0 0 8px 2px rgba(239, 68, 68, 0.6)' };
     }
   };
   
@@ -108,10 +108,10 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-sm font-medium text-primary-foreground/90">{marginHealth.label}</span>
               </div>
-              <div className="h-1.5 w-1/2 bg-primary-foreground/20 rounded-full overflow-hidden">
+              <div className="h-1.5 w-1/2 bg-primary-foreground/20 rounded-full overflow-visible">
                 <div 
                   className={`h-full rounded-full transition-all duration-300 ${marginHealth.color}`}
-                  style={{ width: '100%' }}
+                  style={{ width: '100%', boxShadow: marginHealth.glow }}
                 />
               </div>
             </div>
