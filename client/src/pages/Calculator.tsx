@@ -344,9 +344,9 @@ export default function Calculator() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* Input Column */}
-        <div className="lg:col-span-3 space-y-3">
+        <div className="lg:col-span-3 flex flex-col gap-3">
           {/* Job Costs Section */}
           <div className="bg-card rounded-xl p-4 shadow-sm border border-border">
             <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
@@ -465,8 +465,8 @@ export default function Calculator() {
             </div>
           </div>
 
-          {/* Discounts Section */}
-          <div className="bg-card rounded-xl p-4 shadow-sm border border-border">
+          {/* Discounts Section - flex-1 to fill remaining space */}
+          <div className="bg-card rounded-xl p-4 shadow-sm border border-border flex-1">
             <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
               <span className="w-6 h-6 rounded-md bg-red-500/10 text-red-600 flex items-center justify-center text-xs font-bold">4</span>
               <h2 className="font-display font-semibold text-base">Discounts</h2>
