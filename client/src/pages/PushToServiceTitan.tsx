@@ -40,8 +40,9 @@ export default function PushToServiceTitan() {
     setSelectedCategories(new Set());
 
     try {
-      const result = await testConnection(id);
-      if (result) {
+      const response = await testConnection(id);
+      const result = await response.json();
+      if (result.success) {
         setConnectionStatus('connected');
         await loadCategories(id);
       } else {
@@ -97,7 +98,7 @@ export default function PushToServiceTitan() {
   };
 
   const handlePush = async () => {
-    if (!selectedTenantId || selectedCategories.size === 0) return;
+    if (!selectedTenantId || selectedCategories.size === 0 || !settings) return;
     
     setIsPushing(true);
     try {
@@ -106,16 +107,37 @@ export default function PushToServiceTitan() {
         description: `Pushing M&E calculations to ${selectedCategories.size} categories...`,
       });
       
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      toast({
-        title: "Push Complete",
-        description: `Successfully updated pricing for ${selectedCategories.size} categories.`,
+      const response = await fetch(`/api/servicetitan/${selectedTenantId}/push`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          categoryIds: Array.from(selectedCategories),
+          targetMePercent: parseFloat(settings.targetMePercent),
+        }),
       });
-    } catch (err) {
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Push failed");
+      }
+      
+      const results = await response.json();
+      
+      if (results.errors && results.errors.length > 0) {
+        toast({
+          title: "Push Completed with Warnings",
+          description: `Updated ${results.updated} of ${results.processed} services. ${results.errors.length} errors occurred.`,
+        });
+      } else {
+        toast({
+          title: "Push Complete",
+          description: `Successfully updated ${results.updated} of ${results.processed} services.`,
+        });
+      }
+    } catch (err: any) {
       toast({
         title: "Push Failed",
-        description: "An error occurred while pushing to ServiceTitan.",
+        description: err.message || "An error occurred while pushing to ServiceTitan.",
         variant: "destructive",
       });
     } finally {

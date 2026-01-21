@@ -205,5 +205,88 @@ export async function registerRoutes(
     }
   });
 
+  // Push M&E calculations to ServiceTitan
+  app.post("/api/servicetitan/:tenantId/push", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    if (isNaN(tenantId)) {
+      return res.status(400).json({ message: "Invalid tenant ID" });
+    }
+    
+    const { categoryIds, targetMePercent } = req.body;
+    if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
+      return res.status(400).json({ message: "No categories selected" });
+    }
+    if (typeof targetMePercent !== 'number' || targetMePercent <= 0) {
+      return res.status(400).json({ message: "Invalid target M&E percent" });
+    }
+    
+    const tenant = await storage.getTenant(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+    
+    try {
+      const stApi = new ServiceTitanAPI(tenant);
+      const results = {
+        processed: 0,
+        updated: 0,
+        errors: [] as string[],
+      };
+      
+      for (const categoryId of categoryIds) {
+        try {
+          const services = await stApi.getServices(categoryId);
+          
+          for (const service of services) {
+            results.processed++;
+            
+            // Calculate total M&E cost from materials and equipment
+            let totalMeCost = 0;
+            
+            if (service.materials) {
+              for (const mat of service.materials) {
+                totalMeCost += (mat.cost || 0) * (mat.quantity || 1);
+              }
+            }
+            
+            if (service.equipment) {
+              for (const equip of service.equipment) {
+                totalMeCost += (equip.cost || 0) * (equip.quantity || 1);
+              }
+            }
+            
+            // Skip if no M&E cost
+            if (totalMeCost === 0) {
+              continue;
+            }
+            
+            // Calculate new price: M&E cost / (M&E% / 100)
+            // If targetMePercent is 23%, then price = meCost / 0.23
+            const newPrice = totalMeCost / (targetMePercent / 100);
+            
+            // Only update if price changed significantly
+            const currentPrice = service.price || 0;
+            if (Math.abs(newPrice - currentPrice) > 0.01) {
+              try {
+                await stApi.updateService(service.id, { 
+                  price: Math.round(newPrice * 100) / 100 
+                });
+                results.updated++;
+              } catch (updateErr: any) {
+                results.errors.push(`Failed to update service ${service.name}: ${updateErr.message}`);
+              }
+            }
+          }
+        } catch (catErr: any) {
+          results.errors.push(`Failed to process category ${categoryId}: ${catErr.message}`);
+        }
+      }
+      
+      res.json(results);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   return httpServer;
 }
