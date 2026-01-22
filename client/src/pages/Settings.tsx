@@ -29,7 +29,7 @@ export default function Settings() {
       commissionPercent: "10.00",
       commissionBurdenPercent: "20.00",
       financingFeePercent: "6.00",
-      grossMarginMinPercent: "50.00",
+      grossMarginMinPercent: "52.00",
     },
   });
 
