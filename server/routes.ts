@@ -339,6 +339,112 @@ export async function registerRoutes(
     }
   });
 
+  // Diagnostic endpoint: Calculate what push would do for a specific service
+  app.get("/api/servicetitan/:tenantId/calculate-debug/:serviceId", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    const serviceId = Number(req.params.serviceId);
+    if (isNaN(tenantId) || isNaN(serviceId)) {
+      return res.status(400).json({ message: "Invalid ID" });
+    }
+    const tenant = await storage.getTenant(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+    const settings = await storage.getSettings();
+    const targetMePercent = parseFloat(settings.targetMePercent);
+    
+    try {
+      const api = new ServiceTitanAPI(tenant);
+      
+      // Fetch the specific service
+      const service = await api.getServiceById(serviceId);
+      
+      // Fetch all materials and build cost map
+      console.log(`[CalcDebug] Fetching all materials...`);
+      const allMaterials = await api.getMaterials();
+      const materialCostMap = new Map<number, number>();
+      for (const mat of allMaterials) {
+        materialCostMap.set(mat.id, mat.cost || 0);
+      }
+      console.log(`[CalcDebug] Built materials map with ${materialCostMap.size} entries`);
+      
+      // Fetch all equipment and build cost map
+      console.log(`[CalcDebug] Fetching all equipment...`);
+      const allEquipment = await api.getEquipment();
+      const equipmentCostMap = new Map<number, number>();
+      for (const equip of allEquipment) {
+        equipmentCostMap.set(equip.id, equip.cost || 0);
+      }
+      console.log(`[CalcDebug] Built equipment map with ${equipmentCostMap.size} entries`);
+      
+      // Calculate materials cost
+      let materialsCost = 0;
+      const materialsBreakdown: any[] = [];
+      if (service.serviceMaterials && service.serviceMaterials.length > 0) {
+        for (const mat of service.serviceMaterials) {
+          const cost = materialCostMap.get(mat.skuId) || 0;
+          const lineCost = cost * (mat.quantity || 1);
+          materialsCost += lineCost;
+          materialsBreakdown.push({
+            skuId: mat.skuId,
+            quantity: mat.quantity,
+            unitCost: cost,
+            lineCost: lineCost,
+            foundInMap: materialCostMap.has(mat.skuId)
+          });
+        }
+      }
+      
+      // Calculate equipment cost
+      let equipmentCost = 0;
+      const equipmentBreakdown: any[] = [];
+      if (service.serviceEquipment && service.serviceEquipment.length > 0) {
+        for (const equip of service.serviceEquipment) {
+          const cost = equipmentCostMap.get(equip.skuId) || 0;
+          const lineCost = cost * (equip.quantity || 1);
+          equipmentCost += lineCost;
+          equipmentBreakdown.push({
+            skuId: equip.skuId,
+            quantity: equip.quantity,
+            unitCost: cost,
+            lineCost: lineCost,
+            foundInMap: equipmentCostMap.has(equip.skuId)
+          });
+        }
+      }
+      
+      const totalMeCost = materialsCost + equipmentCost;
+      const calculatedPrice = totalMeCost > 0 ? totalMeCost / (targetMePercent / 100) : 0;
+      const roundedPrice = Math.ceil(calculatedPrice);
+      
+      const result = {
+        serviceId: service.id,
+        serviceName: service.displayName,
+        currentPrice: service.price,
+        currentCost: service.cost,
+        targetMePercent,
+        materialsCount: service.serviceMaterials?.length || 0,
+        equipmentCount: service.serviceEquipment?.length || 0,
+        materialsCost: Math.round(materialsCost * 100) / 100,
+        equipmentCost: Math.round(equipmentCost * 100) / 100,
+        totalMeCost: Math.round(totalMeCost * 100) / 100,
+        calculatedPrice: Math.round(calculatedPrice * 100) / 100,
+        roundedPrice,
+        wouldUpdate: totalMeCost > 0 && roundedPrice !== service.price,
+        materialsBreakdown,
+        equipmentBreakdown,
+        materialMapSize: materialCostMap.size,
+        equipmentMapSize: equipmentCostMap.size
+      };
+      
+      console.log(`[CalcDebug] Calculation result:`, JSON.stringify(result, null, 2));
+      res.json(result);
+    } catch (err: any) {
+      console.error(`[CalcDebug] Error:`, err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // SSE endpoint for push progress updates
   app.get("/api/servicetitan/:tenantId/push/progress", (req, res) => {
     const tenantId = Number(req.params.tenantId);
