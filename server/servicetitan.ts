@@ -206,7 +206,8 @@ export class ServiceTitanAPI {
   }
 
   async getServices(categoryId?: number): Promise<PricebookService[]> {
-    let url = `/pricebook/v2/tenant/${this.tenant.tenantId}/services?pageSize=500`;
+    // Request embedded materials and equipment data
+    let url = `/pricebook/v2/tenant/${this.tenant.tenantId}/services?pageSize=500&expand=materials,equipment`;
     if (categoryId) {
       url += `&categoryId=${categoryId}`;
     }
