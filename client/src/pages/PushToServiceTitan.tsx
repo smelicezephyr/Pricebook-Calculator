@@ -280,16 +280,24 @@ export default function PushToServiceTitan() {
       // Update push history with results
       if (historyId) {
         try {
+          // Determine status: cancelled, completed with errors, or completed
+          let finalStatus = 'completed';
+          if (results.cancelled) {
+            finalStatus = 'cancelled';
+          }
+          
           await fetch(`/api/push-history/${historyId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              status: results.errors && results.errors.length > 0 ? 'completed' : 'completed',
+              status: finalStatus,
               completedAt: new Date().toISOString(),
               processedCount: results.processed,
               updatedCount: results.updated,
+              skippedCount: results.skipped || 0,
               errorCount: results.errors?.length || 0,
               errorMessages: results.errors ? JSON.stringify(results.errors) : null,
+              originalValues: results.originalValues || null,
             }),
           });
         } catch (err) {
@@ -297,7 +305,12 @@ export default function PushToServiceTitan() {
         }
       }
       
-      if (results.errors && results.errors.length > 0) {
+      if (results.cancelled) {
+        toast({
+          title: "Push Cancelled",
+          description: `Cancelled after updating ${results.updated} services. You can revert from History.`,
+        });
+      } else if (results.errors && results.errors.length > 0) {
         toast({
           title: "Push Completed with Warnings",
           description: `Updated ${results.updated} of ${results.processed} services. ${results.errors.length} errors occurred.`,
@@ -305,7 +318,7 @@ export default function PushToServiceTitan() {
       } else {
         toast({
           title: "Push Complete",
-          description: `Successfully updated ${results.updated} of ${results.processed} services.`,
+          description: `Successfully updated ${results.updated} of ${results.processed} services (${results.skipped || 0} skipped).`,
         });
       }
     } catch (err: any) {

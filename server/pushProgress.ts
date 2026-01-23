@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 
 export interface PushProgress {
-  stage: 'materials' | 'equipment' | 'services' | 'updating' | 'complete' | 'error';
+  stage: 'materials' | 'equipment' | 'services' | 'updating' | 'complete' | 'error' | 'cancelled';
   message: string;
   current: number;
   total: number;
@@ -10,6 +10,7 @@ export interface PushProgress {
 
 class PushProgressEmitter extends EventEmitter {
   private progressByTenant: Map<number, PushProgress> = new Map();
+  private cancelledTenants: Set<number> = new Set();
 
   emit(event: 'progress', tenantId: number, progress: PushProgress): boolean {
     this.progressByTenant.set(tenantId, progress);
@@ -22,6 +23,19 @@ class PushProgressEmitter extends EventEmitter {
 
   clearProgress(tenantId: number): void {
     this.progressByTenant.delete(tenantId);
+    this.cancelledTenants.delete(tenantId);
+  }
+
+  requestCancel(tenantId: number): void {
+    this.cancelledTenants.add(tenantId);
+  }
+
+  isCancelled(tenantId: number): boolean {
+    return this.cancelledTenants.has(tenantId);
+  }
+
+  clearCancel(tenantId: number): void {
+    this.cancelledTenants.delete(tenantId);
   }
 }
 

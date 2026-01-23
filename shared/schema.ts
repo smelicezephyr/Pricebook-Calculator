@@ -43,7 +43,7 @@ export const settings = pgTable("settings", {
 export const pushHistory = pgTable("push_history", {
   id: serial("id").primaryKey(),
   tenantId: integer("tenant_id").notNull(),
-  status: text("status", { enum: ["pending", "in_progress", "completed", "failed"] }).notNull().default("pending"),
+  status: text("status", { enum: ["pending", "in_progress", "completed", "failed", "cancelled", "reverted"] }).notNull().default("pending"),
   
   // Settings snapshot used for this push
   categoryIds: text("category_ids").notNull(), // JSON array of category IDs
@@ -62,8 +62,12 @@ export const pushHistory = pgTable("push_history", {
   // Results
   processedCount: integer("processed_count").default(0),
   updatedCount: integer("updated_count").default(0),
+  skippedCount: integer("skipped_count").default(0),
   errorCount: integer("error_count").default(0),
   errorMessages: text("error_messages"), // JSON array of error messages
+  
+  // Original values for revert functionality (JSON: [{serviceId, originalPrice, originalCost}])
+  originalValues: text("original_values"),
   
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
@@ -122,8 +126,10 @@ export const insertPushHistorySchema = createInsertSchema(pushHistory).omit({
   completedAt: true,
   processedCount: true,
   updatedCount: true,
+  skippedCount: true,
   errorCount: true,
   errorMessages: true,
+  originalValues: true,
 });
 
 export type Settings = typeof settings.$inferSelect;

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Clock, CheckCircle2, XCircle, AlertCircle, Trash2, ArrowLeft, History as HistoryIcon, RefreshCw } from "lucide-react";
+import { Loader2, Clock, CheckCircle2, XCircle, AlertCircle, Trash2, ArrowLeft, History as HistoryIcon, RefreshCw, RotateCcw, StopCircle, Ban } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -44,6 +44,50 @@ export default function PushHistoryPage() {
     },
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: async (tenantId: number) => {
+      await apiRequest('POST', `/api/servicetitan/${tenantId}/push/cancel`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/push-history');
+        }
+      });
+      toast({ title: "Cancellation Requested", description: "The push will stop at the next checkpoint." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to cancel push.", variant: "destructive" });
+    },
+  });
+
+  const revertMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest('POST', `/api/push-history/${id}/revert`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/push-history');
+        }
+      });
+      toast({ 
+        title: "Reverted", 
+        description: `Restored ${data.reverted} of ${data.total} services to their original values.` 
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to revert push.", 
+        variant: "destructive" 
+      });
+    },
+  });
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
@@ -54,6 +98,10 @@ export default function PushHistoryPage() {
         return <Badge variant="default" className="gap-1 bg-emerald-600"><CheckCircle2 className="w-3 h-3" /> Completed</Badge>;
       case 'failed':
         return <Badge variant="destructive" className="gap-1"><XCircle className="w-3 h-3" /> Failed</Badge>;
+      case 'cancelled':
+        return <Badge variant="secondary" className="gap-1"><Ban className="w-3 h-3" /> Cancelled</Badge>;
+      case 'reverted':
+        return <Badge variant="outline" className="gap-1"><RotateCcw className="w-3 h-3" /> Reverted</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -182,18 +230,28 @@ export default function PushHistoryPage() {
                           {item.roundUp && <Badge variant="outline">Round Up</Badge>}
                         </div>
 
-                        {(item.status === 'completed' || item.status === 'failed') && (
-                          <div className="flex gap-4 text-sm">
+                        {(item.status === 'completed' || item.status === 'failed' || item.status === 'cancelled' || item.status === 'reverted') && (
+                          <div className="flex flex-wrap gap-4 text-sm">
                             <span className="text-muted-foreground">
                               Processed: <span className="font-medium text-foreground">{item.processedCount}</span>
                             </span>
                             <span className="text-muted-foreground">
                               Updated: <span className="font-medium text-emerald-600">{item.updatedCount}</span>
                             </span>
+                            {(item.skippedCount ?? 0) > 0 && (
+                              <span className="text-muted-foreground">
+                                Skipped: <span className="font-medium">{item.skippedCount}</span>
+                              </span>
+                            )}
                             {(item.errorCount ?? 0) > 0 && (
                               <span className="text-destructive flex items-center gap-1">
                                 <AlertCircle className="w-3 h-3" />
                                 Errors: {item.errorCount}
+                              </span>
+                            )}
+                            {item.originalValues && item.status !== 'reverted' && (
+                              <span className="text-muted-foreground text-xs">
+                                (Can be reverted)
                               </span>
                             )}
                           </div>
@@ -211,16 +269,48 @@ export default function PushHistoryPage() {
                         )}
                       </div>
 
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteMutation.mutate(item.id)}
-                        disabled={deleteMutation.isPending}
-                        className="text-muted-foreground hover:text-destructive"
-                        data-testid={`button-delete-${item.id}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <div className="flex flex-col gap-2">
+                        {item.status === 'in_progress' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => cancelMutation.mutate(item.tenantId)}
+                            disabled={cancelMutation.isPending}
+                            className="gap-1 text-orange-600 border-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950"
+                            data-testid={`button-cancel-${item.id}`}
+                          >
+                            <StopCircle className="w-4 h-4" />
+                            Cancel
+                          </Button>
+                        )}
+                        {(item.status === 'completed' || item.status === 'cancelled') && item.originalValues && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => revertMutation.mutate(item.id)}
+                            disabled={revertMutation.isPending}
+                            className="gap-1"
+                            data-testid={`button-revert-${item.id}`}
+                          >
+                            {revertMutation.isPending ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <RotateCcw className="w-4 h-4" />
+                            )}
+                            Revert
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteMutation.mutate(item.id)}
+                          disabled={deleteMutation.isPending}
+                          className="text-muted-foreground hover:text-destructive"
+                          data-testid={`button-delete-${item.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 );

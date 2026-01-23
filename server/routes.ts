@@ -467,7 +467,21 @@ export async function registerRoutes(
       const totalServices = allServices.length;
       emitProgress(tenantId, 'updating', `Processing ${totalServices} services...`, 0, totalServices);
       
+      // Track original values for revert functionality
+      const originalValues: Array<{ serviceId: number; originalPrice: number; originalCost: number }> = [];
+      let wasCancelled = false;
+      
+      // Clear any previous cancel request
+      pushProgressEmitter.clearCancel(tenantId);
+      
       for (const service of allServices) {
+        // Check for cancellation request
+        if (pushProgressEmitter.isCancelled(tenantId)) {
+          wasCancelled = true;
+          console.log(`[Push] Cancelled at service ${results.processed} of ${totalServices}`);
+          break;
+        }
+        
         results.processed++;
         
         // Emit progress update every 10 services to reduce overhead
@@ -543,6 +557,13 @@ export async function registerRoutes(
         const costChanged = Math.abs(roundedCost - currentCost) > 0.01;
         
         if (priceChanged || costChanged) {
+          // Store original values before updating (for revert)
+          originalValues.push({
+            serviceId: service.id,
+            originalPrice: currentPrice,
+            originalCost: currentCost,
+          });
+          
           try {
             await stApi.updateService(service.id, { 
               price: roundedPrice,
@@ -556,8 +577,24 @@ export async function registerRoutes(
             }
           } catch (updateErr: any) {
             results.errors.push(`Failed to update service ${service.name}: ${updateErr.message}`);
+            // Remove from originalValues if update failed
+            originalValues.pop();
           }
         }
+      }
+      
+      // Clear cancel flag
+      pushProgressEmitter.clearCancel(tenantId);
+      
+      if (wasCancelled) {
+        console.log(`[Push] Cancelled: ${results.processed} processed, ${results.updated} updated before cancellation`);
+        emitProgress(tenantId, 'cancelled', `Push cancelled. Updated ${results.updated} services before stopping.`, results.updated, totalServices);
+        return res.json({ 
+          ...results, 
+          skipped: results.skipped, 
+          cancelled: true,
+          originalValues: originalValues.length > 0 ? JSON.stringify(originalValues) : null
+        });
       }
       
       console.log(`[Push] Completed: ${results.processed} processed, ${results.updated} updated, ${results.skipped} skipped (no M&E), ${results.errors.length} errors`);
@@ -568,7 +605,11 @@ export async function registerRoutes(
         : `Successfully updated ${results.updated} of ${results.processed} services (${results.skipped} skipped - no M&E).`;
       emitProgress(tenantId, 'complete', successMessage, results.updated, results.processed);
       
-      res.json({ ...results, skipped: results.skipped });
+      res.json({ 
+        ...results, 
+        skipped: results.skipped,
+        originalValues: originalValues.length > 0 ? JSON.stringify(originalValues) : null
+      });
     } catch (err: any) {
       // Emit error
       emitProgress(tenantId, 'error', `Push failed: ${err.message}`, 0, 0);
@@ -648,6 +689,97 @@ export async function registerRoutes(
       const pending = await storage.getPendingPushes(tenantId);
       res.json(pending);
     } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Cancel an in-progress push
+  app.post("/api/servicetitan/:tenantId/push/cancel", async (req, res) => {
+    try {
+      const tenantId = Number(req.params.tenantId);
+      if (isNaN(tenantId)) {
+        return res.status(400).json({ message: "Invalid tenant ID" });
+      }
+      
+      // Request cancellation
+      pushProgressEmitter.requestCancel(tenantId);
+      console.log(`[Push] Cancellation requested for tenant ${tenantId}`);
+      
+      res.json({ success: true, message: "Cancellation requested" });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Revert a completed push using stored original values
+  app.post("/api/push-history/:id/revert", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID" });
+      }
+      
+      // Get the push history item
+      const historyItem = await storage.getPushHistoryItem(id);
+      if (!historyItem) {
+        return res.status(404).json({ message: "Push history item not found" });
+      }
+      
+      if (!historyItem.originalValues) {
+        return res.status(400).json({ message: "No original values stored for this push. Cannot revert." });
+      }
+      
+      if (historyItem.status === 'reverted') {
+        return res.status(400).json({ message: "This push has already been reverted." });
+      }
+      
+      // Get the tenant for API access
+      const tenant = await storage.getTenant(historyItem.tenantId);
+      if (!tenant) {
+        return res.status(404).json({ message: "Tenant not found" });
+      }
+      
+      // Parse original values
+      const originalValues: Array<{ serviceId: number; originalPrice: number; originalCost: number }> = JSON.parse(historyItem.originalValues);
+      
+      if (originalValues.length === 0) {
+        return res.status(400).json({ message: "No services to revert." });
+      }
+      
+      console.log(`[Revert] Starting revert for push history ${id}, ${originalValues.length} services`);
+      
+      const stApi = new ServiceTitanAPI(tenant);
+      let reverted = 0;
+      const errors: string[] = [];
+      
+      for (const item of originalValues) {
+        try {
+          await stApi.updateService(item.serviceId, {
+            price: item.originalPrice,
+            cost: item.originalCost
+          });
+          reverted++;
+        } catch (err: any) {
+          errors.push(`Failed to revert service ${item.serviceId}: ${err.message}`);
+        }
+      }
+      
+      console.log(`[Revert] Completed: ${reverted} of ${originalValues.length} services reverted, ${errors.length} errors`);
+      
+      // Update the push history status to reverted
+      await storage.updatePushHistory(id, { 
+        status: 'reverted',
+        errorMessages: errors.length > 0 ? JSON.stringify(errors) : null
+      });
+      
+      res.json({ 
+        success: true, 
+        reverted, 
+        total: originalValues.length,
+        errors 
+      });
+    } catch (err: any) {
+      console.error(`[Revert] Error: ${err.message}`);
       res.status(500).json({ message: err.message });
     }
   });
