@@ -288,7 +288,21 @@ export async function registerRoutes(
       return res.status(400).json({ message: "Invalid tenant ID" });
     }
     
-    const { categoryIds, targetMePercent } = req.body;
+    const { 
+      categoryIds, 
+      targetMePercent, 
+      roundUp,
+      // Client-supplied settings (override global settings)
+      salesTaxPercent: clientSalesTaxPercent,
+      laborMode: clientLaborMode,
+      laborPercent: clientLaborPercent,
+      laborHourlyRate: clientLaborHourlyRate,
+      laborBurdenPercent: clientLaborBurdenPercent,
+      commissionPercent: clientCommissionPercent,
+      commissionBurdenPercent: clientCommissionBurdenPercent,
+      financingFeePercent: clientFinancingFeePercent,
+    } = req.body;
+    
     if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
       return res.status(400).json({ message: "No categories selected" });
     }
@@ -296,26 +310,23 @@ export async function registerRoutes(
       return res.status(400).json({ message: "Invalid target M&E percent" });
     }
     
+    // Round up flag - default to false
+    const shouldRoundUp = Boolean(roundUp);
+    
     const tenant = await storage.getTenant(tenantId);
     if (!tenant) {
       return res.status(404).json({ message: "Tenant not found" });
     }
     
-    // Fetch app settings for labor calculation
-    const settings = await storage.getSettings();
-    if (!settings) {
-      return res.status(500).json({ message: "App settings not found" });
-    }
-    
-    // Parse settings values
-    const salesTaxRate = parseFloat(settings.salesTaxPercent) / 100;
-    const laborMode = settings.laborMode || 'percent';
-    const laborPercentRate = parseFloat(settings.laborPercent) / 100;
-    const laborHourlyRate = parseFloat(settings.laborHourlyRate);
-    const laborBurdenRate = parseFloat(settings.laborBurdenPercent) / 100;
-    const commissionRate = parseFloat(settings.commissionPercent) / 100;
-    const commissionBurdenRate = parseFloat(settings.commissionBurdenPercent) / 100;
-    const financingRate = parseFloat(settings.financingFeePercent) / 100;
+    // Use client-supplied settings from the push UI (they may override global settings)
+    const salesTaxRate = (clientSalesTaxPercent ?? 6.35) / 100;
+    const laborMode = clientLaborMode || 'percent';
+    const laborPercentRate = (clientLaborPercent ?? 7) / 100;
+    const laborHourlyRate = clientLaborHourlyRate ?? 125;
+    const laborBurdenRate = (clientLaborBurdenPercent ?? 20) / 100;
+    const commissionRate = (clientCommissionPercent ?? 10) / 100;
+    const commissionBurdenRate = (clientCommissionBurdenPercent ?? 20) / 100;
+    const financingRate = (clientFinancingFeePercent ?? 6) / 100;
     
     try {
       const stApi = new ServiceTitanAPI(tenant);
@@ -406,8 +417,8 @@ export async function registerRoutes(
             // estimatedLabor = laborCost + commissionCost + tax + financingCost
             const estimatedLabor = laborCost + commissionCost + tax + financingCost;
             
-            // Round values
-            const roundedPrice = Math.round(newPrice * 100) / 100;
+            // Round values - use Math.ceil for price if roundUp is enabled
+            const roundedPrice = shouldRoundUp ? Math.ceil(newPrice) : Math.round(newPrice * 100) / 100;
             const roundedCost = Math.round(estimatedLabor * 100) / 100;
             
             // Check if either value changed significantly
