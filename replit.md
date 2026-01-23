@@ -64,7 +64,13 @@ shared/           # Shared code between client/server
    - Tenants store encrypted OAuth credentials (clientId, clientSecret, appKey)
    - Credentials are masked in API responses (never exposed to frontend)
    - OAuth tokens cached for 15 minutes per tenant
-   - Push endpoint calculates price = meCost / (targetMePercent / 100) for each service
+   - Push endpoint calculates price = (meCost + tax) / (targetMePercent / 100) for each service
+   - **API Field Mapping**:
+     - `price` → Static Price (updatable via API)
+     - `cost` → Estimated Labor Cost (READ-ONLY - calculated by ServiceTitan from Hours × internal labor rate)
+     - `hours` → Hours field (updatable)
+   - Services are fetched by category, materials/equipment loaded globally for cost lookup
+   - Materials/equipment are linked to services via `serviceMaterials[].skuId` and `serviceEquipment[].skuId`
 
 ## External Dependencies
 

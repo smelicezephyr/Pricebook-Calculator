@@ -305,13 +305,16 @@ export class ServiceTitanAPI {
     serviceId: number,
     updates: { price?: number; memberPrice?: number; cost?: number }
   ): Promise<PricebookService> {
-    return this.request<PricebookService>(
+    console.log(`[ServiceTitan] Updating service ${serviceId} with:`, JSON.stringify(updates));
+    const result = await this.request<PricebookService>(
       `/pricebook/v2/tenant/${this.tenant.tenantId}/services/${serviceId}`,
       {
         method: "PATCH",
         body: JSON.stringify(updates),
       }
     );
+    console.log(`[ServiceTitan] Update response - price: ${result.price}, cost: ${result.cost}`);
+    return result;
   }
 
   async updateMaterial(

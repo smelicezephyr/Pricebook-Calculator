@@ -343,10 +343,12 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
             originalCost: update.currentCost,
           };
 
+          // Note: ServiceTitan's 'cost' field (Estimated Labor Cost) is calculated internally
+          // based on Hours and their labor rate settings - it cannot be updated via API.
+          // We only update 'price' (Static Price) which is what the M&E calculation targets.
           await withRetry(
             () => stApi.updateService(update.service.id, {
-              price: update.roundedPrice,
-              cost: update.roundedCost
+              price: update.roundedPrice
             }),
             3,
             1000
