@@ -14,6 +14,16 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
+  // Cleanup stale push history records on startup
+  try {
+    const cleanedUp = await storage.cleanupStalePushes();
+    if (cleanedUp > 0) {
+      console.log(`[Startup] Cleaned up ${cleanedUp} stale push history records (in_progress/pending marked as failed/cancelled)`);
+    }
+  } catch (err) {
+    console.error("[Startup] Failed to cleanup stale pushes:", err);
+  }
+  
   // Health check endpoint for deployment
   app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok" });

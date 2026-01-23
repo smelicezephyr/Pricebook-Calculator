@@ -173,14 +173,28 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
       let materialsCost = 0;
       let equipmentCost = 0;
 
-      if (service.serviceMaterials && service.serviceMaterials.length > 0) {
+      // First try embedded materials array (has cost directly)
+      if (service.materials && service.materials.length > 0) {
+        for (const mat of service.materials) {
+          materialsCost += (mat.cost || 0) * (mat.quantity || 1);
+        }
+      }
+      // Fall back to serviceMaterials with skuId lookup
+      else if (service.serviceMaterials && service.serviceMaterials.length > 0) {
         for (const mat of service.serviceMaterials) {
           const cost = materialCostMap.get(mat.skuId) || 0;
           materialsCost += cost * (mat.quantity || 1);
         }
       }
 
-      if (service.serviceEquipment && service.serviceEquipment.length > 0) {
+      // First try embedded equipment array (has cost directly)
+      if (service.equipment && service.equipment.length > 0) {
+        for (const equip of service.equipment) {
+          equipmentCost += (equip.cost || 0) * (equip.quantity || 1);
+        }
+      }
+      // Fall back to serviceEquipment with skuId lookup
+      else if (service.serviceEquipment && service.serviceEquipment.length > 0) {
         for (const equip of service.serviceEquipment) {
           const cost = equipmentCostMap.get(equip.skuId) || 0;
           equipmentCost += cost * (equip.quantity || 1);
@@ -189,7 +203,13 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
 
       const rawMeCost = materialsCost + equipmentCost;
 
+      // Only skip if BOTH materials and equipment are $0
       if (rawMeCost === 0) {
+        if (results.skipped < 10) {
+          console.log(`[Push] Skipping service ${service.id} (${service.name?.substring(0, 30)}): M&E = $0 (materials: $${materialsCost.toFixed(2)}, equipment: $${equipmentCost.toFixed(2)})`);
+        } else if (results.skipped === 10) {
+          console.log(`[Push] (Suppressing further skip logs...)`);
+        }
         results.skipped++;
         continue;
       }

@@ -37,6 +37,8 @@ export interface IStorage {
   updatePushHistory(id: number, updates: Partial<PushHistory>): Promise<PushHistory>;
   deletePushHistory(id: number): Promise<void>;
   getPendingPushes(tenantId: number): Promise<PushHistory[]>;
+  getInProgressPushes(): Promise<PushHistory[]>;
+  cleanupStalePushes(): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -148,6 +150,47 @@ export class DatabaseStorage implements IStorage {
         eq(pushHistory.status, "pending")
       ))
       .orderBy(asc(pushHistory.createdAt));
+  }
+
+  async getInProgressPushes(): Promise<PushHistory[]> {
+    return await db.select().from(pushHistory)
+      .where(eq(pushHistory.status, "in_progress"))
+      .orderBy(asc(pushHistory.createdAt));
+  }
+
+  async cleanupStalePushes(): Promise<number> {
+    const stalePushes = await db.select().from(pushHistory)
+      .where(eq(pushHistory.status, "in_progress"));
+    
+    let cleanedUp = 0;
+    for (const push of stalePushes) {
+      await db.update(pushHistory)
+        .set({
+          status: "failed",
+          completedAt: new Date(),
+          errorMessages: JSON.stringify(["Push interrupted by server restart"]),
+          errorCount: 1,
+        })
+        .where(eq(pushHistory.id, push.id));
+      cleanedUp++;
+    }
+    
+    // Also mark pending (queued) pushes as cancelled since queue state is lost
+    const pendingPushes = await db.select().from(pushHistory)
+      .where(eq(pushHistory.status, "pending"));
+    
+    for (const push of pendingPushes) {
+      await db.update(pushHistory)
+        .set({
+          status: "cancelled",
+          completedAt: new Date(),
+          errorMessages: JSON.stringify(["Queued push cancelled by server restart"]),
+        })
+        .where(eq(pushHistory.id, push.id));
+      cleanedUp++;
+    }
+    
+    return cleanedUp;
   }
 }
 
