@@ -214,18 +214,15 @@ export class ServiceTitanAPI {
     return response.data;
   }
 
-  async getMaterials(categoryId?: number): Promise<PricebookMaterial[]> {
+  async getMaterials(onProgress?: (page: number, count: number) => void): Promise<PricebookMaterial[]> {
     const allMaterials: PricebookMaterial[] = [];
     let page = 1;
     let hasMore = true;
     
-    console.log(`[ServiceTitan] Starting materials fetch${categoryId ? ` for category ${categoryId}` : ' (all categories)'}...`);
+    console.log(`[ServiceTitan] Starting materials fetch (all categories)...`);
     
     while (hasMore) {
-      let url = `/pricebook/v2/tenant/${this.tenant.tenantId}/materials?pageSize=500&page=${page}`;
-      if (categoryId) {
-        url += `&categoryId=${categoryId}`;
-      }
+      const url = `/pricebook/v2/tenant/${this.tenant.tenantId}/materials?pageSize=500&page=${page}`;
       console.log(`[ServiceTitan] Fetching materials page ${page}...`);
       const response = await this.request<{ 
         data: PricebookMaterial[]; 
@@ -235,6 +232,12 @@ export class ServiceTitanAPI {
       console.log(`[ServiceTitan] Materials page ${page}: got ${response.data.length} items, hasMore: ${response.hasMore}`);
       allMaterials.push(...response.data);
       hasMore = response.hasMore;
+      
+      // Report progress
+      if (onProgress) {
+        onProgress(page, allMaterials.length);
+      }
+      
       page++;
       
       if (page > 50) {
@@ -247,18 +250,15 @@ export class ServiceTitanAPI {
     return allMaterials;
   }
 
-  async getEquipment(categoryId?: number): Promise<PricebookEquipment[]> {
+  async getEquipment(onProgress?: (page: number, count: number) => void): Promise<PricebookEquipment[]> {
     const allEquipment: PricebookEquipment[] = [];
     let page = 1;
     let hasMore = true;
     
-    console.log(`[ServiceTitan] Starting equipment fetch${categoryId ? ` for category ${categoryId}` : ' (all categories)'}...`);
+    console.log(`[ServiceTitan] Starting equipment fetch (all categories)...`);
     
     while (hasMore) {
-      let url = `/pricebook/v2/tenant/${this.tenant.tenantId}/equipment?pageSize=500&page=${page}`;
-      if (categoryId) {
-        url += `&categoryId=${categoryId}`;
-      }
+      const url = `/pricebook/v2/tenant/${this.tenant.tenantId}/equipment?pageSize=500&page=${page}`;
       console.log(`[ServiceTitan] Fetching equipment page ${page}...`);
       const response = await this.request<{ 
         data: PricebookEquipment[]; 
@@ -268,6 +268,12 @@ export class ServiceTitanAPI {
       console.log(`[ServiceTitan] Equipment page ${page}: got ${response.data.length} items, hasMore: ${response.hasMore}`);
       allEquipment.push(...response.data);
       hasMore = response.hasMore;
+      
+      // Report progress
+      if (onProgress) {
+        onProgress(page, allEquipment.length);
+      }
+      
       page++;
       
       if (page > 50) {

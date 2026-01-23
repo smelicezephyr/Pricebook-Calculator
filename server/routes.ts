@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { ServiceTitanAPI } from "./servicetitan";
+import { pushProgressEmitter, emitProgress } from "./pushProgress";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -281,6 +282,44 @@ export async function registerRoutes(
     }
   });
 
+  // SSE endpoint for push progress updates
+  app.get("/api/servicetitan/:tenantId/push/progress", (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    if (isNaN(tenantId)) {
+      return res.status(400).json({ message: "Invalid tenant ID" });
+    }
+
+    // Set SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    // Send initial connection event
+    res.write(`data: ${JSON.stringify({ stage: 'connected', message: 'Connected to progress stream', current: 0, total: 0, percent: 0 })}\n\n`);
+
+    // Listen for progress events
+    const onProgress = (progressTenantId: number, progress: any) => {
+      if (progressTenantId === tenantId) {
+        res.write(`data: ${JSON.stringify(progress)}\n\n`);
+        
+        // Close connection when complete or error
+        if (progress.stage === 'complete' || progress.stage === 'error') {
+          setTimeout(() => {
+            res.end();
+          }, 100);
+        }
+      }
+    };
+
+    pushProgressEmitter.on('progress', onProgress);
+
+    // Clean up on client disconnect
+    req.on('close', () => {
+      pushProgressEmitter.off('progress', onProgress);
+    });
+  });
+
   // Push M&E calculations to ServiceTitan
   app.post("/api/servicetitan/:tenantId/push", async (req, res) => {
     const tenantId = Number(req.params.tenantId);
@@ -330,6 +369,9 @@ export async function registerRoutes(
     
     console.log(`[Push] Starting push for tenant ${tenantId}, categories: [${categoryIds.join(', ')}], targetMePercent: ${targetMePercent}%, roundUp: ${shouldRoundUp}`);
     
+    // Clear any previous progress
+    emitProgress(tenantId, 'materials', 'Starting push...', 0, 100);
+    
     try {
       const stApi = new ServiceTitanAPI(tenant);
       const results = {
@@ -340,14 +382,22 @@ export async function registerRoutes(
       
       // Fetch all materials and equipment to build cost lookup maps
       console.log('[Push] Step 1: Fetching all materials...');
+      emitProgress(tenantId, 'materials', 'Loading materials from ServiceTitan...', 0, 100);
       const materialsStart = Date.now();
-      const allMaterials = await stApi.getMaterials();
+      const allMaterials = await stApi.getMaterials((page, count) => {
+        emitProgress(tenantId, 'materials', `Loading materials (page ${page})...`, count, count + 500);
+      });
       console.log(`[Push] Materials fetched in ${Date.now() - materialsStart}ms`);
+      emitProgress(tenantId, 'materials', `Loaded ${allMaterials.length} materials`, allMaterials.length, allMaterials.length);
       
       console.log('[Push] Step 2: Fetching all equipment...');
+      emitProgress(tenantId, 'equipment', 'Loading equipment from ServiceTitan...', 0, 100);
       const equipmentStart = Date.now();
-      const allEquipment = await stApi.getEquipment();
+      const allEquipment = await stApi.getEquipment((page, count) => {
+        emitProgress(tenantId, 'equipment', `Loading equipment (page ${page})...`, count, count + 500);
+      });
       console.log(`[Push] Equipment fetched in ${Date.now() - equipmentStart}ms`);
+      emitProgress(tenantId, 'equipment', `Loaded ${allEquipment.length} equipment`, allEquipment.length, allEquipment.length);
       
       // Build lookup maps: skuId -> cost
       const materialCostMap = new Map<number, number>();
@@ -362,12 +412,31 @@ export async function registerRoutes(
       
       console.log(`[Push] Loaded ${materialCostMap.size} materials and ${equipmentCostMap.size} equipment items`);
       
+      // First pass: count total services to process
+      emitProgress(tenantId, 'services', 'Counting services to process...', 0, 100);
+      let totalServices = 0;
+      const categoryServicesMap = new Map<number, any[]>();
       for (const categoryId of categoryIds) {
         try {
           const services = await stApi.getServices(categoryId);
+          categoryServicesMap.set(categoryId, services);
+          totalServices += services.length;
+        } catch (err) {
+          console.log(`[Push] Failed to fetch services for category ${categoryId}`);
+        }
+      }
+      
+      emitProgress(tenantId, 'updating', `Processing ${totalServices} services...`, 0, totalServices);
+      
+      for (const categoryId of categoryIds) {
+        try {
+          const services = categoryServicesMap.get(categoryId) || [];
           
           for (const service of services) {
             results.processed++;
+            
+            // Emit progress update
+            emitProgress(tenantId, 'updating', `Updating service ${results.processed} of ${totalServices}...`, results.processed, totalServices);
             
             // Calculate total M&E cost from linked materials and equipment
             let materialsCost = 0;
@@ -452,8 +521,16 @@ export async function registerRoutes(
         }
       }
       
+      // Emit completion
+      const successMessage = results.errors.length > 0 
+        ? `Completed with ${results.errors.length} errors. Updated ${results.updated} of ${results.processed} services.`
+        : `Successfully updated ${results.updated} of ${results.processed} services.`;
+      emitProgress(tenantId, 'complete', successMessage, results.updated, results.processed);
+      
       res.json(results);
     } catch (err: any) {
+      // Emit error
+      emitProgress(tenantId, 'error', `Push failed: ${err.message}`, 0, 0);
       res.status(500).json({ message: err.message });
     }
   });
