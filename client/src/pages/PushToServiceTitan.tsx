@@ -265,12 +265,10 @@ export default function PushToServiceTitan() {
       });
     } finally {
       setIsPushing(false);
-      // Keep progress visible for a moment after completion
+      // Clear progress after a delay so user can see final status
       setTimeout(() => {
-        if (pushProgress?.stage === 'complete' || pushProgress?.stage === 'error') {
-          // Don't clear immediately so user can see final status
-        }
-      }, 3000);
+        setPushProgress(null);
+      }, 5000);
     }
   };
   

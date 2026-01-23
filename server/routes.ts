@@ -298,6 +298,16 @@ export async function registerRoutes(
     // Send initial connection event
     res.write(`data: ${JSON.stringify({ stage: 'connected', message: 'Connected to progress stream', current: 0, total: 0, percent: 0 })}\n\n`);
 
+    let listenerRemoved = false;
+    
+    // Cleanup helper to ensure we only remove once
+    const cleanup = () => {
+      if (!listenerRemoved) {
+        listenerRemoved = true;
+        pushProgressEmitter.off('progress', onProgress);
+      }
+    };
+
     // Listen for progress events
     const onProgress = (progressTenantId: number, progress: any) => {
       if (progressTenantId === tenantId) {
@@ -305,6 +315,7 @@ export async function registerRoutes(
         
         // Close connection when complete or error
         if (progress.stage === 'complete' || progress.stage === 'error') {
+          cleanup(); // Remove listener before ending response
           setTimeout(() => {
             res.end();
           }, 100);
@@ -314,10 +325,9 @@ export async function registerRoutes(
 
     pushProgressEmitter.on('progress', onProgress);
 
-    // Clean up on client disconnect
-    req.on('close', () => {
-      pushProgressEmitter.off('progress', onProgress);
-    });
+    // Clean up on client disconnect or response finish
+    req.on('close', cleanup);
+    res.on('finish', cleanup);
   });
 
   // Push M&E calculations to ServiceTitan
