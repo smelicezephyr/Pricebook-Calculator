@@ -16,7 +16,7 @@ import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
 interface PushProgress {
-  stage: 'connected' | 'materials' | 'equipment' | 'services' | 'updating' | 'complete' | 'error';
+  stage: 'connected' | 'materials' | 'equipment' | 'services' | 'updating' | 'complete' | 'error' | 'cancelled' | 'queued';
   message: string;
   current: number;
   total: number;
@@ -231,38 +231,6 @@ export default function PushToServiceTitan() {
       eventSourceRef.current.close();
     }
     
-    // Create push history entry
-    let historyId: number | null = null;
-    try {
-      const historyResponse = await fetch('/api/push-history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tenantId: selectedTenantId,
-          status: 'in_progress',
-          startedAt: new Date().toISOString(),
-          categoryIds: JSON.stringify(Array.from(selectedCategories)),
-          targetMePercent: parseFloat(targetMePercent),
-          salesTaxPercent: parseFloat(salesTaxPercent),
-          laborMode,
-          laborHourlyRate: parseFloat(laborHourlyRate),
-          laborHours: parseFloat(laborHours),
-          laborPercent: parseFloat(laborPercent),
-          laborBurdenPercent: parseFloat(laborBurdenPercent),
-          commissionPercent: parseFloat(commissionPercent),
-          commissionBurdenPercent: parseFloat(commissionBurdenPercent),
-          financingFeePercent: parseFloat(financingFeePercent),
-          roundUp,
-        }),
-      });
-      if (historyResponse.ok) {
-        const historyData = await historyResponse.json();
-        historyId = historyData.id;
-      }
-    } catch (err) {
-      console.error('Failed to create push history entry:', err);
-    }
-    
     // Set up SSE connection for progress updates
     const eventSource = new EventSource(`/api/servicetitan/${selectedTenantId}/push/progress`);
     eventSourceRef.current = eventSource;
@@ -272,8 +240,8 @@ export default function PushToServiceTitan() {
         const progress = JSON.parse(event.data) as PushProgress;
         setPushProgress(progress);
         
-        // Close EventSource when complete or error
-        if (progress.stage === 'complete' || progress.stage === 'error') {
+        // Close EventSource when complete, error, or cancelled
+        if (progress.stage === 'complete' || progress.stage === 'error' || progress.stage === 'cancelled') {
           eventSource.close();
           eventSourceRef.current = null;
         }
@@ -307,6 +275,29 @@ export default function PushToServiceTitan() {
         }),
       });
       
+      // Handle 202 Accepted (queued)
+      if (response.status === 202) {
+        const data = await response.json();
+        
+        toast({
+          title: "Push Queued",
+          description: `Your push is queued at position ${data.queuePosition}. It will auto-start when a slot opens.`,
+        });
+        
+        setPushProgress({ 
+          stage: 'queued', 
+          message: `Queued at position ${data.queuePosition}. ${data.activeCount}/${data.maxConcurrent} pushes active. Will auto-start.`, 
+          current: 0, 
+          total: 0, 
+          percent: 0 
+        });
+        
+        setIsPushing(false);
+        eventSource.close();
+        eventSourceRef.current = null;
+        return;
+      }
+      
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || "Push failed");
@@ -314,34 +305,7 @@ export default function PushToServiceTitan() {
       
       const results = await response.json();
       
-      // Update push history with results
-      if (historyId) {
-        try {
-          // Determine status: cancelled, completed with errors, or completed
-          let finalStatus = 'completed';
-          if (results.cancelled) {
-            finalStatus = 'cancelled';
-          }
-          
-          await fetch(`/api/push-history/${historyId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              status: finalStatus,
-              completedAt: new Date().toISOString(),
-              processedCount: results.processed,
-              updatedCount: results.updated,
-              skippedCount: results.skipped || 0,
-              errorCount: results.errors?.length || 0,
-              errorMessages: results.errors ? JSON.stringify(results.errors) : null,
-              originalValues: results.originalValues || null,
-            }),
-          });
-        } catch (err) {
-          console.error('Failed to update push history:', err);
-        }
-      }
-      
+      // Backend now handles history updates, just show toast
       if (results.cancelled) {
         toast({
           title: "Push Cancelled",
@@ -359,24 +323,6 @@ export default function PushToServiceTitan() {
         });
       }
     } catch (err: any) {
-      // Update push history with failure
-      if (historyId) {
-        try {
-          await fetch(`/api/push-history/${historyId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              status: 'failed',
-              completedAt: new Date().toISOString(),
-              errorMessages: JSON.stringify([err.message || 'Push failed']),
-              errorCount: 1,
-            }),
-          });
-        } catch (updateErr) {
-          console.error('Failed to update push history:', updateErr);
-        }
-      }
-      
       toast({
         title: "Push Failed",
         description: err.message || "An error occurred while pushing to ServiceTitan.",

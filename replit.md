@@ -88,6 +88,13 @@ shared/           # Shared code between client/server
 
 ## Recent Changes
 
+### Push Queue and Rate Limiting (January 2026)
+- Increased parallel service updates from 5 to 20 per push (within ServiceTitan's 60 req/sec limit)
+- Limited concurrent pushes to 3 tenants simultaneously (20 × 3 = 60 max requests/sec)
+- Implemented exponential backoff retry logic for 429 (rate limit) errors
+- Queue status endpoint: GET /api/servicetitan/push-queue/status
+- Frontend handles queued state with user-friendly messaging
+
 ### ServiceTitan Multi-Tenant Integration (January 2026)
 - Added tenant management for multiple ServiceTitan accounts
 - Created Push to ServiceTitan page with category selection

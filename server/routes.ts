@@ -5,6 +5,9 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import { ServiceTitanAPI } from "./servicetitan";
 import { pushProgressEmitter, emitProgress } from "./pushProgress";
+import { pushQueue, withRetry, MAX_CONCURRENT_PUSHES } from "./pushQueue";
+import { processPush } from "./pushProcessor";
+import type { PushHistory } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -330,6 +333,19 @@ export async function registerRoutes(
     res.on('finish', cleanup);
   });
 
+  // Get push queue status
+  app.get("/api/servicetitan/push-queue/status", async (req, res) => {
+    const status = pushQueue.getStatus();
+    res.json({
+      activeCount: status.active.length,
+      queueLength: status.queued.length,
+      maxConcurrent: MAX_CONCURRENT_PUSHES,
+      canStart: pushQueue.canStart(),
+      active: status.active,
+      queued: status.queued
+    });
+  });
+
   // Push M&E calculations to ServiceTitan
   app.post("/api/servicetitan/:tenantId/push", async (req, res) => {
     const tenantId = Number(req.params.tenantId);
@@ -341,7 +357,7 @@ export async function registerRoutes(
       categoryIds, 
       targetMePercent, 
       roundUp,
-      // Client-supplied settings (override global settings)
+      historyId: clientHistoryId, // Optional: frontend may have already created history
       salesTaxPercent: clientSalesTaxPercent,
       laborMode: clientLaborMode,
       laborPercent: clientLaborPercent,
@@ -359,7 +375,6 @@ export async function registerRoutes(
       return res.status(400).json({ message: "Invalid target M&E percent" });
     }
     
-    // Round up flag - default to false
     const shouldRoundUp = Boolean(roundUp);
     
     const tenant = await storage.getTenant(tenantId);
@@ -367,302 +382,146 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Tenant not found" });
     }
     
-    // Use client-supplied settings from the push UI (they may override global settings)
-    const salesTaxRate = (clientSalesTaxPercent ?? 6.35) / 100;
+    // Check if this tenant already has an active push
+    if (pushQueue.isActive(tenantId)) {
+      return res.status(429).json({ 
+        message: "This tenant already has an active push in progress.",
+        queued: false,
+        activeCount: pushQueue.getActiveCount()
+      });
+    }
+    
+    // Prepare push parameters
+    const salesTaxPercent = clientSalesTaxPercent ?? 6.35;
     const laborMode = clientLaborMode || 'percent';
-    const laborPercentRate = (clientLaborPercent ?? 7) / 100;
+    const laborPercent = clientLaborPercent ?? 7;
     const laborHourlyRate = clientLaborHourlyRate ?? 125;
-    const laborBurdenRate = (clientLaborBurdenPercent ?? 20) / 100;
-    const commissionRate = (clientCommissionPercent ?? 10) / 100;
-    const commissionBurdenRate = (clientCommissionBurdenPercent ?? 20) / 100;
-    const financingRate = (clientFinancingFeePercent ?? 6) / 100;
+    const laborBurdenPercent = clientLaborBurdenPercent ?? 20;
+    const commissionPercent = clientCommissionPercent ?? 10;
+    const commissionBurdenPercent = clientCommissionBurdenPercent ?? 20;
+    const financingFeePercent = clientFinancingFeePercent ?? 6;
     
-    console.log(`[Push] Starting push for tenant ${tenantId}, categories: [${categoryIds.join(', ')}], targetMePercent: ${targetMePercent}%, roundUp: ${shouldRoundUp}`);
+    // Get or create history ID
+    let historyId = clientHistoryId;
     
-    // Initialize push timing for ETA calculation
-    pushProgressEmitter.startPush(tenantId);
-    pushProgressEmitter.startPhase(tenantId, 'services');
+    // Check if we can start or need to queue (max 3 concurrent pushes)
+    if (!pushQueue.canStart()) {
+      // Create a pending history record if not already created
+      if (!historyId) {
+        const history = await storage.createPushHistory({
+          tenantId,
+          status: 'pending',
+          categoryIds: JSON.stringify(categoryIds),
+          targetMePercent: targetMePercent.toString(),
+          salesTaxPercent: salesTaxPercent.toString(),
+          laborMode,
+          laborHourlyRate: laborHourlyRate.toString(),
+          laborPercent: laborPercent.toString(),
+          laborBurdenPercent: laborBurdenPercent.toString(),
+          commissionPercent: commissionPercent.toString(),
+          commissionBurdenPercent: commissionBurdenPercent.toString(),
+          financingFeePercent: financingFeePercent.toString(),
+          roundUp: shouldRoundUp,
+        });
+        historyId = history.id;
+      } else {
+        // Update existing history to pending
+        await storage.updatePushHistory(historyId, { status: 'pending' });
+      }
+      
+      // Add to queue
+      const queuePosition = pushQueue.addToQueue(tenantId, historyId);
+      
+      // Return 202 Accepted - push is queued and will auto-start
+      return res.status(202).json({ 
+        message: `Push queued at position ${queuePosition}. Will auto-start when a slot opens.`,
+        queued: true,
+        historyId,
+        queuePosition,
+        activeCount: pushQueue.getActiveCount(),
+        maxConcurrent: MAX_CONCURRENT_PUSHES
+      });
+    }
     
-    // Clear any previous progress
-    emitProgress(tenantId, 'services', 'Starting push...', 0, 100);
+    // Register this push as active
+    if (!historyId) {
+      // Create in_progress history record
+      const history = await storage.createPushHistory({
+        tenantId,
+        status: 'in_progress',
+        categoryIds: JSON.stringify(categoryIds),
+        targetMePercent: targetMePercent.toString(),
+        salesTaxPercent: salesTaxPercent.toString(),
+        laborMode,
+        laborHourlyRate: laborHourlyRate.toString(),
+        laborPercent: laborPercent.toString(),
+        laborBurdenPercent: laborBurdenPercent.toString(),
+        commissionPercent: commissionPercent.toString(),
+        commissionBurdenPercent: commissionBurdenPercent.toString(),
+        financingFeePercent: financingFeePercent.toString(),
+        roundUp: shouldRoundUp,
+      });
+      historyId = history.id;
+      // Set startedAt separately
+      await storage.updatePushHistory(historyId, { startedAt: new Date() });
+    } else {
+      // Update existing history to in_progress
+      await storage.updatePushHistory(historyId, { status: 'in_progress', startedAt: new Date() });
+    }
+    
+    pushQueue.startPush(tenantId, historyId);
     
     try {
-      const stApi = new ServiceTitanAPI(tenant);
-      const results = {
-        processed: 0,
-        updated: 0,
-        skipped: 0,
-        errors: [] as string[],
-      };
+      const results = await processPush({
+        tenantId,
+        historyId,
+        categoryIds,
+        targetMePercent,
+        roundUp: shouldRoundUp,
+        salesTaxPercent,
+        laborMode,
+        laborPercent,
+        laborHourlyRate,
+        laborBurdenPercent,
+        commissionPercent,
+        commissionBurdenPercent,
+        financingFeePercent,
+      }, tenant);
       
-      // Step 1: Fetch services FIRST for selected categories only
-      console.log('[Push] Step 1: Fetching services for selected categories...');
-      emitProgress(tenantId, 'services', 'Loading services from selected categories...', 0, categoryIds.length);
-      
-      const allServices: any[] = [];
-      let servicesWithMaterials = 0;
-      let servicesWithEquipment = 0;
-      
-      for (let i = 0; i < categoryIds.length; i++) {
-        const categoryId = categoryIds[i];
-        try {
-          console.log(`[Push] Fetching services for category ${categoryId}...`);
-          const services = await stApi.getServices(categoryId);
-          console.log(`[Push] Category ${categoryId}: found ${services.length} services`);
-          
-          for (const service of services) {
-            allServices.push(service);
-            // Count services with linked materials/equipment
-            if (service.serviceMaterials && service.serviceMaterials.length > 0) {
-              servicesWithMaterials++;
-            }
-            if (service.serviceEquipment && service.serviceEquipment.length > 0) {
-              servicesWithEquipment++;
-            }
-          }
-          
-          emitProgress(tenantId, 'services', `Loaded ${allServices.length} services from ${i + 1}/${categoryIds.length} categories`, i + 1, categoryIds.length);
-        } catch (err: any) {
-          console.log(`[Push] Failed to fetch services for category ${categoryId}: ${err.message}`);
-          results.errors.push(`Failed to fetch category ${categoryId}: ${err.message}`);
-        }
+      // Update history with results
+      let finalStatus: 'completed' | 'cancelled' = 'completed';
+      if (results.cancelled) {
+        finalStatus = 'cancelled';
       }
       
-      console.log(`[Push] Total services found: ${allServices.length} (${servicesWithMaterials} with materials, ${servicesWithEquipment} with equipment)`);
-      
-      if (allServices.length === 0) {
-        emitProgress(tenantId, 'complete', 'No services found in selected categories', 0, 0);
-        return res.json({ processed: 0, updated: 0, errors: results.errors, message: 'No services found in selected categories' });
-      }
-      
-      // Step 2: Fetch materials and equipment globally (ServiceTitan API doesn't support filtering by SKU ID)
-      // This is required to build cost lookup maps for calculating service prices
-      console.log('[Push] Step 2: Fetching all materials (required for cost lookup)...');
-      pushProgressEmitter.startPhase(tenantId, 'materials');
-      emitProgress(tenantId, 'materials', 'Loading materials from ServiceTitan...', 0, 100);
-      const materialsStart = Date.now();
-      const allMaterials = await stApi.getMaterials((page, count) => {
-        emitProgress(tenantId, 'materials', `Loading materials (page ${page})...`, count, count + 500);
+      await storage.updatePushHistory(historyId, {
+        status: finalStatus,
+        completedAt: new Date(),
+        processedCount: results.processed,
+        updatedCount: results.updated,
+        skippedCount: results.skipped,
+        errorCount: results.errors.length,
+        errorMessages: results.errors.length > 0 ? JSON.stringify(results.errors) : null,
+        originalValues: results.originalValues,
       });
-      console.log(`[Push] Materials fetched in ${Date.now() - materialsStart}ms: ${allMaterials.length} items`);
       
-      console.log('[Push] Step 3: Fetching all equipment (required for cost lookup)...');
-      pushProgressEmitter.startPhase(tenantId, 'equipment');
-      emitProgress(tenantId, 'equipment', 'Loading equipment from ServiceTitan...', 0, 100);
-      const equipmentStart = Date.now();
-      const allEquipment = await stApi.getEquipment((page, count) => {
-        emitProgress(tenantId, 'equipment', `Loading equipment (page ${page})...`, count, count + 500);
-      });
-      console.log(`[Push] Equipment fetched in ${Date.now() - equipmentStart}ms: ${allEquipment.length} items`);
-      
-      // Build lookup maps: skuId -> cost
-      const materialCostMap = new Map<number, number>();
-      for (const mat of allMaterials) {
-        materialCostMap.set(mat.id, mat.cost || 0);
-      }
-      
-      const equipmentCostMap = new Map<number, number>();
-      for (const equip of allEquipment) {
-        equipmentCostMap.set(equip.id, equip.cost || 0);
-      }
-      
-      console.log(`[Push] Built cost maps: ${materialCostMap.size} materials, ${equipmentCostMap.size} equipment`);
-      
-      // Step 4: Process and update services
-      console.log('[Push] Step 4: Processing services...');
-      const totalServices = allServices.length;
-      pushProgressEmitter.startPhase(tenantId, 'updating');
-      emitProgress(tenantId, 'updating', `Processing ${totalServices} services...`, 0, totalServices);
-      
-      // Track original values for revert functionality
-      const originalValues: Array<{ serviceId: number; originalPrice: number; originalCost: number }> = [];
-      let wasCancelled = false;
-      
-      // Clear any previous cancel request
-      pushProgressEmitter.clearCancel(tenantId);
-      
-      // Step 4a: Calculate all updates first (fast, no API calls)
-      console.log('[Push] Calculating price updates...');
-      interface PendingUpdate {
-        service: any;
-        roundedPrice: number;
-        roundedCost: number;
-        currentPrice: number;
-        currentCost: number;
-      }
-      const pendingUpdates: PendingUpdate[] = [];
-      
-      for (const service of allServices) {
-        // Check for cancellation every 50 services during calculation
-        if (results.processed % 50 === 0 && pushProgressEmitter.isCancelled(tenantId)) {
-          wasCancelled = true;
-          console.log(`[Push] Cancelled during calculation at service ${results.processed} of ${totalServices}`);
-          break;
-        }
-        
-        results.processed++;
-        
-        // Emit progress during calculation phase
-        if (results.processed % 100 === 0 || results.processed === totalServices) {
-          emitProgress(tenantId, 'updating', `Calculating ${results.processed} of ${totalServices} services...`, results.processed, totalServices);
-        }
-        
-        // Calculate total M&E cost from linked materials and equipment
-        let materialsCost = 0;
-        let equipmentCost = 0;
-        
-        if (service.serviceMaterials && service.serviceMaterials.length > 0) {
-          for (const mat of service.serviceMaterials) {
-            const cost = materialCostMap.get(mat.skuId) || 0;
-            materialsCost += cost * (mat.quantity || 1);
-          }
-        }
-        
-        if (service.serviceEquipment && service.serviceEquipment.length > 0) {
-          for (const equip of service.serviceEquipment) {
-            const cost = equipmentCostMap.get(equip.skuId) || 0;
-            equipmentCost += cost * (equip.quantity || 1);
-          }
-        }
-        
-        const rawMeCost = materialsCost + equipmentCost;
-        
-        // Skip if no M&E cost
-        if (rawMeCost === 0) {
-          results.skipped++;
-          continue;
-        }
-        
-        // Calculate sales tax on M&E
-        const tax = rawMeCost * salesTaxRate;
-        const totalMe = rawMeCost + tax;
-        const newPrice = totalMe / (targetMePercent / 100);
-        
-        // Calculate labor cost based on mode
-        let laborCost = 0;
-        if (laborMode === 'hours') {
-          const hours = service.hours || 0;
-          laborCost = (hours * laborHourlyRate) * (1 + laborBurdenRate);
-        } else {
-          laborCost = (newPrice * laborPercentRate) * (1 + laborBurdenRate);
-        }
-        
-        const commissionCost = (newPrice * commissionRate) * (1 + commissionBurdenRate);
-        const financingCost = newPrice * financingRate;
-        const estimatedLabor = laborCost + commissionCost + tax + financingCost;
-        
-        const roundedPrice = shouldRoundUp ? Math.ceil(newPrice) : Math.round(newPrice * 100) / 100;
-        const roundedCost = Math.round(estimatedLabor * 100) / 100;
-        
-        const currentPrice = service.price || 0;
-        const currentCost = service.cost || 0;
-        const priceChanged = Math.abs(roundedPrice - currentPrice) > 0.01;
-        const costChanged = Math.abs(roundedCost - currentCost) > 0.01;
-        
-        if (priceChanged || costChanged) {
-          pendingUpdates.push({ service, roundedPrice, roundedCost, currentPrice, currentCost });
-        }
-      }
-      
-      console.log(`[Push] ${pendingUpdates.length} services need updates, ${results.skipped} skipped (no M&E)`);
-      
-      // If cancelled during calculation, return early
-      if (wasCancelled) {
-        pushProgressEmitter.clearCancel(tenantId);
-        console.log(`[Push] Cancelled during calculation phase`);
-        emitProgress(tenantId, 'cancelled', `Push cancelled during calculation. No services were updated.`, 0, totalServices);
-        return res.json({ 
-          ...results, 
-          skipped: results.skipped, 
-          cancelled: true,
-          originalValues: null
-        });
-      }
-      
-      // Step 4b: Execute updates in parallel batches (5 concurrent calls)
-      const CONCURRENCY = 5;
-      let completedUpdates = 0;
-      
-      emitProgress(tenantId, 'updating', `Updating ${pendingUpdates.length} services (${CONCURRENCY} at a time)...`, 0, pendingUpdates.length);
-      
-      for (let i = 0; i < pendingUpdates.length; i += CONCURRENCY) {
-        // Check for cancellation before each batch
-        if (pushProgressEmitter.isCancelled(tenantId)) {
-          wasCancelled = true;
-          console.log(`[Push] Cancelled at batch ${Math.floor(i / CONCURRENCY) + 1}`);
-          break;
-        }
-        
-        const batch = pendingUpdates.slice(i, i + CONCURRENCY);
-        
-        // Process batch in parallel
-        const batchResults = await Promise.allSettled(
-          batch.map(async (update) => {
-            // Store original values before attempting update
-            const originalEntry = {
-              serviceId: update.service.id,
-              originalPrice: update.currentPrice,
-              originalCost: update.currentCost,
-            };
-            
-            await stApi.updateService(update.service.id, {
-              price: update.roundedPrice,
-              cost: update.roundedCost
-            });
-            
-            return { success: true, originalEntry, update };
-          })
-        );
-        
-        // Process batch results
-        for (const result of batchResults) {
-          if (result.status === 'fulfilled') {
-            results.updated++;
-            originalValues.push(result.value.originalEntry);
-            
-            // Log first few updates
-            if (results.updated <= 3) {
-              const u = result.value.update;
-              console.log(`[Push] Updated service "${u.service.name}": price $${u.currentPrice} -> $${u.roundedPrice}`);
-            }
-          } else {
-            results.errors.push(`Failed to update service: ${result.reason?.message || 'Unknown error'}`);
-          }
-        }
-        
-        completedUpdates = Math.min(i + CONCURRENCY, pendingUpdates.length);
-        emitProgress(tenantId, 'updating', `Updated ${completedUpdates} of ${pendingUpdates.length} services...`, completedUpdates, pendingUpdates.length);
-      }
-      
-      // Clear cancel flag
-      pushProgressEmitter.clearCancel(tenantId);
-      
-      if (wasCancelled) {
-        console.log(`[Push] Cancelled: ${results.processed} processed, ${results.updated} updated before cancellation`);
-        emitProgress(tenantId, 'cancelled', `Push cancelled. Updated ${results.updated} services before stopping.`, results.updated, totalServices);
-        return res.json({ 
-          ...results, 
-          skipped: results.skipped, 
-          cancelled: true,
-          originalValues: originalValues.length > 0 ? JSON.stringify(originalValues) : null
-        });
-      }
-      
-      console.log(`[Push] Completed: ${results.processed} processed, ${results.updated} updated, ${results.skipped} skipped (no M&E), ${results.errors.length} errors`);
-      
-      // Emit completion
-      const successMessage = results.errors.length > 0 
-        ? `Completed with ${results.errors.length} errors. Updated ${results.updated} of ${results.processed} services (${results.skipped} skipped - no M&E).`
-        : `Successfully updated ${results.updated} of ${results.processed} services (${results.skipped} skipped - no M&E).`;
-      emitProgress(tenantId, 'complete', successMessage, results.updated, results.processed);
+      pushQueue.completePush(tenantId);
       
       res.json({ 
         ...results, 
+        historyId,
         skipped: results.skipped,
-        originalValues: originalValues.length > 0 ? JSON.stringify(originalValues) : null
       });
     } catch (err: any) {
-      // Emit error
+      // Update history with failure
+      await storage.updatePushHistory(historyId, {
+        status: 'failed',
+        completedAt: new Date(),
+        errorMessages: JSON.stringify([err.message || 'Push failed']),
+        errorCount: 1,
+      });
+      
+      pushQueue.completePush(tenantId);
       emitProgress(tenantId, 'error', `Push failed: ${err.message}`, 0, 0);
       res.status(500).json({ message: err.message });
     }
