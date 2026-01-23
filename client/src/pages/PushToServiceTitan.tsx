@@ -195,6 +195,37 @@ export default function PushToServiceTitan() {
       eventSourceRef.current.close();
     }
     
+    // Create push history entry
+    let historyId: number | null = null;
+    try {
+      const historyResponse = await fetch('/api/push-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId: selectedTenantId,
+          status: 'in_progress',
+          categoryIds: JSON.stringify(Array.from(selectedCategories)),
+          targetMePercent: parseFloat(targetMePercent),
+          salesTaxPercent: parseFloat(salesTaxPercent),
+          laborMode,
+          laborHourlyRate: parseFloat(laborHourlyRate),
+          laborHours: parseFloat(laborHours),
+          laborPercent: parseFloat(laborPercent),
+          laborBurdenPercent: parseFloat(laborBurdenPercent),
+          commissionPercent: parseFloat(commissionPercent),
+          commissionBurdenPercent: parseFloat(commissionBurdenPercent),
+          financingFeePercent: parseFloat(financingFeePercent),
+          roundUp,
+        }),
+      });
+      if (historyResponse.ok) {
+        const historyData = await historyResponse.json();
+        historyId = historyData.id;
+      }
+    } catch (err) {
+      console.error('Failed to create push history entry:', err);
+    }
+    
     // Set up SSE connection for progress updates
     const eventSource = new EventSource(`/api/servicetitan/${selectedTenantId}/push/progress`);
     eventSourceRef.current = eventSource;
@@ -246,6 +277,26 @@ export default function PushToServiceTitan() {
       
       const results = await response.json();
       
+      // Update push history with results
+      if (historyId) {
+        try {
+          await fetch(`/api/push-history/${historyId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              status: results.errors && results.errors.length > 0 ? 'completed' : 'completed',
+              completedAt: new Date().toISOString(),
+              processedCount: results.processed,
+              updatedCount: results.updated,
+              errorCount: results.errors?.length || 0,
+              errorMessages: results.errors ? JSON.stringify(results.errors) : null,
+            }),
+          });
+        } catch (err) {
+          console.error('Failed to update push history:', err);
+        }
+      }
+      
       if (results.errors && results.errors.length > 0) {
         toast({
           title: "Push Completed with Warnings",
@@ -258,6 +309,24 @@ export default function PushToServiceTitan() {
         });
       }
     } catch (err: any) {
+      // Update push history with failure
+      if (historyId) {
+        try {
+          await fetch(`/api/push-history/${historyId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              status: 'failed',
+              completedAt: new Date().toISOString(),
+              errorMessages: JSON.stringify([err.message || 'Push failed']),
+              errorCount: 1,
+            }),
+          });
+        } catch (updateErr) {
+          console.error('Failed to update push history:', updateErr);
+        }
+      }
+      
       toast({
         title: "Push Failed",
         description: err.message || "An error occurred while pushing to ServiceTitan.",

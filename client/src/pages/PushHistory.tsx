@@ -18,16 +18,12 @@ export default function PushHistoryPage() {
   const { toast } = useToast();
   const [selectedTenantId, setSelectedTenantId] = useState<string>("all");
 
+  const historyUrl = selectedTenantId === "all" 
+    ? '/api/push-history' 
+    : `/api/push-history?tenantId=${selectedTenantId}`;
+    
   const { data: history = [], isLoading: isHistoryLoading, refetch } = useQuery<PushHistory[]>({
-    queryKey: ['/api/push-history', selectedTenantId],
-    queryFn: async () => {
-      const url = selectedTenantId === "all" 
-        ? '/api/push-history' 
-        : `/api/push-history?tenantId=${selectedTenantId}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch push history');
-      return response.json();
-    },
+    queryKey: [historyUrl],
   });
 
   const deleteMutation = useMutation({
@@ -35,7 +31,12 @@ export default function PushHistoryPage() {
       await apiRequest('DELETE', `/api/push-history/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/push-history'] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/push-history');
+        }
+      });
       toast({ title: "Deleted", description: "Push history entry removed." });
     },
     onError: () => {
@@ -173,7 +174,11 @@ export default function PushHistoryPage() {
                         <div className="flex flex-wrap gap-2 text-xs">
                           <Badge variant="outline">M&E: {item.targetMePercent}%</Badge>
                           <Badge variant="outline">Tax: {item.salesTaxPercent}%</Badge>
-                          <Badge variant="outline">Labor: {item.laborMode === 'percent' ? `${item.laborPercent}%` : `${item.laborHourlyRate}/hr`}</Badge>
+                          <Badge variant="outline">
+                            Labor: {item.laborMode === 'percent' 
+                              ? `${item.laborPercent}%` 
+                              : `$${item.laborHourlyRate}/hr × ${item.laborHours || 8}h`}
+                          </Badge>
                           {item.roundUp && <Badge variant="outline">Round Up</Badge>}
                         </div>
 

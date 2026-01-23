@@ -7,9 +7,8 @@ import { useServiceTitanAuth } from "@/contexts/ServiceTitanAuthContext";
 export function Navigation() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const [stExpanded, setStExpanded] = useState(() => {
-    return location.startsWith("/push") || location.startsWith("/tenants");
-  });
+  const isServiceTitanPath = location.startsWith("/push") || location.startsWith("/tenants");
+  const [stExpanded, setStExpanded] = useState(() => isServiceTitanPath);
   const { isUnlocked, lock } = useServiceTitanAuth();
 
   const mainNavItems = [
@@ -24,7 +23,7 @@ export function Navigation() {
     { href: "/tenants", label: "Manage Tenants", icon: Building2 },
   ];
 
-  const isStActive = location.startsWith("/push") || location.startsWith("/tenants");
+  const isStActive = isServiceTitanPath;
 
   return (
     <>

@@ -51,6 +51,7 @@ export const pushHistory = pgTable("push_history", {
   salesTaxPercent: numeric("sales_tax_percent").notNull(),
   laborMode: text("labor_mode").notNull(),
   laborHourlyRate: numeric("labor_hourly_rate").notNull(),
+  laborHours: numeric("labor_hours").notNull().default("8"),
   laborPercent: numeric("labor_percent").notNull(),
   laborBurdenPercent: numeric("labor_burden_percent").notNull(),
   commissionPercent: numeric("commission_percent").notNull(),
