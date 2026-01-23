@@ -82,6 +82,14 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
         console.log(`[Push] Fetching services for category ${categoryId}...`);
         const services = await stApi.getServices(categoryId);
         console.log(`[Push] Category ${categoryId}: found ${services.length} services`);
+        
+        // Debug: Log first 3 services to see all available fields
+        if (i === 0 && services.length > 0) {
+          console.log(`[DEBUG] Sample service object keys:`, Object.keys(services[0]));
+          for (let j = 0; j < Math.min(3, services.length); j++) {
+            console.log(`[DEBUG] Service ${j + 1} sample:`, JSON.stringify(services[j], null, 2));
+          }
+        }
 
         for (const service of services) {
           allServices.push(service);
