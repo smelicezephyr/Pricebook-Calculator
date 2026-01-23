@@ -735,7 +735,7 @@ export default function PushToServiceTitan() {
                     </div>
                     <Button 
                       onClick={handlePush}
-                      disabled={selectedCategories.size === 0 || isPushing}
+                      disabled={!selectedTenantId || selectedCategories.size === 0 || isPushing}
                       className="gap-2"
                       data-testid="button-push-to-servicetitan"
                     >
