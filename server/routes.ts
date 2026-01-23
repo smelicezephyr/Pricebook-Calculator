@@ -379,6 +379,10 @@ export async function registerRoutes(
     
     console.log(`[Push] Starting push for tenant ${tenantId}, categories: [${categoryIds.join(', ')}], targetMePercent: ${targetMePercent}%, roundUp: ${shouldRoundUp}`);
     
+    // Initialize push timing for ETA calculation
+    pushProgressEmitter.startPush(tenantId);
+    pushProgressEmitter.startPhase(tenantId, 'services');
+    
     // Clear any previous progress
     emitProgress(tenantId, 'services', 'Starting push...', 0, 100);
     
@@ -434,6 +438,7 @@ export async function registerRoutes(
       // Step 2: Fetch materials and equipment globally (ServiceTitan API doesn't support filtering by SKU ID)
       // This is required to build cost lookup maps for calculating service prices
       console.log('[Push] Step 2: Fetching all materials (required for cost lookup)...');
+      pushProgressEmitter.startPhase(tenantId, 'materials');
       emitProgress(tenantId, 'materials', 'Loading materials from ServiceTitan...', 0, 100);
       const materialsStart = Date.now();
       const allMaterials = await stApi.getMaterials((page, count) => {
@@ -442,6 +447,7 @@ export async function registerRoutes(
       console.log(`[Push] Materials fetched in ${Date.now() - materialsStart}ms: ${allMaterials.length} items`);
       
       console.log('[Push] Step 3: Fetching all equipment (required for cost lookup)...');
+      pushProgressEmitter.startPhase(tenantId, 'equipment');
       emitProgress(tenantId, 'equipment', 'Loading equipment from ServiceTitan...', 0, 100);
       const equipmentStart = Date.now();
       const allEquipment = await stApi.getEquipment((page, count) => {
@@ -465,6 +471,7 @@ export async function registerRoutes(
       // Step 4: Process and update services
       console.log('[Push] Step 4: Processing services...');
       const totalServices = allServices.length;
+      pushProgressEmitter.startPhase(tenantId, 'updating');
       emitProgress(tenantId, 'updating', `Processing ${totalServices} services...`, 0, totalServices);
       
       // Track original values for revert functionality

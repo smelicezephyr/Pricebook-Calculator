@@ -21,6 +21,42 @@ interface PushProgress {
   current: number;
   total: number;
   percent: number;
+  startedAt?: number;  // Unix timestamp when push started
+  phaseStartedAt?: number;  // Unix timestamp when current phase started
+}
+
+function formatETA(seconds: number): string {
+  if (seconds < 60) {
+    return `${Math.ceil(seconds)}s`;
+  } else if (seconds < 3600) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.ceil(seconds % 60);
+    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  } else {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.ceil((seconds % 3600) / 60);
+    return `${hrs}h ${mins}m`;
+  }
+}
+
+function calculateETA(progress: PushProgress): string | null {
+  // Only calculate ETA for updating phase with meaningful progress
+  if (progress.stage !== 'updating' || !progress.phaseStartedAt || progress.current < 2 || progress.total === 0) {
+    return null;
+  }
+  
+  const elapsed = (Date.now() - progress.phaseStartedAt) / 1000;
+  const rate = progress.current / elapsed;
+  
+  if (rate <= 0) return null;
+  
+  const remaining = progress.total - progress.current;
+  const etaSeconds = remaining / rate;
+  
+  if (etaSeconds < 1) return 'Almost done...';
+  if (etaSeconds > 7200) return null; // Don't show if more than 2 hours
+  
+  return `~${formatETA(etaSeconds)} remaining`;
 }
 
 interface Category {
@@ -204,6 +240,7 @@ export default function PushToServiceTitan() {
         body: JSON.stringify({
           tenantId: selectedTenantId,
           status: 'in_progress',
+          startedAt: new Date().toISOString(),
           categoryIds: JSON.stringify(Array.from(selectedCategories)),
           targetMePercent: parseFloat(targetMePercent),
           salesTaxPercent: parseFloat(salesTaxPercent),
@@ -895,7 +932,15 @@ export default function PushToServiceTitan() {
                         className="h-2"
                         data-testid="progress-bar"
                       />
-                      <p className="text-xs text-muted-foreground">{pushProgress?.message}</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground">{pushProgress?.message}</p>
+                        {pushProgress && calculateETA(pushProgress) && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1" data-testid="text-eta">
+                            <Clock size={12} />
+                            {calculateETA(pushProgress)}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
                   

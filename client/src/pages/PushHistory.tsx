@@ -117,6 +117,28 @@ export default function PushHistoryPage() {
     return format(new Date(date), 'MMM d, yyyy h:mm a');
   };
 
+  const formatDuration = (startDate: string | Date | null, endDate: string | Date | null) => {
+    if (!startDate || !endDate) return null;
+    const start = new Date(startDate).getTime();
+    const end = new Date(endDate).getTime();
+    const durationMs = end - start;
+    
+    if (durationMs < 0) return null;
+    
+    const seconds = Math.floor(durationMs / 1000);
+    if (seconds < 60) {
+      return `${seconds}s`;
+    } else if (seconds < 3600) {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+    } else {
+      const hrs = Math.floor(seconds / 3600);
+      const mins = Math.floor((seconds % 3600) / 60);
+      return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+    }
+  };
+
   if (isTenantsLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -212,10 +234,16 @@ export default function PushHistoryPage() {
                           </span>
                         </div>
                         
-                        <div className="text-sm text-muted-foreground">
-                          <span>Created: {formatDate(item.createdAt)}</span>
+                        <div className="text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+                          <span>Started: {formatDate(item.startedAt || item.createdAt)}</span>
                           {item.completedAt && (
-                            <span className="ml-4">Completed: {formatDate(item.completedAt)}</span>
+                            <span>Completed: {formatDate(item.completedAt)}</span>
+                          )}
+                          {item.completedAt && formatDuration(item.startedAt || item.createdAt, item.completedAt) && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              Duration: {formatDuration(item.startedAt || item.createdAt, item.completedAt)}
+                            </span>
                           )}
                         </div>
 
