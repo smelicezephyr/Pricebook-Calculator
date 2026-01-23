@@ -61,6 +61,7 @@ shared/           # Shared code between client/server
 4. **Path Aliases**: TypeScript paths configured for clean imports (`@/` for client, `@shared/` for shared code).
 
 5. **ServiceTitan Integration**: Multi-tenant support for pushing M&E calculations to ServiceTitan pricebooks.
+   - **API Reference**: https://developer.servicetitan.io/apis/ (Pricebook v2 API)
    - Tenants store encrypted OAuth credentials (clientId, clientSecret, appKey)
    - Credentials are masked in API responses (never exposed to frontend)
    - OAuth tokens cached for 15 minutes per tenant
