@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTenants, useServiceTitan } from "@/hooks/use-tenants";
 import { useSettings } from "@/hooks/use-settings";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,17 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign, ArrowUp } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+
+interface PushProgress {
+  stage: 'connected' | 'materials' | 'equipment' | 'services' | 'updating' | 'complete' | 'error';
+  message: string;
+  current: number;
+  total: number;
+  percent: number;
+}
 
 interface Category {
   id: number;
@@ -34,6 +43,8 @@ export default function PushToServiceTitan() {
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
+  const [pushProgress, setPushProgress] = useState<PushProgress | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   // Local pricing settings (initialized from global settings)
   const [targetMePercent, setTargetMePercent] = useState<string>("23.00");
@@ -177,12 +188,38 @@ export default function PushToServiceTitan() {
     if (!selectedTenantId || selectedCategories.size === 0) return;
     
     setIsPushing(true);
+    setPushProgress({ stage: 'connected', message: 'Starting push...', current: 0, total: 0, percent: 0 });
+    
+    // Close any existing event source
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+    
+    // Set up SSE connection for progress updates
+    const eventSource = new EventSource(`/api/servicetitan/${selectedTenantId}/push/progress`);
+    eventSourceRef.current = eventSource;
+    
+    eventSource.onmessage = (event) => {
+      try {
+        const progress = JSON.parse(event.data) as PushProgress;
+        setPushProgress(progress);
+        
+        // Close EventSource when complete or error
+        if (progress.stage === 'complete' || progress.stage === 'error') {
+          eventSource.close();
+          eventSourceRef.current = null;
+        }
+      } catch (err) {
+        console.error('Failed to parse progress event:', err);
+      }
+    };
+    
+    eventSource.onerror = () => {
+      eventSource.close();
+      eventSourceRef.current = null;
+    };
+    
     try {
-      toast({
-        title: "Push Started",
-        description: `Pushing M&E calculations to ${selectedCategories.size} categories...`,
-      });
-      
       const response = await fetch(`/api/servicetitan/${selectedTenantId}/push`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -228,8 +265,23 @@ export default function PushToServiceTitan() {
       });
     } finally {
       setIsPushing(false);
+      // Keep progress visible for a moment after completion
+      setTimeout(() => {
+        if (pushProgress?.stage === 'complete' || pushProgress?.stage === 'error') {
+          // Don't clear immediately so user can see final status
+        }
+      }, 3000);
     }
   };
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+    };
+  }, []);
 
   const parentCategories = categories.filter(c => !c.parentId);
 
@@ -727,6 +779,46 @@ export default function PushToServiceTitan() {
                       data-testid="switch-round-up"
                     />
                   </div>
+                  
+                  {/* Progress Bar - shown during push */}
+                  {(isPushing || pushProgress) && pushProgress?.stage !== 'connected' && (
+                    <div className="space-y-3 p-4 bg-muted/30 rounded-lg border" data-testid="push-progress">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {pushProgress?.stage === 'complete' ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          ) : pushProgress?.stage === 'error' ? (
+                            <XCircle className="w-4 h-4 text-destructive" />
+                          ) : (
+                            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                          )}
+                          <span className="text-sm font-medium">
+                            {pushProgress?.stage === 'materials' && 'Loading Materials'}
+                            {pushProgress?.stage === 'equipment' && 'Loading Equipment'}
+                            {pushProgress?.stage === 'services' && 'Counting Services'}
+                            {pushProgress?.stage === 'updating' && 'Updating Services'}
+                            {pushProgress?.stage === 'complete' && 'Push Complete'}
+                            {pushProgress?.stage === 'error' && 'Push Failed'}
+                          </span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {pushProgress?.stage === 'updating' && pushProgress.total > 0
+                            ? `${pushProgress.current} / ${pushProgress.total}`
+                            : pushProgress?.percent !== undefined 
+                              ? `${Math.round(pushProgress.percent)}%`
+                              : ''
+                          }
+                        </span>
+                      </div>
+                      <Progress 
+                        value={pushProgress?.percent ?? 0} 
+                        className="h-2"
+                        data-testid="progress-bar"
+                      />
+                      <p className="text-xs text-muted-foreground">{pushProgress?.message}</p>
+                    </div>
+                  )}
+                  
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">
