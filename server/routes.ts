@@ -474,26 +474,36 @@ export async function registerRoutes(
       // Clear any previous cancel request
       pushProgressEmitter.clearCancel(tenantId);
       
+      // Step 4a: Calculate all updates first (fast, no API calls)
+      console.log('[Push] Calculating price updates...');
+      interface PendingUpdate {
+        service: any;
+        roundedPrice: number;
+        roundedCost: number;
+        currentPrice: number;
+        currentCost: number;
+      }
+      const pendingUpdates: PendingUpdate[] = [];
+      
       for (const service of allServices) {
-        // Check for cancellation request
-        if (pushProgressEmitter.isCancelled(tenantId)) {
+        // Check for cancellation every 50 services during calculation
+        if (results.processed % 50 === 0 && pushProgressEmitter.isCancelled(tenantId)) {
           wasCancelled = true;
-          console.log(`[Push] Cancelled at service ${results.processed} of ${totalServices}`);
+          console.log(`[Push] Cancelled during calculation at service ${results.processed} of ${totalServices}`);
           break;
         }
         
         results.processed++;
         
-        // Emit progress update every 10 services to reduce overhead
-        if (results.processed % 10 === 0 || results.processed === totalServices) {
-          emitProgress(tenantId, 'updating', `Processing service ${results.processed} of ${totalServices}...`, results.processed, totalServices);
+        // Emit progress during calculation phase
+        if (results.processed % 100 === 0 || results.processed === totalServices) {
+          emitProgress(tenantId, 'updating', `Calculating ${results.processed} of ${totalServices} services...`, results.processed, totalServices);
         }
         
         // Calculate total M&E cost from linked materials and equipment
         let materialsCost = 0;
         let equipmentCost = 0;
         
-        // Use serviceMaterials (skuId references) from API response
         if (service.serviceMaterials && service.serviceMaterials.length > 0) {
           for (const mat of service.serviceMaterials) {
             const cost = materialCostMap.get(mat.skuId) || 0;
@@ -501,7 +511,6 @@ export async function registerRoutes(
           }
         }
         
-        // Use serviceEquipment (skuId references) from API response
         if (service.serviceEquipment && service.serviceEquipment.length > 0) {
           for (const equip of service.serviceEquipment) {
             const cost = equipmentCostMap.get(equip.skuId) || 0;
@@ -517,13 +526,9 @@ export async function registerRoutes(
           continue;
         }
         
-        // Calculate sales tax on M&E (same as calculator)
+        // Calculate sales tax on M&E
         const tax = rawMeCost * salesTaxRate;
-        
-        // Total M&E includes tax (same as calculator: totalMe = materials + equipment + tax)
         const totalMe = rawMeCost + tax;
-        
-        // Calculate new price: totalMe / (M&E% / 100) - matching calculator formula
         const newPrice = totalMe / (targetMePercent / 100);
         
         // Calculate labor cost based on mode
@@ -532,55 +537,94 @@ export async function registerRoutes(
           const hours = service.hours || 0;
           laborCost = (hours * laborHourlyRate) * (1 + laborBurdenRate);
         } else {
-          // Percent mode: labor is percentage of price with burden
           laborCost = (newPrice * laborPercentRate) * (1 + laborBurdenRate);
         }
         
-        // Calculate commission cost (percentage of price with burden)
         const commissionCost = (newPrice * commissionRate) * (1 + commissionBurdenRate);
-        
-        // Calculate financing cost
         const financingCost = newPrice * financingRate;
-        
-        // Calculate estimated labor (same formula as calculator)
-        // estimatedLabor = laborCost + commissionCost + tax + financingCost
         const estimatedLabor = laborCost + commissionCost + tax + financingCost;
         
-        // Round values - use Math.ceil for price if roundUp is enabled
         const roundedPrice = shouldRoundUp ? Math.ceil(newPrice) : Math.round(newPrice * 100) / 100;
         const roundedCost = Math.round(estimatedLabor * 100) / 100;
         
-        // Check if either value changed significantly
         const currentPrice = service.price || 0;
         const currentCost = service.cost || 0;
         const priceChanged = Math.abs(roundedPrice - currentPrice) > 0.01;
         const costChanged = Math.abs(roundedCost - currentCost) > 0.01;
         
         if (priceChanged || costChanged) {
-          // Store original values before updating (for revert)
-          originalValues.push({
-            serviceId: service.id,
-            originalPrice: currentPrice,
-            originalCost: currentCost,
-          });
-          
-          try {
-            await stApi.updateService(service.id, { 
-              price: roundedPrice,
-              cost: roundedCost
-            });
-            results.updated++;
+          pendingUpdates.push({ service, roundedPrice, roundedCost, currentPrice, currentCost });
+        }
+      }
+      
+      console.log(`[Push] ${pendingUpdates.length} services need updates, ${results.skipped} skipped (no M&E)`);
+      
+      // If cancelled during calculation, return early
+      if (wasCancelled) {
+        pushProgressEmitter.clearCancel(tenantId);
+        console.log(`[Push] Cancelled during calculation phase`);
+        emitProgress(tenantId, 'cancelled', `Push cancelled during calculation. No services were updated.`, 0, totalServices);
+        return res.json({ 
+          ...results, 
+          skipped: results.skipped, 
+          cancelled: true,
+          originalValues: null
+        });
+      }
+      
+      // Step 4b: Execute updates in parallel batches (5 concurrent calls)
+      const CONCURRENCY = 5;
+      let completedUpdates = 0;
+      
+      emitProgress(tenantId, 'updating', `Updating ${pendingUpdates.length} services (${CONCURRENCY} at a time)...`, 0, pendingUpdates.length);
+      
+      for (let i = 0; i < pendingUpdates.length; i += CONCURRENCY) {
+        // Check for cancellation before each batch
+        if (pushProgressEmitter.isCancelled(tenantId)) {
+          wasCancelled = true;
+          console.log(`[Push] Cancelled at batch ${Math.floor(i / CONCURRENCY) + 1}`);
+          break;
+        }
+        
+        const batch = pendingUpdates.slice(i, i + CONCURRENCY);
+        
+        // Process batch in parallel
+        const batchResults = await Promise.allSettled(
+          batch.map(async (update) => {
+            // Store original values before attempting update
+            const originalEntry = {
+              serviceId: update.service.id,
+              originalPrice: update.currentPrice,
+              originalCost: update.currentCost,
+            };
             
-            // Log first few updates for debugging
+            await stApi.updateService(update.service.id, {
+              price: update.roundedPrice,
+              cost: update.roundedCost
+            });
+            
+            return { success: true, originalEntry, update };
+          })
+        );
+        
+        // Process batch results
+        for (const result of batchResults) {
+          if (result.status === 'fulfilled') {
+            results.updated++;
+            originalValues.push(result.value.originalEntry);
+            
+            // Log first few updates
             if (results.updated <= 3) {
-              console.log(`[Push] Updated service "${service.name}": price $${currentPrice} -> $${roundedPrice}, cost $${currentCost} -> $${roundedCost}`);
+              const u = result.value.update;
+              console.log(`[Push] Updated service "${u.service.name}": price $${u.currentPrice} -> $${u.roundedPrice}`);
             }
-          } catch (updateErr: any) {
-            results.errors.push(`Failed to update service ${service.name}: ${updateErr.message}`);
-            // Remove from originalValues if update failed
-            originalValues.pop();
+          } else {
+            results.errors.push(`Failed to update service: ${result.reason?.message || 'Unknown error'}`);
           }
         }
+        
+        completedUpdates = Math.min(i + CONCURRENCY, pendingUpdates.length);
+        emitProgress(tenantId, 'updating', `Updated ${completedUpdates} of ${pendingUpdates.length} services...`, completedUpdates, pendingUpdates.length);
       }
       
       // Clear cancel flag
