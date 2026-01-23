@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTenants } from "@/hooks/use-tenants";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Loader2, Clock, CheckCircle2, XCircle, AlertCircle, Trash2, ArrowLeft, History as HistoryIcon, RefreshCw, RotateCcw, StopCircle, Ban } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -12,11 +13,56 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import type { PushHistory } from "@shared/schema";
 
+interface PushProgress {
+  stage: string;
+  message: string;
+  current: number;
+  total: number;
+  percent: number;
+  startedAt?: number;
+  phaseStartedAt?: number;
+}
+
+function formatETA(seconds: number): string {
+  if (seconds < 60) {
+    return `${Math.ceil(seconds)}s`;
+  } else if (seconds < 3600) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.ceil(seconds % 60);
+    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  } else {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.ceil((seconds % 3600) / 60);
+    return `${hrs}h ${mins}m`;
+  }
+}
+
+function calculateETA(progress: PushProgress): string | null {
+  if (progress.stage !== 'updating' || !progress.phaseStartedAt || progress.current < 2 || progress.total === 0) {
+    return null;
+  }
+  
+  const elapsed = (Date.now() - progress.phaseStartedAt) / 1000;
+  const rate = progress.current / elapsed;
+  
+  if (rate <= 0) return null;
+  
+  const remaining = progress.total - progress.current;
+  const etaSeconds = remaining / rate;
+  
+  if (etaSeconds < 1) return 'Almost done...';
+  if (etaSeconds > 7200) return null;
+  
+  return `~${formatETA(etaSeconds)} remaining`;
+}
+
 export default function PushHistoryPage() {
   const { tenants, isLoading: isTenantsLoading } = useTenants();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [selectedTenantId, setSelectedTenantId] = useState<string>("all");
+  const [liveProgress, setLiveProgress] = useState<Map<number, PushProgress>>(new Map());
+  const eventSourcesRef = useRef<Map<number, EventSource>>(new Map());
 
   const historyUrl = selectedTenantId === "all" 
     ? '/api/push-history' 
@@ -25,6 +71,77 @@ export default function PushHistoryPage() {
   const { data: history = [], isLoading: isHistoryLoading, refetch } = useQuery<PushHistory[]>({
     queryKey: [historyUrl],
   });
+
+  // Connect to SSE for in-progress pushes
+  // Note: Only one push per tenant can be active at a time (enforced by backend),
+  // so keying by tenantId is correct for this use case.
+  useEffect(() => {
+    const inProgressItems = history.filter(item => item.status === 'in_progress');
+    const currentSources = eventSourcesRef.current;
+    
+    // Close connections for items no longer in progress
+    currentSources.forEach((source, tenantId) => {
+      if (!inProgressItems.some(item => item.tenantId === tenantId)) {
+        source.close();
+        currentSources.delete(tenantId);
+        setLiveProgress(prev => {
+          const next = new Map(prev);
+          next.delete(tenantId);
+          return next;
+        });
+      }
+    });
+    
+    // Open connections for new in-progress items
+    for (const item of inProgressItems) {
+      if (!currentSources.has(item.tenantId)) {
+        const tenantId = item.tenantId;
+        const eventSource = new EventSource(`/api/servicetitan/${tenantId}/push/progress`);
+        
+        eventSource.onmessage = (event) => {
+          try {
+            const progress = JSON.parse(event.data) as PushProgress;
+            setLiveProgress(prev => {
+              const next = new Map(prev);
+              next.set(tenantId, progress);
+              return next;
+            });
+            
+            // Clean up and refresh when push completes
+            if (progress.stage === 'complete' || progress.stage === 'error' || progress.stage === 'cancelled') {
+              eventSource.close();
+              currentSources.delete(tenantId);
+              setLiveProgress(prev => {
+                const next = new Map(prev);
+                next.delete(tenantId);
+                return next;
+              });
+              refetch();
+            }
+          } catch (e) {
+            console.error('Failed to parse progress:', e);
+          }
+        };
+        
+        eventSource.onerror = () => {
+          eventSource.close();
+          currentSources.delete(tenantId);
+          setLiveProgress(prev => {
+            const next = new Map(prev);
+            next.delete(tenantId);
+            return next;
+          });
+        };
+        
+        currentSources.set(tenantId, eventSource);
+      }
+    }
+    
+    return () => {
+      currentSources.forEach(source => source.close());
+      currentSources.clear();
+    };
+  }, [history, refetch]);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -246,6 +363,32 @@ export default function PushHistoryPage() {
                             </span>
                           )}
                         </div>
+
+                        {/* Live progress for in-progress items */}
+                        {item.status === 'in_progress' && liveProgress.has(item.tenantId) && (() => {
+                          const progress = liveProgress.get(item.tenantId)!;
+                          const eta = calculateETA(progress);
+                          return (
+                            <div className="space-y-2 p-3 bg-muted/30 rounded-lg border" data-testid={`live-progress-${item.id}`}>
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="font-medium">
+                                  {progress.stage === 'materials' && 'Loading Materials...'}
+                                  {progress.stage === 'equipment' && 'Loading Equipment...'}
+                                  {progress.stage === 'services' && 'Counting Services...'}
+                                  {progress.stage === 'updating' && `Updating: ${progress.current} / ${progress.total}`}
+                                </span>
+                                {eta && (
+                                  <span className="text-muted-foreground flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    {eta}
+                                  </span>
+                                )}
+                              </div>
+                              <Progress value={progress.percent} className="h-2" />
+                              <p className="text-xs text-muted-foreground">{progress.message}</p>
+                            </div>
+                          );
+                        })()}
 
                         <div className="flex flex-wrap gap-2 text-xs">
                           <Badge variant="outline">M&E: {item.targetMePercent}%</Badge>
