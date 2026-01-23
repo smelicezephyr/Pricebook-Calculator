@@ -82,7 +82,7 @@ export class ServiceTitanAPI {
     this.tenant = tenant;
   }
 
-  private async getAccessToken(): Promise<string> {
+  async getAccessToken(): Promise<string> {
     const cached = tokenCache.get(this.tenant.id);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.token;

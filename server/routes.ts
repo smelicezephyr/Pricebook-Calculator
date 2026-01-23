@@ -445,6 +445,155 @@ export async function registerRoutes(
     }
   });
 
+  // Test endpoint: Try different field names for updating estimated labor cost
+  app.post("/api/servicetitan/:tenantId/test-cost-update/:serviceId", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    const serviceId = Number(req.params.serviceId);
+    const testValue = req.body.testValue || 1000;
+    
+    if (isNaN(tenantId) || isNaN(serviceId)) {
+      return res.status(400).json({ message: "Invalid ID" });
+    }
+    
+    const tenant = await storage.getTenant(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+    
+    const stApi = new ServiceTitanAPI(tenant);
+    
+    // Get current service state first
+    const originalService = await stApi.getServiceById(serviceId);
+    console.log(`[CostTest] Original service - price: ${originalService.price}, cost: ${originalService.cost}, hours: ${originalService.hours}`);
+    
+    // Field names to test for estimated labor cost
+    const fieldsToTest = [
+      { fieldName: 'laborCost', value: testValue },
+      { fieldName: 'estimatedCost', value: testValue },
+      { fieldName: 'estimatedLaborCost', value: testValue },
+      { fieldName: 'cost', value: testValue },
+    ];
+    
+    const results: any[] = [];
+    
+    for (const test of fieldsToTest) {
+      try {
+        const payload: any = {};
+        payload[test.fieldName] = test.value;
+        
+        console.log(`[CostTest] Testing field "${test.fieldName}" with value ${test.value}`);
+        
+        const response = await fetch(
+          `https://api.servicetitan.io/pricebook/v2/tenant/${tenant.tenantId}/services/${serviceId}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${await stApi.getAccessToken()}`,
+              'Content-Type': 'application/json',
+              'ST-App-Key': tenant.appKey,
+            },
+            body: JSON.stringify(payload),
+          }
+        );
+        
+        const data = await response.json();
+        
+        results.push({
+          fieldName: test.fieldName,
+          status: response.status,
+          success: response.ok,
+          requestPayload: payload,
+          responseCost: data.cost,
+          responseHours: data.hours,
+          costChanged: data.cost !== originalService.cost,
+          error: !response.ok ? data : null,
+        });
+        
+        console.log(`[CostTest] Field "${test.fieldName}" - Status: ${response.status}, Response cost: ${data.cost}`);
+      } catch (err: any) {
+        results.push({
+          fieldName: test.fieldName,
+          error: err.message,
+          success: false,
+        });
+      }
+    }
+    
+    // Also test updating hours to see if that changes the cost
+    try {
+      const hoursPayload = { hours: 10 }; // Test with 10 hours
+      console.log(`[CostTest] Testing "hours" field with value 10`);
+      
+      const hoursResponse = await fetch(
+        `https://api.servicetitan.io/pricebook/v2/tenant/${tenant.tenantId}/services/${serviceId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${await stApi.getAccessToken()}`,
+            'Content-Type': 'application/json',
+            'ST-App-Key': tenant.appKey,
+          },
+          body: JSON.stringify(hoursPayload),
+        }
+      );
+      
+      const hoursData = await hoursResponse.json();
+      
+      results.push({
+        fieldName: 'hours',
+        status: hoursResponse.status,
+        success: hoursResponse.ok,
+        requestPayload: hoursPayload,
+        originalHours: originalService.hours,
+        responseHours: hoursData.hours,
+        hoursChanged: hoursData.hours !== originalService.hours,
+        originalCost: originalService.cost,
+        responseCost: hoursData.cost,
+        costChangedAfterHoursUpdate: hoursData.cost !== originalService.cost,
+      });
+      
+      console.log(`[CostTest] Hours update - Original hours: ${originalService.hours}, New hours: ${hoursData.hours}, Cost: ${hoursData.cost}`);
+      
+      // Restore original hours if changed
+      if (hoursData.hours !== originalService.hours && originalService.hours) {
+        await fetch(
+          `https://api.servicetitan.io/pricebook/v2/tenant/${tenant.tenantId}/services/${serviceId}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${await stApi.getAccessToken()}`,
+              'Content-Type': 'application/json',
+              'ST-App-Key': tenant.appKey,
+            },
+            body: JSON.stringify({ hours: originalService.hours }),
+          }
+        );
+        console.log(`[CostTest] Restored hours to ${originalService.hours}`);
+      }
+    } catch (err: any) {
+      results.push({
+        fieldName: 'hours',
+        error: err.message,
+        success: false,
+      });
+    }
+    
+    res.json({
+      serviceId,
+      originalState: {
+        price: originalService.price,
+        cost: originalService.cost,
+        hours: originalService.hours,
+      },
+      testValue,
+      results,
+      summary: {
+        fieldsAccepted: results.filter(r => r.success).map(r => r.fieldName),
+        fieldsThatChangedCost: results.filter(r => r.costChanged || r.costChangedAfterHoursUpdate).map(r => r.fieldName),
+      }
+    });
+  });
+
   // SSE endpoint for push progress updates
   app.get("/api/servicetitan/:tenantId/push/progress", (req, res) => {
     const tenantId = Number(req.params.tenantId);
