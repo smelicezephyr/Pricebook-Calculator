@@ -839,7 +839,8 @@ export default function PushToServiceTitan() {
                 <CardHeader>
                   <CardTitle className="text-lg">4. Push Updates</CardTitle>
                   <CardDescription>
-                    Apply the M&E percentage calculation to all items in the selected categories
+                    Updates <span className="font-medium">Static Price</span> based on M&E cost calculation. 
+                    <span className="text-muted-foreground/70"> Note: Estimated Labor Cost cannot be updated via API - it's calculated by ServiceTitan.</span>
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
