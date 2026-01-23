@@ -13,6 +13,7 @@ import Settings from "@/pages/Settings";
 import History from "@/pages/History";
 import Tenants from "@/pages/Tenants";
 import PushToServiceTitan from "@/pages/PushToServiceTitan";
+import PushHistory from "@/pages/PushHistory";
 
 function ProtectedPush() {
   return (
@@ -30,6 +31,14 @@ function ProtectedTenants() {
   );
 }
 
+function ProtectedPushHistory() {
+  return (
+    <PasswordGate>
+      <PushHistory />
+    </PasswordGate>
+  );
+}
+
 function Router() {
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-background text-foreground font-body">
@@ -39,6 +48,7 @@ function Router() {
         <Switch>
           <Route path="/" component={Calculator} />
           <Route path="/push" component={ProtectedPush} />
+          <Route path="/push-history" component={ProtectedPushHistory} />
           <Route path="/history" component={History} />
           <Route path="/tenants" component={ProtectedTenants} />
           <Route path="/settings" component={Settings} />

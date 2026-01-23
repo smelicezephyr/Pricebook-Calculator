@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Lock } from "lucide-react";
+import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Lock, Clock } from "lucide-react";
 import { useState } from "react";
 import clsx from "clsx";
 import { useServiceTitanAuth } from "@/contexts/ServiceTitanAuthContext";
@@ -20,6 +20,7 @@ export function Navigation() {
 
   const stNavItems = [
     { href: "/push", label: "Push to Pricebook", icon: Upload },
+    { href: "/push-history", label: "Push History", icon: Clock },
     { href: "/tenants", label: "Manage Tenants", icon: Building2 },
   ];
 
