@@ -109,21 +109,29 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
 
     console.log('[Push] Step 2: Fetching all materials (required for cost lookup)...');
     pushProgressEmitter.startPhase(tenantId, 'materials');
-    emitProgress(tenantId, 'materials', 'Loading materials from ServiceTitan...', 0, 100);
+    emitProgress(tenantId, 'materials', 'Loading materials catalog...', 0, 100);
     const materialsStart = Date.now();
+    let materialsPage = 0;
     const allMaterials = await stApi.getMaterials((page, count) => {
-      emitProgress(tenantId, 'materials', `Loading materials (page ${page})...`, count, count + 500);
+      materialsPage = page;
+      // Show simple progress without confusing item counts
+      emitProgress(tenantId, 'materials', `Loading materials catalog (page ${page})...`, page * 10, 100);
     });
     console.log(`[Push] Materials fetched in ${Date.now() - materialsStart}ms: ${allMaterials.length} items`);
+    emitProgress(tenantId, 'materials', `Loaded ${allMaterials.length} materials`, 100, 100);
 
     console.log('[Push] Step 3: Fetching all equipment (required for cost lookup)...');
     pushProgressEmitter.startPhase(tenantId, 'equipment');
-    emitProgress(tenantId, 'equipment', 'Loading equipment from ServiceTitan...', 0, 100);
+    emitProgress(tenantId, 'equipment', 'Loading equipment catalog...', 0, 100);
     const equipmentStart = Date.now();
+    let equipmentPage = 0;
     const allEquipment = await stApi.getEquipment((page, count) => {
-      emitProgress(tenantId, 'equipment', `Loading equipment (page ${page})...`, count, count + 500);
+      equipmentPage = page;
+      // Show simple progress without confusing item counts
+      emitProgress(tenantId, 'equipment', `Loading equipment catalog (page ${page})...`, page * 10, 100);
     });
     console.log(`[Push] Equipment fetched in ${Date.now() - equipmentStart}ms: ${allEquipment.length} items`);
+    emitProgress(tenantId, 'equipment', `Loaded ${allEquipment.length} equipment`, 100, 100);
 
     const materialCostMap = new Map<number, number>();
     for (const mat of allMaterials) {
@@ -157,6 +165,9 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
     }
     const pendingUpdates: PendingUpdate[] = [];
 
+    // Debug target service IDs
+    const DEBUG_SERVICE_IDS = [54655766];
+    
     for (const service of allServices) {
       if (results.processed % 50 === 0 && pushProgressEmitter.isCancelled(tenantId)) {
         wasCancelled = true;
@@ -165,9 +176,25 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
       }
 
       results.processed++;
+      
+      const isDebugService = DEBUG_SERVICE_IDS.includes(service.id);
 
       if (results.processed % 100 === 0 || results.processed === totalServices) {
         emitProgress(tenantId, 'updating', `Calculating ${results.processed} of ${totalServices} services...`, results.processed, totalServices);
+      }
+      
+      // Debug: Log full structure for target service
+      if (isDebugService) {
+        console.log(`[DEBUG] Service ${service.id} full structure:`, JSON.stringify({
+          id: service.id,
+          name: service.name,
+          price: service.price,
+          cost: service.cost,
+          materials: service.materials,
+          equipment: service.equipment,
+          serviceMaterials: service.serviceMaterials,
+          serviceEquipment: service.serviceEquipment,
+        }, null, 2));
       }
 
       let materialsCost = 0;
@@ -178,13 +205,24 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
         for (const mat of service.materials) {
           materialsCost += (mat.cost || 0) * (mat.quantity || 1);
         }
+        if (isDebugService) {
+          console.log(`[DEBUG] Service ${service.id}: Using embedded materials array, cost = $${materialsCost.toFixed(2)}`);
+        }
       }
       // Fall back to serviceMaterials with skuId lookup
       else if (service.serviceMaterials && service.serviceMaterials.length > 0) {
         for (const mat of service.serviceMaterials) {
           const cost = materialCostMap.get(mat.skuId) || 0;
           materialsCost += cost * (mat.quantity || 1);
+          if (isDebugService) {
+            console.log(`[DEBUG] Service ${service.id}: serviceMaterial skuId=${mat.skuId}, qty=${mat.quantity}, lookupCost=${cost}`);
+          }
         }
+        if (isDebugService) {
+          console.log(`[DEBUG] Service ${service.id}: Using serviceMaterials lookup, total = $${materialsCost.toFixed(2)}`);
+        }
+      } else if (isDebugService) {
+        console.log(`[DEBUG] Service ${service.id}: No materials or serviceMaterials found`);
       }
 
       // First try embedded equipment array (has cost directly)
@@ -192,16 +230,31 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
         for (const equip of service.equipment) {
           equipmentCost += (equip.cost || 0) * (equip.quantity || 1);
         }
+        if (isDebugService) {
+          console.log(`[DEBUG] Service ${service.id}: Using embedded equipment array, cost = $${equipmentCost.toFixed(2)}`);
+        }
       }
       // Fall back to serviceEquipment with skuId lookup
       else if (service.serviceEquipment && service.serviceEquipment.length > 0) {
         for (const equip of service.serviceEquipment) {
           const cost = equipmentCostMap.get(equip.skuId) || 0;
           equipmentCost += cost * (equip.quantity || 1);
+          if (isDebugService) {
+            console.log(`[DEBUG] Service ${service.id}: serviceEquipment skuId=${equip.skuId}, qty=${equip.quantity}, lookupCost=${cost}`);
+          }
         }
+        if (isDebugService) {
+          console.log(`[DEBUG] Service ${service.id}: Using serviceEquipment lookup, total = $${equipmentCost.toFixed(2)}`);
+        }
+      } else if (isDebugService) {
+        console.log(`[DEBUG] Service ${service.id}: No equipment or serviceEquipment found`);
       }
 
       const rawMeCost = materialsCost + equipmentCost;
+      
+      if (isDebugService) {
+        console.log(`[DEBUG] Service ${service.id}: rawMeCost = $${rawMeCost.toFixed(2)} (materials: $${materialsCost.toFixed(2)}, equipment: $${equipmentCost.toFixed(2)})`);
+      }
 
       // Only skip if BOTH materials and equipment are $0
       if (rawMeCost === 0) {

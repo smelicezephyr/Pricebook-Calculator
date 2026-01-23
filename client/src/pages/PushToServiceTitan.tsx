@@ -299,11 +299,29 @@ export default function PushToServiceTitan() {
       }
       
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Push failed");
+        // Try to parse JSON error, but handle non-JSON responses (e.g., HTML error pages)
+        let errorMessage = "Push failed";
+        try {
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const error = await response.json();
+            errorMessage = error.message || "Push failed";
+          } else {
+            errorMessage = `Server error (${response.status}): ${response.statusText}`;
+          }
+        } catch {
+          errorMessage = `Server error (${response.status}): Unable to parse response`;
+        }
+        throw new Error(errorMessage);
       }
       
-      const results = await response.json();
+      // Also handle non-JSON success responses (shouldn't happen but defensive)
+      let results;
+      try {
+        results = await response.json();
+      } catch {
+        throw new Error("Invalid response from server");
+      }
       
       // Backend now handles history updates, just show toast
       if (results.cancelled) {
