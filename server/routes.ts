@@ -380,34 +380,74 @@ export async function registerRoutes(
     console.log(`[Push] Starting push for tenant ${tenantId}, categories: [${categoryIds.join(', ')}], targetMePercent: ${targetMePercent}%, roundUp: ${shouldRoundUp}`);
     
     // Clear any previous progress
-    emitProgress(tenantId, 'materials', 'Starting push...', 0, 100);
+    emitProgress(tenantId, 'services', 'Starting push...', 0, 100);
     
     try {
       const stApi = new ServiceTitanAPI(tenant);
       const results = {
         processed: 0,
         updated: 0,
+        skipped: 0,
         errors: [] as string[],
       };
       
-      // Fetch all materials and equipment to build cost lookup maps
-      console.log('[Push] Step 1: Fetching all materials...');
+      // Step 1: Fetch services FIRST for selected categories only
+      console.log('[Push] Step 1: Fetching services for selected categories...');
+      emitProgress(tenantId, 'services', 'Loading services from selected categories...', 0, categoryIds.length);
+      
+      const allServices: any[] = [];
+      let servicesWithMaterials = 0;
+      let servicesWithEquipment = 0;
+      
+      for (let i = 0; i < categoryIds.length; i++) {
+        const categoryId = categoryIds[i];
+        try {
+          console.log(`[Push] Fetching services for category ${categoryId}...`);
+          const services = await stApi.getServices(categoryId);
+          console.log(`[Push] Category ${categoryId}: found ${services.length} services`);
+          
+          for (const service of services) {
+            allServices.push(service);
+            // Count services with linked materials/equipment
+            if (service.serviceMaterials && service.serviceMaterials.length > 0) {
+              servicesWithMaterials++;
+            }
+            if (service.serviceEquipment && service.serviceEquipment.length > 0) {
+              servicesWithEquipment++;
+            }
+          }
+          
+          emitProgress(tenantId, 'services', `Loaded ${allServices.length} services from ${i + 1}/${categoryIds.length} categories`, i + 1, categoryIds.length);
+        } catch (err: any) {
+          console.log(`[Push] Failed to fetch services for category ${categoryId}: ${err.message}`);
+          results.errors.push(`Failed to fetch category ${categoryId}: ${err.message}`);
+        }
+      }
+      
+      console.log(`[Push] Total services found: ${allServices.length} (${servicesWithMaterials} with materials, ${servicesWithEquipment} with equipment)`);
+      
+      if (allServices.length === 0) {
+        emitProgress(tenantId, 'complete', 'No services found in selected categories', 0, 0);
+        return res.json({ processed: 0, updated: 0, errors: results.errors, message: 'No services found in selected categories' });
+      }
+      
+      // Step 2: Fetch materials and equipment globally (ServiceTitan API doesn't support filtering by SKU ID)
+      // This is required to build cost lookup maps for calculating service prices
+      console.log('[Push] Step 2: Fetching all materials (required for cost lookup)...');
       emitProgress(tenantId, 'materials', 'Loading materials from ServiceTitan...', 0, 100);
       const materialsStart = Date.now();
       const allMaterials = await stApi.getMaterials((page, count) => {
         emitProgress(tenantId, 'materials', `Loading materials (page ${page})...`, count, count + 500);
       });
-      console.log(`[Push] Materials fetched in ${Date.now() - materialsStart}ms`);
-      emitProgress(tenantId, 'materials', `Loaded ${allMaterials.length} materials`, allMaterials.length, allMaterials.length);
+      console.log(`[Push] Materials fetched in ${Date.now() - materialsStart}ms: ${allMaterials.length} items`);
       
-      console.log('[Push] Step 2: Fetching all equipment...');
+      console.log('[Push] Step 3: Fetching all equipment (required for cost lookup)...');
       emitProgress(tenantId, 'equipment', 'Loading equipment from ServiceTitan...', 0, 100);
       const equipmentStart = Date.now();
       const allEquipment = await stApi.getEquipment((page, count) => {
         emitProgress(tenantId, 'equipment', `Loading equipment (page ${page})...`, count, count + 500);
       });
-      console.log(`[Push] Equipment fetched in ${Date.now() - equipmentStart}ms`);
-      emitProgress(tenantId, 'equipment', `Loaded ${allEquipment.length} equipment`, allEquipment.length, allEquipment.length);
+      console.log(`[Push] Equipment fetched in ${Date.now() - equipmentStart}ms: ${allEquipment.length} items`);
       
       // Build lookup maps: skuId -> cost
       const materialCostMap = new Map<number, number>();
@@ -420,124 +460,115 @@ export async function registerRoutes(
         equipmentCostMap.set(equip.id, equip.cost || 0);
       }
       
-      console.log(`[Push] Loaded ${materialCostMap.size} materials and ${equipmentCostMap.size} equipment items`);
+      console.log(`[Push] Built cost maps: ${materialCostMap.size} materials, ${equipmentCostMap.size} equipment`);
       
-      // First pass: count total services to process
-      emitProgress(tenantId, 'services', 'Counting services to process...', 0, 100);
-      let totalServices = 0;
-      const categoryServicesMap = new Map<number, any[]>();
-      for (const categoryId of categoryIds) {
-        try {
-          const services = await stApi.getServices(categoryId);
-          categoryServicesMap.set(categoryId, services);
-          totalServices += services.length;
-        } catch (err) {
-          console.log(`[Push] Failed to fetch services for category ${categoryId}`);
-        }
-      }
-      
+      // Step 4: Process and update services
+      console.log('[Push] Step 4: Processing services...');
+      const totalServices = allServices.length;
       emitProgress(tenantId, 'updating', `Processing ${totalServices} services...`, 0, totalServices);
       
-      for (const categoryId of categoryIds) {
-        try {
-          const services = categoryServicesMap.get(categoryId) || [];
-          
-          for (const service of services) {
-            results.processed++;
-            
-            // Emit progress update
-            emitProgress(tenantId, 'updating', `Updating service ${results.processed} of ${totalServices}...`, results.processed, totalServices);
-            
-            // Calculate total M&E cost from linked materials and equipment
-            let materialsCost = 0;
-            let equipmentCost = 0;
-            
-            // Use serviceMaterials (skuId references) from API response
-            if (service.serviceMaterials) {
-              for (const mat of service.serviceMaterials) {
-                const cost = materialCostMap.get(mat.skuId) || 0;
-                materialsCost += cost * (mat.quantity || 1);
-              }
-            }
-            
-            // Use serviceEquipment (skuId references) from API response
-            if (service.serviceEquipment) {
-              for (const equip of service.serviceEquipment) {
-                const cost = equipmentCostMap.get(equip.skuId) || 0;
-                equipmentCost += cost * (equip.quantity || 1);
-              }
-            }
-            
-            const rawMeCost = materialsCost + equipmentCost;
-            
-            // Skip if no M&E cost
-            if (rawMeCost === 0) {
-              continue;
-            }
-            
-            // Calculate sales tax on M&E (same as calculator)
-            const tax = rawMeCost * salesTaxRate;
-            
-            // Total M&E includes tax (same as calculator: totalMe = materials + equipment + tax)
-            const totalMe = rawMeCost + tax;
-            
-            // Calculate new price: totalMe / (M&E% / 100) - matching calculator formula
-            const newPrice = totalMe / (targetMePercent / 100);
-            
-            // Calculate labor cost based on mode
-            let laborCost = 0;
-            if (laborMode === 'hours') {
-              const hours = service.hours || 0;
-              laborCost = (hours * laborHourlyRate) * (1 + laborBurdenRate);
-            } else {
-              // Percent mode: labor is percentage of price with burden
-              laborCost = (newPrice * laborPercentRate) * (1 + laborBurdenRate);
-            }
-            
-            // Calculate commission cost (percentage of price with burden)
-            const commissionCost = (newPrice * commissionRate) * (1 + commissionBurdenRate);
-            
-            // Calculate financing cost
-            const financingCost = newPrice * financingRate;
-            
-            // Calculate estimated labor (same formula as calculator)
-            // estimatedLabor = laborCost + commissionCost + tax + financingCost
-            const estimatedLabor = laborCost + commissionCost + tax + financingCost;
-            
-            // Round values - use Math.ceil for price if roundUp is enabled
-            const roundedPrice = shouldRoundUp ? Math.ceil(newPrice) : Math.round(newPrice * 100) / 100;
-            const roundedCost = Math.round(estimatedLabor * 100) / 100;
-            
-            // Check if either value changed significantly
-            const currentPrice = service.price || 0;
-            const currentCost = service.cost || 0;
-            const priceChanged = Math.abs(roundedPrice - currentPrice) > 0.01;
-            const costChanged = Math.abs(roundedCost - currentCost) > 0.01;
-            
-            if (priceChanged || costChanged) {
-              try {
-                await stApi.updateService(service.id, { 
-                  price: roundedPrice,
-                  cost: roundedCost
-                });
-                results.updated++;
-              } catch (updateErr: any) {
-                results.errors.push(`Failed to update service ${service.name}: ${updateErr.message}`);
-              }
-            }
+      for (const service of allServices) {
+        results.processed++;
+        
+        // Emit progress update every 10 services to reduce overhead
+        if (results.processed % 10 === 0 || results.processed === totalServices) {
+          emitProgress(tenantId, 'updating', `Processing service ${results.processed} of ${totalServices}...`, results.processed, totalServices);
+        }
+        
+        // Calculate total M&E cost from linked materials and equipment
+        let materialsCost = 0;
+        let equipmentCost = 0;
+        
+        // Use serviceMaterials (skuId references) from API response
+        if (service.serviceMaterials && service.serviceMaterials.length > 0) {
+          for (const mat of service.serviceMaterials) {
+            const cost = materialCostMap.get(mat.skuId) || 0;
+            materialsCost += cost * (mat.quantity || 1);
           }
-        } catch (catErr: any) {
-          results.errors.push(`Failed to process category ${categoryId}: ${catErr.message}`);
+        }
+        
+        // Use serviceEquipment (skuId references) from API response
+        if (service.serviceEquipment && service.serviceEquipment.length > 0) {
+          for (const equip of service.serviceEquipment) {
+            const cost = equipmentCostMap.get(equip.skuId) || 0;
+            equipmentCost += cost * (equip.quantity || 1);
+          }
+        }
+        
+        const rawMeCost = materialsCost + equipmentCost;
+        
+        // Skip if no M&E cost
+        if (rawMeCost === 0) {
+          results.skipped++;
+          continue;
+        }
+        
+        // Calculate sales tax on M&E (same as calculator)
+        const tax = rawMeCost * salesTaxRate;
+        
+        // Total M&E includes tax (same as calculator: totalMe = materials + equipment + tax)
+        const totalMe = rawMeCost + tax;
+        
+        // Calculate new price: totalMe / (M&E% / 100) - matching calculator formula
+        const newPrice = totalMe / (targetMePercent / 100);
+        
+        // Calculate labor cost based on mode
+        let laborCost = 0;
+        if (laborMode === 'hours') {
+          const hours = service.hours || 0;
+          laborCost = (hours * laborHourlyRate) * (1 + laborBurdenRate);
+        } else {
+          // Percent mode: labor is percentage of price with burden
+          laborCost = (newPrice * laborPercentRate) * (1 + laborBurdenRate);
+        }
+        
+        // Calculate commission cost (percentage of price with burden)
+        const commissionCost = (newPrice * commissionRate) * (1 + commissionBurdenRate);
+        
+        // Calculate financing cost
+        const financingCost = newPrice * financingRate;
+        
+        // Calculate estimated labor (same formula as calculator)
+        // estimatedLabor = laborCost + commissionCost + tax + financingCost
+        const estimatedLabor = laborCost + commissionCost + tax + financingCost;
+        
+        // Round values - use Math.ceil for price if roundUp is enabled
+        const roundedPrice = shouldRoundUp ? Math.ceil(newPrice) : Math.round(newPrice * 100) / 100;
+        const roundedCost = Math.round(estimatedLabor * 100) / 100;
+        
+        // Check if either value changed significantly
+        const currentPrice = service.price || 0;
+        const currentCost = service.cost || 0;
+        const priceChanged = Math.abs(roundedPrice - currentPrice) > 0.01;
+        const costChanged = Math.abs(roundedCost - currentCost) > 0.01;
+        
+        if (priceChanged || costChanged) {
+          try {
+            await stApi.updateService(service.id, { 
+              price: roundedPrice,
+              cost: roundedCost
+            });
+            results.updated++;
+            
+            // Log first few updates for debugging
+            if (results.updated <= 3) {
+              console.log(`[Push] Updated service "${service.name}": price $${currentPrice} -> $${roundedPrice}, cost $${currentCost} -> $${roundedCost}`);
+            }
+          } catch (updateErr: any) {
+            results.errors.push(`Failed to update service ${service.name}: ${updateErr.message}`);
+          }
         }
       }
+      
+      console.log(`[Push] Completed: ${results.processed} processed, ${results.updated} updated, ${results.skipped} skipped (no M&E), ${results.errors.length} errors`);
       
       // Emit completion
       const successMessage = results.errors.length > 0 
-        ? `Completed with ${results.errors.length} errors. Updated ${results.updated} of ${results.processed} services.`
-        : `Successfully updated ${results.updated} of ${results.processed} services.`;
+        ? `Completed with ${results.errors.length} errors. Updated ${results.updated} of ${results.processed} services (${results.skipped} skipped - no M&E).`
+        : `Successfully updated ${results.updated} of ${results.processed} services (${results.skipped} skipped - no M&E).`;
       emitProgress(tenantId, 'complete', successMessage, results.updated, results.processed);
       
-      res.json(results);
+      res.json({ ...results, skipped: results.skipped });
     } catch (err: any) {
       // Emit error
       emitProgress(tenantId, 'error', `Push failed: ${err.message}`, 0, 0);
