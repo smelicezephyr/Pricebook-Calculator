@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign, ArrowUp } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
@@ -45,6 +46,7 @@ export default function PushToServiceTitan() {
   const [commissionPercent, setCommissionPercent] = useState<string>("10.00");
   const [commissionBurdenPercent, setCommissionBurdenPercent] = useState<string>("20.00");
   const [financingFeePercent, setFinancingFeePercent] = useState<string>("6.00");
+  const [roundUp, setRoundUp] = useState<boolean>(false);
 
   // Initialize local settings from global settings when they load
   useEffect(() => {
@@ -196,6 +198,7 @@ export default function PushToServiceTitan() {
           commissionPercent: parseFloat(commissionPercent),
           commissionBurdenPercent: parseFloat(commissionBurdenPercent),
           financingFeePercent: parseFloat(financingFeePercent),
+          roundUp,
         }),
       });
       
@@ -689,6 +692,11 @@ export default function PushToServiceTitan() {
                     <Badge variant="secondary" className="text-xs">
                       Financing: {financingFeePercent}%
                     </Badge>
+                    {roundUp && (
+                      <Badge variant="secondary" className="text-xs">
+                        Round Up: On
+                      </Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -701,7 +709,24 @@ export default function PushToServiceTitan() {
                     Apply the M&E percentage calculation to all items in the selected categories
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <ArrowUp className="w-4 h-4 text-primary" />
+                      <div>
+                        <Label htmlFor="roundUp" className="cursor-pointer font-medium">Round Up Prices</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Round all prices up to the nearest whole dollar
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      id="roundUp"
+                      checked={roundUp}
+                      onCheckedChange={setRoundUp}
+                      data-testid="switch-round-up"
+                    />
+                  </div>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">
