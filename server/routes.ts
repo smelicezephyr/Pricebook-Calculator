@@ -328,6 +328,8 @@ export async function registerRoutes(
     const commissionBurdenRate = (clientCommissionBurdenPercent ?? 20) / 100;
     const financingRate = (clientFinancingFeePercent ?? 6) / 100;
     
+    console.log(`[Push] Starting push for tenant ${tenantId}, categories: [${categoryIds.join(', ')}], targetMePercent: ${targetMePercent}%, roundUp: ${shouldRoundUp}`);
+    
     try {
       const stApi = new ServiceTitanAPI(tenant);
       const results = {
@@ -337,9 +339,15 @@ export async function registerRoutes(
       };
       
       // Fetch all materials and equipment to build cost lookup maps
-      console.log('[Push] Fetching materials and equipment for cost lookup...');
+      console.log('[Push] Step 1: Fetching all materials...');
+      const materialsStart = Date.now();
       const allMaterials = await stApi.getMaterials();
+      console.log(`[Push] Materials fetched in ${Date.now() - materialsStart}ms`);
+      
+      console.log('[Push] Step 2: Fetching all equipment...');
+      const equipmentStart = Date.now();
       const allEquipment = await stApi.getEquipment();
+      console.log(`[Push] Equipment fetched in ${Date.now() - equipmentStart}ms`);
       
       // Build lookup maps: skuId -> cost
       const materialCostMap = new Map<number, number>();

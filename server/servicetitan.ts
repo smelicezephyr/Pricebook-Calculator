@@ -122,22 +122,36 @@ export class ServiceTitanAPI {
   ): Promise<T> {
     const token = await this.getAccessToken();
     
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      ...options,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "ST-App-Key": this.tenant.appKey,
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-    });
+    // Add 30 second timeout for API requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    
+    try {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "ST-App-Key": this.tenant.appKey,
+          "Content-Type": "application/json",
+          ...options.headers,
+        },
+      });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`ServiceTitan API error: ${response.status} - ${error}`);
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`ServiceTitan API error: ${response.status} - ${error}`);
+      }
+
+      return response.json();
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        throw new Error(`ServiceTitan API timeout after 30s: ${endpoint}`);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    return response.json();
   }
 
   async testConnection(): Promise<void> {
@@ -205,23 +219,31 @@ export class ServiceTitanAPI {
     let page = 1;
     let hasMore = true;
     
+    console.log(`[ServiceTitan] Starting materials fetch${categoryId ? ` for category ${categoryId}` : ' (all categories)'}...`);
+    
     while (hasMore) {
       let url = `/pricebook/v2/tenant/${this.tenant.tenantId}/materials?pageSize=500&page=${page}`;
       if (categoryId) {
         url += `&categoryId=${categoryId}`;
       }
+      console.log(`[ServiceTitan] Fetching materials page ${page}...`);
       const response = await this.request<{ 
         data: PricebookMaterial[]; 
         hasMore: boolean;
       }>(url);
       
+      console.log(`[ServiceTitan] Materials page ${page}: got ${response.data.length} items, hasMore: ${response.hasMore}`);
       allMaterials.push(...response.data);
       hasMore = response.hasMore;
       page++;
       
-      if (page > 50) break; // Safety limit
+      if (page > 50) {
+        console.log(`[ServiceTitan] Hit materials safety limit at page 50`);
+        break;
+      }
     }
     
+    console.log(`[ServiceTitan] Finished materials fetch: ${allMaterials.length} total items`);
     return allMaterials;
   }
 
@@ -230,23 +252,31 @@ export class ServiceTitanAPI {
     let page = 1;
     let hasMore = true;
     
+    console.log(`[ServiceTitan] Starting equipment fetch${categoryId ? ` for category ${categoryId}` : ' (all categories)'}...`);
+    
     while (hasMore) {
       let url = `/pricebook/v2/tenant/${this.tenant.tenantId}/equipment?pageSize=500&page=${page}`;
       if (categoryId) {
         url += `&categoryId=${categoryId}`;
       }
+      console.log(`[ServiceTitan] Fetching equipment page ${page}...`);
       const response = await this.request<{ 
         data: PricebookEquipment[]; 
         hasMore: boolean;
       }>(url);
       
+      console.log(`[ServiceTitan] Equipment page ${page}: got ${response.data.length} items, hasMore: ${response.hasMore}`);
       allEquipment.push(...response.data);
       hasMore = response.hasMore;
       page++;
       
-      if (page > 50) break; // Safety limit
+      if (page > 50) {
+        console.log(`[ServiceTitan] Hit equipment safety limit at page 50`);
+        break;
+      }
     }
     
+    console.log(`[ServiceTitan] Finished equipment fetch: ${allEquipment.length} total items`);
     return allEquipment;
   }
 
