@@ -545,5 +545,81 @@ export async function registerRoutes(
     }
   });
 
+  // Push History API endpoints
+  app.get("/api/push-history", async (req, res) => {
+    try {
+      const tenantId = req.query.tenantId ? Number(req.query.tenantId) : undefined;
+      const history = await storage.getPushHistory(tenantId);
+      res.json(history);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/push-history/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID" });
+      }
+      const item = await storage.getPushHistoryItem(id);
+      if (!item) {
+        return res.status(404).json({ message: "Push history item not found" });
+      }
+      res.json(item);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/push-history", async (req, res) => {
+    try {
+      const item = await storage.createPushHistory(req.body);
+      res.status(201).json(item);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/push-history/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID" });
+      }
+      const updated = await storage.updatePushHistory(id, req.body);
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/push-history/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID" });
+      }
+      await storage.deletePushHistory(id);
+      res.status(204).send();
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get pending pushes for a tenant (queue)
+  app.get("/api/servicetitan/:tenantId/push-queue", async (req, res) => {
+    try {
+      const tenantId = Number(req.params.tenantId);
+      if (isNaN(tenantId)) {
+        return res.status(400).json({ message: "Invalid tenant ID" });
+      }
+      const pending = await storage.getPendingPushes(tenantId);
+      res.json(pending);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   return httpServer;
 }
