@@ -295,6 +295,50 @@ export async function registerRoutes(
     }
   });
 
+  // Diagnostic endpoint: Get single service details to see raw API response
+  app.get("/api/servicetitan/:tenantId/service-debug/:serviceId", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    const serviceId = Number(req.params.serviceId);
+    if (isNaN(tenantId) || isNaN(serviceId)) {
+      return res.status(400).json({ message: "Invalid ID" });
+    }
+    const tenant = await storage.getTenant(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+    try {
+      const api = new ServiceTitanAPI(tenant);
+      const service = await api.getServiceById(serviceId);
+      console.log(`[ServiceDebug] Service ${serviceId} raw response:`, JSON.stringify(service, null, 2));
+      res.json(service);
+    } catch (err: any) {
+      console.error(`[ServiceDebug] Error fetching service ${serviceId}:`, err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Diagnostic endpoint: Get single material details to verify cost lookup
+  app.get("/api/servicetitan/:tenantId/material-debug/:materialId", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    const materialId = Number(req.params.materialId);
+    if (isNaN(tenantId) || isNaN(materialId)) {
+      return res.status(400).json({ message: "Invalid ID" });
+    }
+    const tenant = await storage.getTenant(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+    try {
+      const api = new ServiceTitanAPI(tenant);
+      const material = await api.getMaterialById(materialId);
+      console.log(`[MaterialDebug] Material ${materialId} raw response:`, JSON.stringify(material, null, 2));
+      res.json(material);
+    } catch (err: any) {
+      console.error(`[MaterialDebug] Error fetching material ${materialId}:`, err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // SSE endpoint for push progress updates
   app.get("/api/servicetitan/:tenantId/push/progress", (req, res) => {
     const tenantId = Number(req.params.tenantId);

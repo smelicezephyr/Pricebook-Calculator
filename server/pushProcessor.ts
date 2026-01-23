@@ -152,6 +152,13 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
     }
 
     console.log(`[Push] Built cost maps: ${materialCostMap.size} materials, ${equipmentCostMap.size} equipment`);
+    
+    // Debug: Check if specific material IDs exist in the map (for service 54655766)
+    const debugMaterialIds = [20129943, 178703978, 178846076, 178859067, 178859124, 178859580];
+    for (const matId of debugMaterialIds) {
+      const cost = materialCostMap.get(matId);
+      console.log(`[DEBUG] Material ${matId} in cost map: ${cost !== undefined ? `$${cost}` : 'NOT FOUND'}`);
+    }
 
     console.log('[Push] Step 4: Processing services...');
     const totalServices = allServices.length;

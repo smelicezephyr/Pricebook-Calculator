@@ -215,6 +215,20 @@ export class ServiceTitanAPI {
     return response.data;
   }
 
+  async getServiceById(serviceId: number): Promise<any> {
+    // Get a single service with all details for diagnostics
+    const url = `/pricebook/v2/tenant/${this.tenant.tenantId}/services/${serviceId}`;
+    const response = await this.request<any>(url);
+    return response;
+  }
+
+  async getMaterialById(materialId: number): Promise<any> {
+    // Get a single material for diagnostics
+    const url = `/pricebook/v2/tenant/${this.tenant.tenantId}/materials/${materialId}`;
+    const response = await this.request<any>(url);
+    return response;
+  }
+
   async getMaterials(onProgress?: (page: number, count: number) => void): Promise<PricebookMaterial[]> {
     const allMaterials: PricebookMaterial[] = [];
     let page = 1;
