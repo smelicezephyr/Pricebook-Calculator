@@ -39,6 +39,37 @@ export const settings = pgTable("settings", {
   grossMarginMinPercent: numeric("gross_margin_min_percent").notNull().default("52.00"),
 });
 
+// Push History for ServiceTitan
+export const pushHistory = pgTable("push_history", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  status: text("status", { enum: ["pending", "in_progress", "completed", "failed"] }).notNull().default("pending"),
+  
+  // Settings snapshot used for this push
+  categoryIds: text("category_ids").notNull(), // JSON array of category IDs
+  targetMePercent: numeric("target_me_percent").notNull(),
+  salesTaxPercent: numeric("sales_tax_percent").notNull(),
+  laborMode: text("labor_mode").notNull(),
+  laborHourlyRate: numeric("labor_hourly_rate").notNull(),
+  laborPercent: numeric("labor_percent").notNull(),
+  laborBurdenPercent: numeric("labor_burden_percent").notNull(),
+  commissionPercent: numeric("commission_percent").notNull(),
+  commissionBurdenPercent: numeric("commission_burden_percent").notNull(),
+  financingFeePercent: numeric("financing_fee_percent").notNull(),
+  roundUp: boolean("round_up").notNull().default(false),
+  
+  // Results
+  processedCount: integer("processed_count").default(0),
+  updatedCount: integer("updated_count").default(0),
+  errorCount: integer("error_count").default(0),
+  errorMessages: text("error_messages"), // JSON array of error messages
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+});
+
 // Saved Quotes/Calculations
 export const quotes = pgTable("quotes", {
   id: serial("id").primaryKey(),
@@ -83,9 +114,22 @@ export const updateTenantSchema = createInsertSchema(tenants).omit({
   appKey: true,
 });
 
+export const insertPushHistorySchema = createInsertSchema(pushHistory).omit({
+  id: true,
+  createdAt: true,
+  startedAt: true,
+  completedAt: true,
+  processedCount: true,
+  updatedCount: true,
+  errorCount: true,
+  errorMessages: true,
+});
+
 export type Settings = typeof settings.$inferSelect;
 export type InsertSettings = z.infer<typeof insertSettingsSchema>;
 export type Quote = typeof quotes.$inferSelect;
 export type InsertQuote = z.infer<typeof insertQuoteSchema>;
 export type Tenant = typeof tenants.$inferSelect;
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
+export type PushHistory = typeof pushHistory.$inferSelect;
+export type InsertPushHistory = z.infer<typeof insertPushHistorySchema>;

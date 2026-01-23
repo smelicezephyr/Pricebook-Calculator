@@ -3,14 +3,17 @@ import {
   settings,
   quotes,
   tenants,
+  pushHistory,
   type Settings,
   type InsertSettings,
   type Quote,
   type InsertQuote,
   type Tenant,
-  type InsertTenant
+  type InsertTenant,
+  type PushHistory,
+  type InsertPushHistory
 } from "@shared/schema";
-import { eq, desc, asc } from "drizzle-orm";
+import { eq, desc, asc, and } from "drizzle-orm";
 
 export interface IStorage {
   getSettings(): Promise<Settings>;
@@ -26,6 +29,14 @@ export interface IStorage {
   updateTenant(id: number, tenant: Partial<InsertTenant>): Promise<Tenant>;
   deleteTenant(id: number): Promise<void>;
   reorderTenants(orderedIds: number[]): Promise<void>;
+  
+  // Push History
+  getPushHistory(tenantId?: number): Promise<PushHistory[]>;
+  getPushHistoryItem(id: number): Promise<PushHistory | undefined>;
+  createPushHistory(item: InsertPushHistory): Promise<PushHistory>;
+  updatePushHistory(id: number, updates: Partial<PushHistory>): Promise<PushHistory>;
+  deletePushHistory(id: number): Promise<void>;
+  getPendingPushes(tenantId: number): Promise<PushHistory[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -96,6 +107,47 @@ export class DatabaseStorage implements IStorage {
         .set({ sortOrder: i, updatedAt: new Date() })
         .where(eq(tenants.id, orderedIds[i]));
     }
+  }
+
+  async getPushHistory(tenantId?: number): Promise<PushHistory[]> {
+    if (tenantId !== undefined) {
+      return await db.select().from(pushHistory)
+        .where(eq(pushHistory.tenantId, tenantId))
+        .orderBy(desc(pushHistory.createdAt));
+    }
+    return await db.select().from(pushHistory).orderBy(desc(pushHistory.createdAt));
+  }
+
+  async getPushHistoryItem(id: number): Promise<PushHistory | undefined> {
+    const [item] = await db.select().from(pushHistory).where(eq(pushHistory.id, id));
+    return item;
+  }
+
+  async createPushHistory(item: InsertPushHistory): Promise<PushHistory> {
+    const [created] = await db.insert(pushHistory).values(item).returning();
+    return created;
+  }
+
+  async updatePushHistory(id: number, updates: Partial<PushHistory>): Promise<PushHistory> {
+    const [updated] = await db
+      .update(pushHistory)
+      .set(updates)
+      .where(eq(pushHistory.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePushHistory(id: number): Promise<void> {
+    await db.delete(pushHistory).where(eq(pushHistory.id, id));
+  }
+
+  async getPendingPushes(tenantId: number): Promise<PushHistory[]> {
+    return await db.select().from(pushHistory)
+      .where(and(
+        eq(pushHistory.tenantId, tenantId),
+        eq(pushHistory.status, "pending")
+      ))
+      .orderBy(asc(pushHistory.createdAt));
   }
 }
 
