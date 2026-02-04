@@ -1403,24 +1403,43 @@ export default function PushToServiceTitan() {
                                 {isLoadingCategories ? "Loading..." : "No category found."}
                               </CommandEmpty>
                               <CommandGroup>
-                                {categories.filter(c => c.active).map((category) => (
-                                  <CommandItem
-                                    key={category.id}
-                                    value={category.name}
-                                    onSelect={() => {
-                                      setNewTaskCategoryId(category.id === newTaskCategoryId ? null : category.id);
-                                      setCategorySelectOpen(false);
-                                    }}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        newTaskCategoryId === category.id ? "opacity-100" : "opacity-0"
-                                      )}
-                                    />
-                                    {category.name}
-                                  </CommandItem>
-                                ))}
+                                {(() => {
+                                  const activeCategories = categories.filter(c => c.active);
+                                  const parentCategories = activeCategories.filter(c => !c.parentId);
+                                  const getChildren = (parentId: number) => 
+                                    activeCategories.filter(c => c.parentId === parentId);
+                                  
+                                  const renderCategory = (category: Category, depth: number = 0): React.ReactNode[] => {
+                                    const children = getChildren(category.id);
+                                    const items: React.ReactNode[] = [
+                                      <CommandItem
+                                        key={category.id}
+                                        value={category.name}
+                                        onSelect={() => {
+                                          setNewTaskCategoryId(category.id === newTaskCategoryId ? null : category.id);
+                                          setCategorySelectOpen(false);
+                                        }}
+                                        className={depth > 0 ? "pl-6" : ""}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            newTaskCategoryId === category.id ? "opacity-100" : "opacity-0"
+                                          )}
+                                        />
+                                        <span className={depth > 0 ? "text-muted-foreground" : "font-medium"}>
+                                          {depth > 0 ? "└ " : ""}{category.name}
+                                        </span>
+                                      </CommandItem>
+                                    ];
+                                    children.forEach(child => {
+                                      items.push(...renderCategory(child, depth + 1));
+                                    });
+                                    return items;
+                                  };
+                                  
+                                  return parentCategories.flatMap(cat => renderCategory(cat, 0));
+                                })()}
                               </CommandGroup>
                             </CommandList>
                           </Command>
