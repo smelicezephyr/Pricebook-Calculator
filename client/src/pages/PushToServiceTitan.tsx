@@ -169,15 +169,16 @@ export default function PushToServiceTitan() {
       directLabor = price * laborRate;
     }
     
+    // Calculate burden rate (applies to both labor and commission)
+    const burdenRate = parseFloat(laborBurdenPercent) / 100;
+    
     // Calculate labor with burden
-    const laborBurdenRate = parseFloat(laborBurdenPercent) / 100;
-    const laborWithBurden = directLabor * (1 + laborBurdenRate);
+    const laborWithBurden = directLabor * (1 + burdenRate);
     
     // Calculate commission with burden
     const commissionRate = parseFloat(commissionPercent) / 100;
     const commission = price * commissionRate;
-    const commBurdenRate = parseFloat(commissionBurdenPercent) / 100;
-    const commissionWithBurden = commission * (1 + commBurdenRate);
+    const commissionWithBurden = commission * (1 + burdenRate);
     
     // Calculate financing
     const financingRate = parseFloat(financingFeePercent) / 100;
@@ -1351,10 +1352,10 @@ export default function PushToServiceTitan() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="newTaskLaborBurden">Labor Burden %</Label>
+                          <Label htmlFor="newTaskBurden">Burden %</Label>
                           <div className="relative">
                             <Input
-                              id="newTaskLaborBurden"
+                              id="newTaskBurden"
                               type="number"
                               step="0.5"
                               min="0"
@@ -1362,7 +1363,7 @@ export default function PushToServiceTitan() {
                               value={laborBurdenPercent}
                               onChange={(e) => setLaborBurdenPercent(e.target.value)}
                               className="pr-7"
-                              data-testid="input-new-task-labor-burden"
+                              data-testid="input-new-task-burden"
                             />
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
                           </div>
