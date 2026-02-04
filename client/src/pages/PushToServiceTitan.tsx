@@ -214,15 +214,18 @@ export default function PushToServiceTitan() {
       } else {
         const error = await response.json();
         console.error("Failed to load GL accounts:", error);
+        const isPermissionError = error.message?.includes('403') || error.message?.includes('permission');
         toast({
-          title: "Warning",
-          description: "Could not load GL accounts. You can still create tasks without selecting a GL account.",
+          title: "GL Accounts Unavailable",
+          description: isPermissionError
+            ? "The ServiceTitan credentials don't have permission to access GL accounts. You can still create tasks without selecting a GL account."
+            : "Could not load GL accounts. You can still create tasks without selecting a GL account.",
         });
       }
     } catch (err) {
       console.error("Failed to load GL accounts:", err);
       toast({
-        title: "Warning",
+        title: "GL Accounts Unavailable",
         description: "Could not load GL accounts. You can still create tasks without selecting a GL account.",
       });
     } finally {
