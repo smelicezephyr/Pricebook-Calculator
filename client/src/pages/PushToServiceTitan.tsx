@@ -1475,10 +1475,20 @@ export default function PushToServiceTitan() {
                           type="number"
                           step="0.01"
                           min="0"
-                          value={newTaskHours}
-                          onChange={(e) => setNewTaskHours(e.target.value)}
+                          value={laborMode === "hours" ? laborHours : newTaskHours}
+                          onChange={(e) => {
+                            if (laborMode === "hours") {
+                              setLaborHours(e.target.value);
+                            }
+                            setNewTaskHours(e.target.value);
+                          }}
                           data-testid="input-new-task-hours"
                         />
+                        {laborMode === "hours" && (
+                          <p className="text-xs text-muted-foreground">
+                            Synced with Labor Hours above
+                          </p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label>General Ledger Account</Label>
