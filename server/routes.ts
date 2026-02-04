@@ -314,6 +314,22 @@ export async function registerRoutes(
     }
   });
 
+  const createServiceSchema = z.object({
+    code: z.string().min(1, "Code is required").max(31, "Code must be 31 characters or less"),
+    name: z.string().min(1, "Name is required"),
+    description: z.string().optional(),
+    warrantyDescription: z.string().optional(),
+    isTaxable: z.boolean().optional(),
+    isActive: z.boolean().optional(),
+    price: z.number().min(0, "Price must be non-negative").optional(),
+    memberPrice: z.number().min(0).optional(),
+    hours: z.number().min(0, "Hours must be non-negative").optional(),
+    categoryIds: z.array(z.number()).optional(),
+    generalLedgerAccountId: z.number().optional(),
+    allowDiscountCodes: z.boolean().optional(),
+    allowMembershipDiscounts: z.boolean().optional(),
+  });
+
   app.post("/api/servicetitan/:tenantId/services", async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     if (isNaN(tenantId)) {
@@ -324,13 +340,26 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Tenant not found" });
     }
     try {
+      const validatedBody = createServiceSchema.parse(req.body);
       const api = new ServiceTitanAPI(tenant);
-      const service = await api.createService(req.body);
+      const service = await api.createService(validatedBody);
       res.status(201).json(service);
     } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
       console.error(`[CreateService] Error creating service:`, err.message);
       res.status(500).json({ message: err.message });
     }
+  });
+
+  const uploadImageSchema = z.object({
+    imageData: z.string().min(1, "Image data is required"),
+    filename: z.string().min(1, "Filename is required"),
+    mimeType: z.string().regex(/^image\//, "Must be an image MIME type"),
   });
 
   app.post("/api/servicetitan/:tenantId/services/:serviceId/image", async (req, res) => {
@@ -344,15 +373,18 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Tenant not found" });
     }
     try {
-      const { imageData, filename, mimeType } = req.body;
-      if (!imageData || !filename || !mimeType) {
-        return res.status(400).json({ message: "Missing image data, filename, or mimeType" });
-      }
+      const { imageData, filename, mimeType } = uploadImageSchema.parse(req.body);
       const imageBuffer = Buffer.from(imageData, 'base64');
       const api = new ServiceTitanAPI(tenant);
       const result = await api.uploadServiceImage(serviceId, imageBuffer, filename, mimeType);
       res.json(result);
     } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
       console.error(`[UploadImage] Error uploading image:`, err.message);
       res.status(500).json({ message: err.message });
     }

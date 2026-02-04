@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useTenants, useServiceTitan } from "@/hooks/use-tenants";
 import { useSettings } from "@/hooks/use-settings";
 import { Button } from "@/components/ui/button";
@@ -9,11 +9,16 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign, ArrowUp } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign, ArrowUp, Plus, ImagePlus, Search, Check, ChevronsUpDown } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface PushProgress {
   stage: 'connected' | 'materials' | 'equipment' | 'services' | 'updating' | 'complete' | 'error' | 'cancelled' | 'queued';
@@ -66,6 +71,14 @@ interface Category {
   parentId?: number;
 }
 
+interface GLAccount {
+  id: number;
+  name: string;
+  number?: string;
+  type?: string;
+  active: boolean;
+}
+
 export default function PushToServiceTitan() {
   const { tenants, isLoading: isTenantsLoading } = useTenants();
   const { settings } = useSettings();
@@ -112,6 +125,40 @@ export default function PushToServiceTitan() {
 
   const { testConnection, isTesting } = useServiceTitan(selectedTenantId);
 
+  // Push New Task State
+  const [activeTab, setActiveTab] = useState<string>("update-category");
+  const [glAccounts, setGlAccounts] = useState<GLAccount[]>([]);
+  const [isLoadingGlAccounts, setIsLoadingGlAccounts] = useState(false);
+  const [newTaskCode, setNewTaskCode] = useState("");
+  const [newTaskName, setNewTaskName] = useState("");
+  const [newTaskDescription, setNewTaskDescription] = useState("");
+  const [newTaskWarranty, setNewTaskWarranty] = useState("");
+  const [newTaskTaxable, setNewTaskTaxable] = useState(true);
+  const [newTaskAllowDiscounts, setNewTaskAllowDiscounts] = useState(false);
+  const [newTaskAllowMembership, setNewTaskAllowMembership] = useState(false);
+  const [newTaskHours, setNewTaskHours] = useState("0");
+  const [newTaskGlAccountId, setNewTaskGlAccountId] = useState<number | null>(null);
+  const [newTaskCategoryId, setNewTaskCategoryId] = useState<number | null>(null);
+  const [newTaskMaterialsCost, setNewTaskMaterialsCost] = useState("0");
+  const [newTaskEquipmentCost, setNewTaskEquipmentCost] = useState("0");
+  const [newTaskImage, setNewTaskImage] = useState<File | null>(null);
+  const [newTaskImagePreview, setNewTaskImagePreview] = useState<string | null>(null);
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [glAccountOpen, setGlAccountOpen] = useState(false);
+  const [categorySelectOpen, setCategorySelectOpen] = useState(false);
+
+  // Calculate price for new task based on M&E costs
+  const newTaskCalculatedPrice = useMemo(() => {
+    const matVal = parseFloat(newTaskMaterialsCost) || 0;
+    const equipVal = parseFloat(newTaskEquipmentCost) || 0;
+    const salesTaxRate = parseFloat(salesTaxPercent) / 100;
+    const tax = (matVal + equipVal) * salesTaxRate;
+    const totalMe = matVal + equipVal + tax;
+    const targetMeRate = parseFloat(targetMePercent) / 100;
+    const price = targetMeRate > 0 ? totalMe / targetMeRate : 0;
+    return roundUp ? Math.ceil(price) : price;
+  }, [newTaskMaterialsCost, newTaskEquipmentCost, salesTaxPercent, targetMePercent, roundUp]);
+
   const handleTenantSelect = async (value: string) => {
     const id = Number(value);
     setSelectedTenantId(id);
@@ -156,6 +203,177 @@ export default function PushToServiceTitan() {
       setIsLoadingCategories(false);
     }
   };
+
+  const loadGlAccounts = async (tenantId: number) => {
+    setIsLoadingGlAccounts(true);
+    try {
+      const response = await fetch(`/api/servicetitan/${tenantId}/gl-accounts`);
+      if (response.ok) {
+        const data = await response.json();
+        setGlAccounts(data.filter((a: GLAccount) => a.active));
+      } else {
+        const error = await response.json();
+        console.error("Failed to load GL accounts:", error);
+        toast({
+          title: "Warning",
+          description: "Could not load GL accounts. You can still create tasks without selecting a GL account.",
+        });
+      }
+    } catch (err) {
+      console.error("Failed to load GL accounts:", err);
+      toast({
+        title: "Warning",
+        description: "Could not load GL accounts. You can still create tasks without selecting a GL account.",
+      });
+    } finally {
+      setIsLoadingGlAccounts(false);
+    }
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setNewTaskImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewTaskImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const resetNewTaskForm = () => {
+    setNewTaskCode("");
+    setNewTaskName("");
+    setNewTaskDescription("");
+    setNewTaskWarranty("");
+    setNewTaskTaxable(true);
+    setNewTaskAllowDiscounts(false);
+    setNewTaskAllowMembership(false);
+    setNewTaskHours("0");
+    setNewTaskGlAccountId(null);
+    setNewTaskCategoryId(null);
+    setNewTaskMaterialsCost("0");
+    setNewTaskEquipmentCost("0");
+    setNewTaskImage(null);
+    setNewTaskImagePreview(null);
+  };
+
+  const handleCreateTask = async () => {
+    if (!selectedTenantId) return;
+    
+    const code = newTaskCode.trim();
+    const name = newTaskName.trim();
+    
+    if (!code) {
+      toast({ title: "Error", description: "Code is required", variant: "destructive" });
+      return;
+    }
+    if (code.length > 31) {
+      toast({ title: "Error", description: "Code must be 31 characters or less", variant: "destructive" });
+      return;
+    }
+    if (!name) {
+      toast({ title: "Error", description: "Name is required", variant: "destructive" });
+      return;
+    }
+    if (!newTaskCategoryId) {
+      toast({ title: "Error", description: "Please select a category", variant: "destructive" });
+      return;
+    }
+    
+    const hoursVal = parseFloat(newTaskHours);
+    if (isNaN(hoursVal) || hoursVal < 0) {
+      toast({ title: "Error", description: "Hours must be a non-negative number", variant: "destructive" });
+      return;
+    }
+
+    setIsCreatingTask(true);
+    try {
+      const serviceData: any = {
+        code,
+        name,
+        description: newTaskDescription.trim() || undefined,
+        warrantyDescription: newTaskWarranty.trim() || undefined,
+        isTaxable: newTaskTaxable,
+        isActive: true,
+        price: newTaskCalculatedPrice,
+        hours: hoursVal,
+        categoryIds: [newTaskCategoryId],
+        allowDiscountCodes: newTaskAllowDiscounts,
+        allowMembershipDiscounts: newTaskAllowMembership,
+      };
+      
+      if (newTaskGlAccountId) {
+        serviceData.generalLedgerAccountId = newTaskGlAccountId;
+      }
+
+      const response = await fetch(`/api/servicetitan/${selectedTenantId}/services`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(serviceData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create task');
+      }
+
+      const createdService = await response.json();
+
+      if (newTaskImage) {
+        try {
+          const reader = new FileReader();
+          const imageData = await new Promise<string>((resolve, reject) => {
+            reader.onloadend = () => {
+              const base64 = (reader.result as string).split(',')[1];
+              resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(newTaskImage);
+          });
+
+          await fetch(`/api/servicetitan/${selectedTenantId}/services/${createdService.id}/image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              imageData,
+              filename: newTaskImage.name,
+              mimeType: newTaskImage.type,
+            }),
+          });
+        } catch (imgErr) {
+          console.error("Failed to upload image:", imgErr);
+          toast({
+            title: "Task Created",
+            description: "Task was created but image upload failed. You can add the image in ServiceTitan.",
+          });
+        }
+      }
+
+      toast({
+        title: "Success",
+        description: `Task "${newTaskName}" created successfully with price $${newTaskCalculatedPrice.toFixed(2)}`,
+      });
+      
+      resetNewTaskForm();
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to create task",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingTask(false);
+    }
+  };
+
+  // Load GL accounts when tenant is connected
+  useEffect(() => {
+    if (connectionStatus === 'connected' && selectedTenantId) {
+      loadGlAccounts(selectedTenantId);
+    }
+  }, [connectionStatus, selectedTenantId]);
 
   const getChildren = (parentId: number) => categories.filter(c => c.parentId === parentId);
   
@@ -453,7 +671,17 @@ export default function PushToServiceTitan() {
           </Card>
 
           {connectionStatus === 'connected' && (
-            <>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="update-category" data-testid="tab-update-category">
+                  Update Pricebook Category
+                </TabsTrigger>
+                <TabsTrigger value="push-new-task" data-testid="tab-push-new-task">
+                  Push New Task
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="update-category" className="space-y-6 mt-6">
               {/* Section 2: Select Categories */}
               <Card>
                 <CardHeader>
@@ -931,7 +1159,338 @@ export default function PushToServiceTitan() {
                   </div>
                 </CardContent>
               </Card>
-            </>
+              </TabsContent>
+
+              <TabsContent value="push-new-task" className="space-y-6 mt-6">
+                {/* Push New Task Section */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Plus className="w-5 h-5" />
+                      Create New Service Task
+                    </CardTitle>
+                    <CardDescription>
+                      Create a new service in your ServiceTitan pricebook with calculated pricing
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Calculator Section */}
+                    <div className="p-4 bg-muted/30 rounded-lg border space-y-4">
+                      <h3 className="font-medium text-sm flex items-center gap-2">
+                        <DollarSign className="w-4 h-4 text-primary" />
+                        Price Calculator
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="newTaskMaterials">Materials Cost</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                            <Input
+                              id="newTaskMaterials"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={newTaskMaterialsCost}
+                              onChange={(e) => setNewTaskMaterialsCost(e.target.value)}
+                              className="pl-7"
+                              data-testid="input-new-task-materials"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="newTaskEquipment">Equipment Cost</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                            <Input
+                              id="newTaskEquipment"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={newTaskEquipmentCost}
+                              onChange={(e) => setNewTaskEquipmentCost(e.target.value)}
+                              className="pl-7"
+                              data-testid="input-new-task-equipment"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Calculated Price</Label>
+                          <div className="h-9 px-3 py-2 bg-primary/10 rounded-md border border-primary/20 flex items-center">
+                            <span className="text-lg font-bold text-primary">
+                              ${newTaskCalculatedPrice.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Price is calculated using Target M&E: {targetMePercent}% and Sales Tax: {salesTaxPercent}%
+                      </p>
+                    </div>
+
+                    {/* Service Details */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="newTaskCode">Code *</Label>
+                        <Input
+                          id="newTaskCode"
+                          value={newTaskCode}
+                          onChange={(e) => setNewTaskCode(e.target.value.slice(0, 31))}
+                          placeholder="e.g., 10015"
+                          maxLength={31}
+                          data-testid="input-new-task-code"
+                        />
+                        <p className="text-xs text-muted-foreground">{newTaskCode.length}/31 characters</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="newTaskName">Name *</Label>
+                        <Input
+                          id="newTaskName"
+                          value={newTaskName}
+                          onChange={(e) => setNewTaskName(e.target.value)}
+                          placeholder="e.g., After Hours Service Fee"
+                          data-testid="input-new-task-name"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="newTaskDescription">Item Description</Label>
+                      <Textarea
+                        id="newTaskDescription"
+                        value={newTaskDescription}
+                        onChange={(e) => setNewTaskDescription(e.target.value)}
+                        placeholder="Enter a description of the service..."
+                        rows={3}
+                        data-testid="input-new-task-description"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="newTaskWarranty">Warranty Description</Label>
+                      <Textarea
+                        id="newTaskWarranty"
+                        value={newTaskWarranty}
+                        onChange={(e) => setNewTaskWarranty(e.target.value)}
+                        placeholder="Enter warranty information..."
+                        rows={2}
+                        data-testid="input-new-task-warranty"
+                      />
+                    </div>
+
+                    {/* Checkboxes Row */}
+                    <div className="flex flex-wrap gap-6">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="newTaskTaxable"
+                          checked={newTaskTaxable}
+                          onCheckedChange={(checked) => setNewTaskTaxable(checked === true)}
+                          data-testid="checkbox-new-task-taxable"
+                        />
+                        <Label htmlFor="newTaskTaxable" className="cursor-pointer">Taxable</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="newTaskAllowDiscounts"
+                          checked={newTaskAllowDiscounts}
+                          onCheckedChange={(checked) => setNewTaskAllowDiscounts(checked === true)}
+                          data-testid="checkbox-new-task-discounts"
+                        />
+                        <Label htmlFor="newTaskAllowDiscounts" className="cursor-pointer">Allow Discount Codes</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="newTaskAllowMembership"
+                          checked={newTaskAllowMembership}
+                          onCheckedChange={(checked) => setNewTaskAllowMembership(checked === true)}
+                          data-testid="checkbox-new-task-membership"
+                        />
+                        <Label htmlFor="newTaskAllowMembership" className="cursor-pointer">Allow Membership Discounts</Label>
+                      </div>
+                    </div>
+
+                    {/* Hours and GL Account */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="newTaskHours">Hours</Label>
+                        <Input
+                          id="newTaskHours"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={newTaskHours}
+                          onChange={(e) => setNewTaskHours(e.target.value)}
+                          data-testid="input-new-task-hours"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>General Ledger Account</Label>
+                        <Popover open={glAccountOpen} onOpenChange={setGlAccountOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={glAccountOpen}
+                              className="w-full justify-between"
+                              data-testid="button-select-gl-account"
+                            >
+                              {newTaskGlAccountId
+                                ? glAccounts.find(a => a.id === newTaskGlAccountId)?.name || "Select..."
+                                : "Select GL Account..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[300px] p-0">
+                            <Command>
+                              <CommandInput placeholder="Search GL accounts..." />
+                              <CommandList>
+                                <CommandEmpty>
+                                  {isLoadingGlAccounts ? "Loading..." : "No GL account found."}
+                                </CommandEmpty>
+                                <CommandGroup>
+                                  {glAccounts.map((account) => (
+                                    <CommandItem
+                                      key={account.id}
+                                      value={account.name}
+                                      onSelect={() => {
+                                        setNewTaskGlAccountId(account.id === newTaskGlAccountId ? null : account.id);
+                                        setGlAccountOpen(false);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          newTaskGlAccountId === account.id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {account.name}
+                                      {account.number && <span className="ml-2 text-muted-foreground">({account.number})</span>}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+
+                    {/* Category Selection */}
+                    <div className="space-y-2">
+                      <Label>Category *</Label>
+                      <Popover open={categorySelectOpen} onOpenChange={setCategorySelectOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={categorySelectOpen}
+                            className="w-full justify-between"
+                            data-testid="button-select-category"
+                          >
+                            {newTaskCategoryId
+                              ? categories.find(c => c.id === newTaskCategoryId)?.name || "Select..."
+                              : "Select category..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[400px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search categories..." />
+                            <CommandList>
+                              <CommandEmpty>
+                                {isLoadingCategories ? "Loading..." : "No category found."}
+                              </CommandEmpty>
+                              <CommandGroup>
+                                {categories.filter(c => c.active).map((category) => (
+                                  <CommandItem
+                                    key={category.id}
+                                    value={category.name}
+                                    onSelect={() => {
+                                      setNewTaskCategoryId(category.id === newTaskCategoryId ? null : category.id);
+                                      setCategorySelectOpen(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        newTaskCategoryId === category.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {category.name}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    {/* Image Upload */}
+                    <div className="space-y-2">
+                      <Label>Image (optional)</Label>
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1">
+                          <label
+                            htmlFor="newTaskImage"
+                            className="flex items-center justify-center gap-2 h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                          >
+                            <ImagePlus className="w-6 h-6 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">
+                              {newTaskImage ? newTaskImage.name : "Click to upload image"}
+                            </span>
+                          </label>
+                          <input
+                            id="newTaskImage"
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleImageSelect}
+                            data-testid="input-new-task-image"
+                          />
+                        </div>
+                        {newTaskImagePreview && (
+                          <div className="relative">
+                            <img
+                              src={newTaskImagePreview}
+                              alt="Preview"
+                              className="w-24 h-24 object-cover rounded-lg border"
+                            />
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              className="absolute -top-2 -right-2 w-6 h-6"
+                              onClick={() => {
+                                setNewTaskImage(null);
+                                setNewTaskImagePreview(null);
+                              }}
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Submit Button */}
+                    <div className="flex justify-end pt-4 border-t">
+                      <Button
+                        onClick={handleCreateTask}
+                        disabled={isCreatingTask || !newTaskCode || !newTaskName || !newTaskCategoryId}
+                        className="gap-2"
+                        data-testid="button-create-task"
+                      >
+                        {isCreatingTask ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Plus className="w-4 h-4" />
+                        )}
+                        Create Task
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           )}
         </div>
       )}

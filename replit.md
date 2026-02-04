@@ -107,3 +107,18 @@ shared/           # Shared code between client/server
 - Created Push to ServiceTitan page with category selection
 - Implemented M&E percentage calculation push functionality
 - Security: Tenant credentials masked in all API responses
+
+### Push to ServiceTitan Restructure (February 2026)
+- Restructured Push to ServiceTitan page with two tabs:
+  - **Update Pricebook Category**: Updates existing services with calculated M&E pricing
+  - **Push New Task**: Creates new service tasks in ServiceTitan with calculated pricing
+- Push New Task includes:
+  - Price calculator with Materials/Equipment cost inputs
+  - Form fields: Code, Name, Description, Warranty Description
+  - Checkboxes: Taxable, Allow Discount Codes, Allow Membership Discounts
+  - Hours field, GL Account dropdown (searchable), Category selection
+  - Image upload support
+- New API endpoints:
+  - GET /api/servicetitan/:tenantId/gl-accounts - Fetch GL accounts
+  - POST /api/servicetitan/:tenantId/services - Create new service
+  - POST /api/servicetitan/:tenantId/services/:serviceId/image - Upload image
