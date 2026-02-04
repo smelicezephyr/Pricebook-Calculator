@@ -1314,6 +1314,61 @@ export default function PushToServiceTitan() {
                         )}
                       </div>
 
+                      {/* Additional Settings Row */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="newTaskCommission">Commission %</Label>
+                          <div className="relative">
+                            <Input
+                              id="newTaskCommission"
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              max="100"
+                              value={commissionPercent}
+                              onChange={(e) => setCommissionPercent(e.target.value)}
+                              className="pr-7"
+                              data-testid="input-new-task-commission"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="newTaskFinancing">Financing Fee %</Label>
+                          <div className="relative">
+                            <Input
+                              id="newTaskFinancing"
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              max="100"
+                              value={financingFeePercent}
+                              onChange={(e) => setFinancingFeePercent(e.target.value)}
+                              className="pr-7"
+                              data-testid="input-new-task-financing"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="newTaskLaborBurden">Labor Burden %</Label>
+                          <div className="relative">
+                            <Input
+                              id="newTaskLaborBurden"
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              max="100"
+                              value={laborBurdenPercent}
+                              onChange={(e) => setLaborBurdenPercent(e.target.value)}
+                              className="pr-7"
+                              data-testid="input-new-task-labor-burden"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Inputs Row */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
