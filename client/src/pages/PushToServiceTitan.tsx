@@ -1369,11 +1369,34 @@ export default function PushToServiceTitan() {
 
                       {/* Metrics Display Row */}
                       <div className="grid grid-cols-3 gap-3 pt-2">
-                        <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
-                          <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Gross Margin</p>
-                          <p className="text-lg font-bold text-foreground">{newTaskCalculations.grossMarginPercent.toFixed(2)}%</p>
-                          <p className="text-xs text-muted-foreground">${newTaskCalculations.grossMarginAmount.toFixed(2)}</p>
-                        </div>
+                        {(() => {
+                          const minMargin = parseFloat(settings?.grossMarginMinPercent || "50");
+                          const currentMargin = newTaskCalculations.grossMarginPercent;
+                          let glowStyle = {};
+                          let borderClass = "border-border";
+                          
+                          if (currentMargin >= minMargin) {
+                            glowStyle = { boxShadow: '0 0 12px 3px rgba(16, 185, 129, 0.5)' };
+                            borderClass = "border-emerald-500";
+                          } else if (currentMargin >= minMargin - 2) {
+                            glowStyle = { boxShadow: '0 0 12px 3px rgba(245, 158, 11, 0.5)' };
+                            borderClass = "border-amber-500";
+                          } else {
+                            glowStyle = { boxShadow: '0 0 12px 3px rgba(239, 68, 68, 0.5)' };
+                            borderClass = "border-red-500";
+                          }
+                          
+                          return (
+                            <div 
+                              className={`bg-white dark:bg-card rounded-lg p-3 border ${borderClass} shadow-sm transition-all duration-300`}
+                              style={glowStyle}
+                            >
+                              <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Gross Margin</p>
+                              <p className="text-lg font-bold text-foreground">{newTaskCalculations.grossMarginPercent.toFixed(2)}%</p>
+                              <p className="text-xs text-muted-foreground">${newTaskCalculations.grossMarginAmount.toFixed(2)}</p>
+                            </div>
+                          );
+                        })()}
                         <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
                           <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">M&E Percent</p>
                           <p className="text-lg font-bold text-foreground">{newTaskCalculations.actualMePercent.toFixed(2)}%</p>
