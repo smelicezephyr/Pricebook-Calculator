@@ -342,6 +342,100 @@ export class ServiceTitanAPI {
       }
     );
   }
+
+  async getGLAccounts(): Promise<GLAccount[]> {
+    const allAccounts: GLAccount[] = [];
+    let page = 1;
+    let hasMore = true;
+    
+    console.log(`[ServiceTitan] Starting GL accounts fetch...`);
+    
+    while (hasMore) {
+      const url = `/accounting/v2/tenant/${this.tenant.tenantId}/gl-accounts?pageSize=500&page=${page}`;
+      const response = await this.request<{ 
+        data: GLAccount[]; 
+        hasMore: boolean;
+      }>(url);
+      
+      console.log(`[ServiceTitan] GL accounts page ${page}: got ${response.data.length} items, hasMore: ${response.hasMore}`);
+      allAccounts.push(...response.data);
+      hasMore = response.hasMore;
+      page++;
+      
+      if (page > 20) {
+        console.log(`[ServiceTitan] Hit GL accounts safety limit at page 20`);
+        break;
+      }
+    }
+    
+    console.log(`[ServiceTitan] Finished GL accounts fetch: ${allAccounts.length} total items`);
+    return allAccounts;
+  }
+
+  async createService(serviceData: CreateServiceRequest): Promise<PricebookService> {
+    console.log(`[ServiceTitan] Creating new service:`, JSON.stringify(serviceData));
+    const result = await this.request<PricebookService>(
+      `/pricebook/v2/tenant/${this.tenant.tenantId}/services`,
+      {
+        method: "POST",
+        body: JSON.stringify(serviceData),
+      }
+    );
+    console.log(`[ServiceTitan] Created service - id: ${result.id}, name: ${result.name}, price: ${result.price}`);
+    return result;
+  }
+
+  async uploadServiceImage(serviceId: number, imageBuffer: Buffer, filename: string, mimeType: string): Promise<any> {
+    const token = await this.getAccessToken();
+    
+    const formData = new FormData();
+    const blob = new Blob([imageBuffer], { type: mimeType });
+    formData.append('file', blob, filename);
+    
+    const response = await fetch(
+      `${this.baseUrl}/pricebook/v2/tenant/${this.tenant.tenantId}/services/${serviceId}/images`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "ST-App-Key": this.tenant.appKey,
+        },
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to upload image: ${response.status} - ${error}`);
+    }
+
+    return response.json();
+  }
 }
 
-export type { PricebookCategory, PricebookService, PricebookMaterial, PricebookEquipment };
+interface GLAccount {
+  id: number;
+  name: string;
+  number?: string;
+  type?: string;
+  detailType?: string;
+  active: boolean;
+}
+
+interface CreateServiceRequest {
+  code: string;
+  name: string;
+  description?: string;
+  warrantyDescription?: string;
+  isTaxable?: boolean;
+  isActive?: boolean;
+  price?: number;
+  memberPrice?: number;
+  hours?: number;
+  categoryIds?: number[];
+  generalLedgerAccountId?: number;
+  allowDiscountCodes?: boolean;
+  allowMembershipDiscounts?: boolean;
+}
+
+export type { PricebookCategory, PricebookService, PricebookMaterial, PricebookEquipment, GLAccount, CreateServiceRequest };

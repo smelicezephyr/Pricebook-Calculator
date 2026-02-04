@@ -295,6 +295,69 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/servicetitan/:tenantId/gl-accounts", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    if (isNaN(tenantId)) {
+      return res.status(400).json({ message: "Invalid tenant ID" });
+    }
+    const tenant = await storage.getTenant(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+    try {
+      const api = new ServiceTitanAPI(tenant);
+      const accounts = await api.getGLAccounts();
+      res.json(accounts);
+    } catch (err: any) {
+      console.error(`[GLAccounts] Error fetching GL accounts:`, err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/servicetitan/:tenantId/services", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    if (isNaN(tenantId)) {
+      return res.status(400).json({ message: "Invalid tenant ID" });
+    }
+    const tenant = await storage.getTenant(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+    try {
+      const api = new ServiceTitanAPI(tenant);
+      const service = await api.createService(req.body);
+      res.status(201).json(service);
+    } catch (err: any) {
+      console.error(`[CreateService] Error creating service:`, err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/servicetitan/:tenantId/services/:serviceId/image", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    const serviceId = Number(req.params.serviceId);
+    if (isNaN(tenantId) || isNaN(serviceId)) {
+      return res.status(400).json({ message: "Invalid ID" });
+    }
+    const tenant = await storage.getTenant(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+    try {
+      const { imageData, filename, mimeType } = req.body;
+      if (!imageData || !filename || !mimeType) {
+        return res.status(400).json({ message: "Missing image data, filename, or mimeType" });
+      }
+      const imageBuffer = Buffer.from(imageData, 'base64');
+      const api = new ServiceTitanAPI(tenant);
+      const result = await api.uploadServiceImage(serviceId, imageBuffer, filename, mimeType);
+      res.json(result);
+    } catch (err: any) {
+      console.error(`[UploadImage] Error uploading image:`, err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // Diagnostic endpoint: Get single service details to see raw API response
   app.get("/api/servicetitan/:tenantId/service-debug/:serviceId", async (req, res) => {
     const tenantId = Number(req.params.tenantId);
