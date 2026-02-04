@@ -147,17 +147,72 @@ export default function PushToServiceTitan() {
   const [glAccountOpen, setGlAccountOpen] = useState(false);
   const [categorySelectOpen, setCategorySelectOpen] = useState(false);
 
-  // Calculate price for new task based on M&E costs
-  const newTaskCalculatedPrice = useMemo(() => {
+  // Calculate price and metrics for new task
+  const newTaskCalculations = useMemo(() => {
     const matVal = parseFloat(newTaskMaterialsCost) || 0;
     const equipVal = parseFloat(newTaskEquipmentCost) || 0;
     const salesTaxRate = parseFloat(salesTaxPercent) / 100;
     const tax = (matVal + equipVal) * salesTaxRate;
     const totalMe = matVal + equipVal + tax;
     const targetMeRate = parseFloat(targetMePercent) / 100;
-    const price = targetMeRate > 0 ? totalMe / targetMeRate : 0;
-    return roundUp ? Math.ceil(price) : price;
-  }, [newTaskMaterialsCost, newTaskEquipmentCost, salesTaxPercent, targetMePercent, roundUp]);
+    const rawPrice = targetMeRate > 0 ? totalMe / targetMeRate : 0;
+    const price = roundUp ? Math.ceil(rawPrice) : rawPrice;
+    
+    // Calculate direct labor
+    let directLabor = 0;
+    if (laborMode === "hours") {
+      const hours = parseFloat(laborHours) || 0;
+      const rate = parseFloat(laborHourlyRate) || 0;
+      directLabor = hours * rate;
+    } else {
+      const laborRate = parseFloat(laborPercent) / 100;
+      directLabor = price * laborRate;
+    }
+    
+    // Calculate labor with burden
+    const laborBurdenRate = parseFloat(laborBurdenPercent) / 100;
+    const laborWithBurden = directLabor * (1 + laborBurdenRate);
+    
+    // Calculate commission with burden
+    const commissionRate = parseFloat(commissionPercent) / 100;
+    const commission = price * commissionRate;
+    const commBurdenRate = parseFloat(commissionBurdenPercent) / 100;
+    const commissionWithBurden = commission * (1 + commBurdenRate);
+    
+    // Calculate financing
+    const financingRate = parseFloat(financingFeePercent) / 100;
+    const financing = price * financingRate;
+    
+    // Calculate total COGS
+    const totalCogs = totalMe + laborWithBurden + commissionWithBurden + financing;
+    
+    // Calculate gross margin
+    const grossMarginAmount = price - totalCogs;
+    const grossMarginPercent = price > 0 ? (grossMarginAmount / price) * 100 : 0;
+    
+    // Actual M&E percent achieved
+    const actualMePercent = price > 0 ? (totalMe / price) * 100 : 0;
+    
+    return {
+      price,
+      totalMe,
+      tax,
+      directLabor,
+      laborWithBurden,
+      commission,
+      commissionWithBurden,
+      financing,
+      grossMarginAmount,
+      grossMarginPercent,
+      actualMePercent,
+    };
+  }, [
+    newTaskMaterialsCost, newTaskEquipmentCost, salesTaxPercent, targetMePercent, roundUp,
+    laborMode, laborHours, laborHourlyRate, laborPercent, laborBurdenPercent,
+    commissionPercent, commissionBurdenPercent, financingFeePercent
+  ]);
+  
+  const newTaskCalculatedPrice = newTaskCalculations.price;
 
   const handleTenantSelect = async (value: string) => {
     const id = Number(value);
@@ -1183,6 +1238,83 @@ export default function PushToServiceTitan() {
                         <DollarSign className="w-4 h-4 text-primary" />
                         Price Calculator
                       </h3>
+                      
+                      {/* Settings Row */}
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="newTaskMePercent">Target M&E %</Label>
+                          <Select value={targetMePercent} onValueChange={setTargetMePercent}>
+                            <SelectTrigger id="newTaskMePercent" data-testid="select-new-task-me-percent">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Array.from({ length: 41 }, (_, i) => {
+                                const val = (10 + i * 0.5).toFixed(2);
+                                return <SelectItem key={val} value={val}>{val}%</SelectItem>;
+                              })}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="newTaskSalesTax">Sales Tax %</Label>
+                          <Input
+                            id="newTaskSalesTax"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="20"
+                            value={salesTaxPercent}
+                            onChange={(e) => setSalesTaxPercent(e.target.value)}
+                            data-testid="input-new-task-sales-tax"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="newTaskLaborMode">Labor Mode</Label>
+                          <Select value={laborMode} onValueChange={(v) => setLaborMode(v as "hours" | "percent")}>
+                            <SelectTrigger id="newTaskLaborMode" data-testid="select-new-task-labor-mode">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="percent">Percentage of Price</SelectItem>
+                              <SelectItem value="hours">Hourly Rate</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {laborMode === "percent" ? (
+                          <div className="space-y-2">
+                            <Label htmlFor="newTaskLaborPercent">Labor %</Label>
+                            <div className="relative">
+                              <Input
+                                id="newTaskLaborPercent"
+                                type="number"
+                                step="0.5"
+                                min="0"
+                                max="100"
+                                value={laborPercent}
+                                onChange={(e) => setLaborPercent(e.target.value)}
+                                className="pr-7"
+                                data-testid="input-new-task-labor-percent"
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Label htmlFor="newTaskLaborHours">Labor Hours</Label>
+                            <Input
+                              id="newTaskLaborHours"
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              value={laborHours}
+                              onChange={(e) => setLaborHours(e.target.value)}
+                              data-testid="input-new-task-labor-hours"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Inputs Row */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="newTaskMaterials">Materials Cost</Label>
@@ -1218,16 +1350,39 @@ export default function PushToServiceTitan() {
                         </div>
                         <div className="space-y-2">
                           <Label>Calculated Price</Label>
-                          <div className="h-9 px-3 py-2 bg-primary/10 rounded-md border border-primary/20 flex items-center">
+                          <div className="h-9 px-3 py-2 bg-primary/10 rounded-md border border-primary/20 flex items-center justify-between">
                             <span className="text-lg font-bold text-primary">
                               ${newTaskCalculatedPrice.toFixed(2)}
                             </span>
+                            <div className="flex items-center gap-2">
+                              <Label htmlFor="roundUpNewTask" className="text-xs cursor-pointer">Round Up</Label>
+                              <Switch
+                                id="roundUpNewTask"
+                                checked={roundUp}
+                                onCheckedChange={setRoundUp}
+                                data-testid="switch-new-task-round-up"
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Price is calculated using Target M&E: {targetMePercent}% and Sales Tax: {salesTaxPercent}%
-                      </p>
+
+                      {/* Metrics Display Row */}
+                      <div className="grid grid-cols-3 gap-3 pt-2">
+                        <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
+                          <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Gross Margin</p>
+                          <p className="text-lg font-bold text-foreground">{newTaskCalculations.grossMarginPercent.toFixed(2)}%</p>
+                          <p className="text-xs text-muted-foreground">${newTaskCalculations.grossMarginAmount.toFixed(2)}</p>
+                        </div>
+                        <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
+                          <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">M&E Percent</p>
+                          <p className="text-lg font-bold text-foreground">{newTaskCalculations.actualMePercent.toFixed(2)}%</p>
+                        </div>
+                        <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
+                          <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Direct Labor</p>
+                          <p className="text-lg font-bold text-foreground">${newTaskCalculations.directLabor.toFixed(2)}</p>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Service Details */}
