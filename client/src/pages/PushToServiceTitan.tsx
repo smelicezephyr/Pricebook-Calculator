@@ -71,14 +71,6 @@ interface Category {
   parentId?: number;
 }
 
-interface GLAccount {
-  id: number;
-  name: string;
-  number?: string;
-  type?: string;
-  active: boolean;
-}
-
 export default function PushToServiceTitan() {
   const { tenants, isLoading: isTenantsLoading } = useTenants();
   const { settings } = useSettings();
@@ -127,8 +119,6 @@ export default function PushToServiceTitan() {
 
   // Push New Task State
   const [activeTab, setActiveTab] = useState<string>("update-category");
-  const [glAccounts, setGlAccounts] = useState<GLAccount[]>([]);
-  const [isLoadingGlAccounts, setIsLoadingGlAccounts] = useState(false);
   const [newTaskCode, setNewTaskCode] = useState("");
   const [newTaskName, setNewTaskName] = useState("");
   const [newTaskDescription, setNewTaskDescription] = useState("");
@@ -137,14 +127,13 @@ export default function PushToServiceTitan() {
   const [newTaskAllowDiscounts, setNewTaskAllowDiscounts] = useState(true);
   const [newTaskAllowMembership, setNewTaskAllowMembership] = useState(true);
   const [newTaskHours, setNewTaskHours] = useState("0");
-  const [newTaskGlAccountId, setNewTaskGlAccountId] = useState<number | null>(null);
+  const [newTaskGlAccount, setNewTaskGlAccount] = useState<string>("Sales");
   const [newTaskCategoryId, setNewTaskCategoryId] = useState<number | null>(null);
   const [newTaskMaterialsCost, setNewTaskMaterialsCost] = useState("0");
   const [newTaskEquipmentCost, setNewTaskEquipmentCost] = useState("0");
   const [newTaskImage, setNewTaskImage] = useState<File | null>(null);
   const [newTaskImagePreview, setNewTaskImagePreview] = useState<string | null>(null);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
-  const [glAccountOpen, setGlAccountOpen] = useState(false);
   const [categorySelectOpen, setCategorySelectOpen] = useState(false);
 
   // Push New Repair Task State
@@ -157,7 +146,7 @@ export default function PushToServiceTitan() {
   const [repairAllowMembership, setRepairAllowMembership] = useState(true);
   const [repairLaborHours, setRepairLaborHours] = useState("1");
   const [repairLaborRate, setRepairLaborRate] = useState("125.00");
-  const [repairGlAccountId, setRepairGlAccountId] = useState<number | null>(null);
+  const [repairGlAccount, setRepairGlAccount] = useState<string>("Sales");
   const [repairCategoryId, setRepairCategoryId] = useState<number | null>(null);
   const [repairMaterialsCost, setRepairMaterialsCost] = useState("0");
   const [repairMaterialMarkup, setRepairMaterialMarkup] = useState("200");
@@ -174,6 +163,7 @@ export default function PushToServiceTitan() {
       setRepairMaterialMarkup("40");
       setRepairLaborRate("600");
       setRepairSalesTaxPercent("7.4");
+      setRepairGlAccount("Sales");
     } else {
       // Reset to defaults
       setRepairMaterialMarkup("200");
@@ -184,7 +174,6 @@ export default function PushToServiceTitan() {
   const [repairImage, setRepairImage] = useState<File | null>(null);
   const [repairImagePreview, setRepairImagePreview] = useState<string | null>(null);
   const [isCreatingRepair, setIsCreatingRepair] = useState(false);
-  const [repairGlAccountOpen, setRepairGlAccountOpen] = useState(false);
   const [repairCategorySelectOpen, setRepairCategorySelectOpen] = useState(false);
 
   // Calculate price and metrics for new task
@@ -328,13 +317,12 @@ export default function PushToServiceTitan() {
     setSelectedTenantId(id);
     setConnectionStatus('testing');
     setCategories([]);
-    setGlAccounts([]);
     setSelectedCategories(new Set());
     // Reset form fields that depend on tenant-specific data
     setNewTaskCategoryId(null);
-    setNewTaskGlAccountId(null);
+    setNewTaskGlAccount("Sales");
     setRepairCategoryId(null);
-    setRepairGlAccountId(null);
+    setRepairGlAccount("Sales");
 
     try {
       const response = await testConnection(id);
@@ -342,7 +330,6 @@ export default function PushToServiceTitan() {
       if (result.success) {
         setConnectionStatus('connected');
         await loadCategories(id);
-        await loadGlAccounts(id);
       } else {
         setConnectionStatus('failed');
       }
@@ -372,35 +359,6 @@ export default function PushToServiceTitan() {
       });
     } finally {
       setIsLoadingCategories(false);
-    }
-  };
-
-  const loadGlAccounts = async (tenantId: number) => {
-    setIsLoadingGlAccounts(true);
-    try {
-      const response = await fetch(`/api/servicetitan/${tenantId}/gl-accounts`);
-      if (response.ok) {
-        const data = await response.json();
-        setGlAccounts(data.filter((a: GLAccount) => a.active));
-      } else {
-        const error = await response.json();
-        console.error("Failed to load GL accounts:", error);
-        const isPermissionError = error.message?.includes('403') || error.message?.includes('permission');
-        toast({
-          title: "GL Accounts Unavailable",
-          description: isPermissionError
-            ? "The ServiceTitan credentials don't have permission to access GL accounts. You can still create tasks without selecting a GL account."
-            : "Could not load GL accounts. You can still create tasks without selecting a GL account.",
-        });
-      }
-    } catch (err) {
-      console.error("Failed to load GL accounts:", err);
-      toast({
-        title: "GL Accounts Unavailable",
-        description: "Could not load GL accounts. You can still create tasks without selecting a GL account.",
-      });
-    } finally {
-      setIsLoadingGlAccounts(false);
     }
   };
 
@@ -480,7 +438,7 @@ export default function PushToServiceTitan() {
       
       // Add account name (required field for service creation)
       // ServiceTitan uses account names like "Sales", not numeric IDs
-      serviceData.account = "Sales";
+      serviceData.account = newTaskGlAccount || "Sales";
 
       const response = await fetch(`/api/servicetitan/${selectedTenantId}/services`, {
         method: 'POST',
@@ -621,7 +579,7 @@ export default function PushToServiceTitan() {
       
       // Add account name (required field for service creation)
       // ServiceTitan uses account names like "Sales", not numeric IDs
-      serviceData.account = "Sales";
+      serviceData.account = repairGlAccount || "Sales";
 
       const response = await fetch(`/api/servicetitan/${selectedTenantId}/services`, {
         method: 'POST',
@@ -682,13 +640,6 @@ export default function PushToServiceTitan() {
       setIsCreatingRepair(false);
     }
   };
-
-  // Load GL accounts when tenant is connected
-  useEffect(() => {
-    if (connectionStatus === 'connected' && selectedTenantId) {
-      loadGlAccounts(selectedTenantId);
-    }
-  }, [connectionStatus, selectedTenantId]);
 
   const getChildren = (parentId: number) => categories.filter(c => c.parentId === parentId && c.active);
   
@@ -1829,54 +1780,14 @@ export default function PushToServiceTitan() {
                         )}
                       </div>
                       <div className="space-y-2">
-                        <Label>General Ledger Account</Label>
-                        <Popover open={glAccountOpen} onOpenChange={setGlAccountOpen}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              aria-expanded={glAccountOpen}
-                              className="w-full justify-between"
-                              data-testid="button-select-gl-account"
-                            >
-                              {newTaskGlAccountId
-                                ? glAccounts.find(a => a.id === newTaskGlAccountId)?.name || "Select..."
-                                : "Select GL Account..."}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[300px] p-0">
-                            <Command>
-                              <CommandInput placeholder="Search GL accounts..." />
-                              <CommandList>
-                                <CommandEmpty>
-                                  {isLoadingGlAccounts ? "Loading..." : "No GL account found."}
-                                </CommandEmpty>
-                                <CommandGroup>
-                                  {glAccounts.map((account) => (
-                                    <CommandItem
-                                      key={account.id}
-                                      value={account.name}
-                                      onSelect={() => {
-                                        setNewTaskGlAccountId(account.id === newTaskGlAccountId ? null : account.id);
-                                        setGlAccountOpen(false);
-                                      }}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          newTaskGlAccountId === account.id ? "opacity-100" : "opacity-0"
-                                        )}
-                                      />
-                                      {account.name}
-                                      {account.number && <span className="ml-2 text-muted-foreground">({account.number})</span>}
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
+                        <Label>Account Name</Label>
+                        <Input
+                          value={newTaskGlAccount}
+                          onChange={(e) => setNewTaskGlAccount(e.target.value)}
+                          placeholder="Sales"
+                          data-testid="input-gl-account"
+                        />
+                        <p className="text-xs text-muted-foreground">Income account name in ServiceTitan (default: Sales)</p>
                       </div>
                     </div>
 
@@ -2332,56 +2243,14 @@ export default function PushToServiceTitan() {
                     {/* GL Account and Category */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>GL Account</Label>
-                        <Popover open={repairGlAccountOpen} onOpenChange={setRepairGlAccountOpen}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              aria-expanded={repairGlAccountOpen}
-                              className="w-full justify-between"
-                              data-testid="button-select-repair-gl-account"
-                            >
-                              {repairGlAccountId
-                                ? glAccounts.find(a => a.id === repairGlAccountId)?.name || "Select..."
-                                : "Select GL account..."}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[400px] p-0">
-                            <Command>
-                              <CommandInput placeholder="Search GL accounts..." />
-                              <CommandList>
-                                <CommandEmpty>
-                                  {isLoadingGlAccounts ? "Loading..." : "No GL account found."}
-                                </CommandEmpty>
-                                <CommandGroup>
-                                  {glAccounts.map((account) => (
-                                    <CommandItem
-                                      key={account.id}
-                                      value={account.name}
-                                      onSelect={() => {
-                                        setRepairGlAccountId(account.id === repairGlAccountId ? null : account.id);
-                                        setRepairGlAccountOpen(false);
-                                      }}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          repairGlAccountId === account.id ? "opacity-100" : "opacity-0"
-                                        )}
-                                      />
-                                      <div className="flex flex-col">
-                                        <span>{account.name}</span>
-                                        <span className="text-xs text-muted-foreground">{account.number}</span>
-                                      </div>
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
+                        <Label>Account Name</Label>
+                        <Input
+                          value={repairGlAccount}
+                          onChange={(e) => setRepairGlAccount(e.target.value)}
+                          placeholder="Sales"
+                          data-testid="input-repair-gl-account"
+                        />
+                        <p className="text-xs text-muted-foreground">Income account name in ServiceTitan (default: Sales)</p>
                       </div>
 
                       <div className="space-y-2">
