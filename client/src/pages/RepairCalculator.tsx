@@ -366,34 +366,26 @@ export default function RepairCalculator() {
                 </div>
               </div>
 
+              {/* COGS & Burden Summary */}
+              <div className="space-y-1 pt-2 bg-muted/30 rounded-lg p-3 -mx-1">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">COGS (Parts + Direct Labor)</span>
+                  <span className="font-medium">{formatCurrency(cogs)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Total Burden</span>
+                  <span className="font-medium">{formatCurrency(laborBurden + commissionBurden)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Gross Profit</span>
+                  <span className={`font-medium ${marginHealth.textColor}`}>{formatCurrency(grossMargin)}</span>
+                </div>
+              </div>
+
               {/* Final Total */}
               <div className="flex justify-between items-center pt-4 border-t-2 border-border">
                 <span className="text-lg font-bold">Total Price</span>
                 <span className="text-2xl font-bold text-primary">{formatCurrency(totalPrice)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Cost Analysis */}
-          <div className="bg-card rounded-lg p-4 shadow-sm border border-border">
-            <h3 className="font-display font-semibold text-sm mb-4 pb-2 border-b border-border">Cost Analysis</h3>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-3 bg-muted/30 rounded-lg">
-                <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">COGS</div>
-                <div className="text-lg font-bold">{formatCurrency(cogs)}</div>
-              </div>
-              <div className="text-center p-3 bg-muted/30 rounded-lg">
-                <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Gross Profit</div>
-                <div className={`text-lg font-bold ${marginHealth.textColor}`}>{formatCurrency(grossMargin)}</div>
-              </div>
-              <div className="text-center p-3 bg-muted/30 rounded-lg">
-                <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Total Burden</div>
-                <div className="text-lg font-bold">{formatCurrency(laborBurden + commissionBurden)}</div>
-              </div>
-              <div className="text-center p-3 bg-muted/30 rounded-lg">
-                <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Total Fees</div>
-                <div className="text-lg font-bold">{formatCurrency(burdenedCommission + financingFee)}</div>
               </div>
             </div>
           </div>

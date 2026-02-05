@@ -160,8 +160,11 @@ export default function PushToServiceTitan() {
   const [repairGlAccountId, setRepairGlAccountId] = useState<number | null>(null);
   const [repairCategoryId, setRepairCategoryId] = useState<number | null>(null);
   const [repairMaterialsCost, setRepairMaterialsCost] = useState("0");
+  const [repairMaterialMarkup, setRepairMaterialMarkup] = useState("200");
   const [repairSalesTaxPercent, setRepairSalesTaxPercent] = useState("6.35");
+  const [repairBurdenPercent, setRepairBurdenPercent] = useState("20.00");
   const [repairCommissionPercent, setRepairCommissionPercent] = useState("10.00");
+  const [repairFinancingFeePercent, setRepairFinancingFeePercent] = useState("6.00");
   const [repairImage, setRepairImage] = useState<File | null>(null);
   const [repairImagePreview, setRepairImagePreview] = useState<string | null>(null);
   const [isCreatingRepair, setIsCreatingRepair] = useState(false);
@@ -236,37 +239,71 @@ export default function PushToServiceTitan() {
   
   const newTaskCalculatedPrice = newTaskCalculations.price;
 
-  // Calculate price for repair task (simpler calculation)
+  // Calculate price for repair task (matching RepairCalculator logic)
   const repairCalculations = useMemo(() => {
-    const materialsVal = parseFloat(repairMaterialsCost) || 0;
+    // Rates
+    const partsTotal = parseFloat(repairMaterialsCost) || 0;
+    const markupRate = (parseFloat(repairMaterialMarkup) || 200) / 100;
     const laborRateVal = parseFloat(repairLaborRate) || 0;
     const laborHoursVal = parseFloat(repairLaborHours) || 0;
+    const burdenRate = (parseFloat(repairBurdenPercent) || 0) / 100;
     const taxRate = (parseFloat(repairSalesTaxPercent) || 0) / 100;
     const commissionRate = (parseFloat(repairCommissionPercent) || 0) / 100;
+    const financingRate = (parseFloat(repairFinancingFeePercent) || 0) / 100;
 
-    const tax = materialsVal * taxRate;
-    const laborCost = laborRateVal * laborHoursVal;
-    const subtotal = materialsVal + tax + laborCost;
-    const commission = subtotal * commissionRate;
-    const totalPrice = roundUp ? Math.ceil(subtotal + commission) : subtotal + commission;
+    // Step 1: Parts + Tax
+    const salesTax = partsTotal * taxRate;
+    const subtotal1 = partsTotal + salesTax;
 
-    // Margin calculation - Cost of Goods Sold excludes commission (commission is the profit/markup)
-    const cogs = materialsVal + tax + laborCost;
-    const grossMargin = totalPrice - cogs;  // This equals commission + any rounding
+    // Step 2: Apply markup (ADDED on top)
+    const markupAmount = subtotal1 * markupRate;
+    const subtotal2 = subtotal1 + markupAmount;
+
+    // Step 3: Add Labor (with burden)
+    const directLaborCost = laborRateVal * laborHoursVal;
+    const laborBurden = directLaborCost * burdenRate;
+    const burdenedLaborCost = directLaborCost + laborBurden;
+    const subtotal3 = subtotal2 + burdenedLaborCost;
+
+    // Step 4: Add Commission (with same burden rate)
+    const directCommission = subtotal3 * commissionRate;
+    const commissionBurden = directCommission * burdenRate;
+    const burdenedCommission = directCommission + commissionBurden;
+    const subtotal4 = subtotal3 + burdenedCommission;
+
+    // Step 5: Add Financing Fee
+    const financingFee = subtotal4 * financingRate;
+    const totalBeforeRounding = subtotal4 + financingFee;
+    const totalPrice = roundUp ? Math.ceil(totalBeforeRounding) : totalBeforeRounding;
+
+    // COGS = raw parts + direct labor
+    const cogs = partsTotal + directLaborCost;
+    const grossMargin = totalPrice - cogs;
     const grossMarginPercent = totalPrice > 0 ? (grossMargin / totalPrice) * 100 : 0;
 
     return {
       price: totalPrice,
-      materials: materialsVal,
-      tax,
-      laborCost,
-      subtotal,
-      commission,
+      partsTotal,
+      salesTax,
+      subtotal1,
+      markupAmount,
+      subtotal2,
+      directLaborCost,
+      laborBurden,
+      burdenedLaborCost,
+      subtotal3,
+      directCommission,
+      commissionBurden,
+      burdenedCommission,
+      subtotal4,
+      financingFee,
+      cogs,
+      totalBurden: laborBurden + commissionBurden,
       grossMargin,
       grossMarginPercent,
       laborHours: laborHoursVal,
     };
-  }, [repairMaterialsCost, repairLaborRate, repairLaborHours, repairSalesTaxPercent, repairCommissionPercent, roundUp]);
+  }, [repairMaterialsCost, repairMaterialMarkup, repairLaborRate, repairLaborHours, repairBurdenPercent, repairSalesTaxPercent, repairCommissionPercent, repairFinancingFeePercent, roundUp]);
 
   const repairCalculatedPrice = repairCalculations.price;
 
@@ -1976,10 +2013,10 @@ export default function PushToServiceTitan() {
                         Repair Price Calculator
                       </h3>
                       
-                      {/* Repair Inputs Row */}
+                      {/* Parts & Markup Row */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="repairMaterialsCost">Materials Cost</Label>
+                          <Label htmlFor="repairMaterialsCost">Parts Total</Label>
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                             <Input
@@ -1994,6 +2031,43 @@ export default function PushToServiceTitan() {
                             />
                           </div>
                         </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="repairMarkup">Material Markup</Label>
+                          <select
+                            id="repairMarkup"
+                            value={repairMaterialMarkup}
+                            onChange={(e) => setRepairMaterialMarkup(e.target.value)}
+                            data-testid="select-repair-markup"
+                            className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-medium ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          >
+                            {Array.from({ length: 20 }, (_, i) => 200 - i * 10).map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt}%
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="repairSalesTax">Sales Tax %</Label>
+                          <div className="relative">
+                            <Input
+                              id="repairSalesTax"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="20"
+                              value={repairSalesTaxPercent}
+                              onChange={(e) => setRepairSalesTaxPercent(e.target.value)}
+                              className="pr-7"
+                              data-testid="input-repair-sales-tax"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Labor Row */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="repairLaborRate">Labor Rate (per hour)</Label>
                           <div className="relative">
@@ -2024,21 +2098,21 @@ export default function PushToServiceTitan() {
                         </div>
                       </div>
 
-                      {/* Tax and Commission Row */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Fees Row */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="repairSalesTax">Sales Tax %</Label>
+                          <Label htmlFor="repairBurden">Burden %</Label>
                           <div className="relative">
                             <Input
-                              id="repairSalesTax"
+                              id="repairBurden"
                               type="number"
                               step="0.01"
                               min="0"
-                              max="20"
-                              value={repairSalesTaxPercent}
-                              onChange={(e) => setRepairSalesTaxPercent(e.target.value)}
+                              max="100"
+                              value={repairBurdenPercent}
+                              onChange={(e) => setRepairBurdenPercent(e.target.value)}
                               className="pr-7"
-                              data-testid="input-repair-sales-tax"
+                              data-testid="input-repair-burden"
                             />
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
                           </div>
@@ -2060,30 +2134,70 @@ export default function PushToServiceTitan() {
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
                           </div>
                         </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="repairFinancing">Financing Fee %</Label>
+                          <div className="relative">
+                            <Input
+                              id="repairFinancing"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="20"
+                              value={repairFinancingFeePercent}
+                              onChange={(e) => setRepairFinancingFeePercent(e.target.value)}
+                              className="pr-7"
+                              data-testid="input-repair-financing"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                          </div>
+                        </div>
                       </div>
 
                       {/* Price Breakdown */}
                       <div className="bg-background rounded-lg p-4 space-y-3">
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Materials</span>
-                          <span className="font-medium">${repairCalculations.materials.toFixed(2)}</span>
+                          <span className="text-muted-foreground">Parts Total</span>
+                          <span className="font-medium">${repairCalculations.partsTotal.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Tax ({repairSalesTaxPercent}%)</span>
-                          <span className="font-medium">${repairCalculations.tax.toFixed(2)}</span>
+                          <span className="text-muted-foreground">Sales Tax ({repairSalesTaxPercent}%)</span>
+                          <span className="font-medium">${repairCalculations.salesTax.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">{repairMaterialMarkup}% Markup</span>
+                          <span className="font-medium">${repairCalculations.markupAmount.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Labor ({repairCalculations.laborHours} hrs)</span>
-                          <span className="font-medium">${repairCalculations.laborCost.toFixed(2)}</span>
-                        </div>
-                        <div className="border-t pt-2 flex justify-between text-sm">
-                          <span className="text-muted-foreground">Subtotal</span>
-                          <span className="font-medium">${repairCalculations.subtotal.toFixed(2)}</span>
+                          <span className="font-medium">${repairCalculations.burdenedLaborCost.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Commission ({repairCommissionPercent}%)</span>
-                          <span className="font-medium">${repairCalculations.commission.toFixed(2)}</span>
+                          <span className="text-muted-foreground">Commission</span>
+                          <span className="font-medium">${repairCalculations.burdenedCommission.toFixed(2)}</span>
                         </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Financing Fee ({repairFinancingFeePercent}%)</span>
+                          <span className="font-medium">${repairCalculations.financingFee.toFixed(2)}</span>
+                        </div>
+                        
+                        {/* COGS & Burden Summary */}
+                        <div className="border-t pt-2 space-y-1 bg-muted/30 rounded p-2 -mx-1">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">COGS (Parts + Direct Labor)</span>
+                            <span className="font-medium">${repairCalculations.cogs.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Total Burden</span>
+                            <span className="font-medium">${repairCalculations.totalBurden.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Gross Profit</span>
+                            <span className={`font-medium ${repairCalculations.grossMarginPercent >= 50 ? 'text-emerald-600' : repairCalculations.grossMarginPercent >= 40 ? 'text-amber-600' : 'text-red-600'}`}>
+                              ${repairCalculations.grossMargin.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+
                         <div className="border-t pt-2 flex justify-between items-center">
                           <span className="font-medium">Total Price</span>
                           <span className="text-2xl font-bold text-primary" data-testid="text-repair-price">
@@ -2092,7 +2206,7 @@ export default function PushToServiceTitan() {
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Gross Margin</span>
-                          <span className={`font-medium ${repairCalculations.grossMarginPercent >= 30 ? 'text-green-600' : repairCalculations.grossMarginPercent >= 20 ? 'text-yellow-600' : 'text-red-600'}`}>
+                          <span className={`font-medium ${repairCalculations.grossMarginPercent >= 50 ? 'text-emerald-600' : repairCalculations.grossMarginPercent >= 40 ? 'text-amber-600' : 'text-red-600'}`}>
                             {repairCalculations.grossMarginPercent.toFixed(1)}%
                           </span>
                         </div>
