@@ -329,6 +329,11 @@ export default function PushToServiceTitan() {
     setConnectionStatus('testing');
     setCategories([]);
     setSelectedCategories(new Set());
+    // Reset form fields that depend on tenant-specific data
+    setNewTaskCategoryId(null);
+    setNewTaskGlAccountId(null);
+    setRepairCategoryId(null);
+    setRepairGlAccountId(null);
 
     try {
       const response = await testConnection(id);
