@@ -393,7 +393,7 @@ export class ServiceTitanAPI {
     formData.append('file', blob, filename);
     
     const response = await fetch(
-      `${this.baseUrl}/pricebook/v2/tenant/${this.tenant.tenantId}/services/${serviceId}/images`,
+      `${this.baseUrl}/pricebook/v2/tenant/${this.tenant.tenantId}/services/${serviceId}/image`,
       {
         method: 'POST',
         headers: {
@@ -424,15 +424,18 @@ interface GLAccount {
 
 interface CreateServiceRequest {
   code: string;
-  name: string;
+  displayName: string;
   description?: string;
-  warrantyDescription?: string;
+  warranty?: {
+    duration?: number;
+    description?: string;
+  };
   isTaxable?: boolean;
   isActive?: boolean;
   price?: number;
   memberPrice?: number;
   hours?: number;
-  categoryIds?: number[];
+  categories?: { id: number }[];
   generalLedgerAccountId?: number;
   allowDiscountCodes?: boolean;
   allowMembershipDiscounts?: boolean;

@@ -134,8 +134,8 @@ export default function PushToServiceTitan() {
   const [newTaskDescription, setNewTaskDescription] = useState("");
   const [newTaskWarranty, setNewTaskWarranty] = useState("");
   const [newTaskTaxable, setNewTaskTaxable] = useState(true);
-  const [newTaskAllowDiscounts, setNewTaskAllowDiscounts] = useState(false);
-  const [newTaskAllowMembership, setNewTaskAllowMembership] = useState(false);
+  const [newTaskAllowDiscounts, setNewTaskAllowDiscounts] = useState(true);
+  const [newTaskAllowMembership, setNewTaskAllowMembership] = useState(true);
   const [newTaskHours, setNewTaskHours] = useState("0");
   const [newTaskGlAccountId, setNewTaskGlAccountId] = useState<number | null>(null);
   const [newTaskCategoryId, setNewTaskCategoryId] = useState<number | null>(null);
@@ -351,14 +351,14 @@ export default function PushToServiceTitan() {
     try {
       const serviceData: any = {
         code,
-        name,
+        displayName: name,
         description: newTaskDescription.trim() || undefined,
-        warrantyDescription: newTaskWarranty.trim() || undefined,
+        warranty: newTaskWarranty.trim() ? { description: newTaskWarranty.trim() } : undefined,
         isTaxable: newTaskTaxable,
         isActive: true,
         price: newTaskCalculatedPrice,
         hours: hoursVal,
-        categoryIds: [newTaskCategoryId],
+        categories: [{ id: newTaskCategoryId }],
         allowDiscountCodes: newTaskAllowDiscounts,
         allowMembershipDiscounts: newTaskAllowMembership,
       };
