@@ -16,8 +16,10 @@ export default function RepairCalculator() {
   const [materialMarkup, setMaterialMarkup] = useState("200");
   const [laborRate, setLaborRate] = useState("125.00");
   const [laborHours, setLaborHours] = useState("1");
+  const [laborBurdenPercent, setLaborBurdenPercent] = useState("20.00");
   const [salesTaxPercent, setSalesTaxPercent] = useState("6.35");
   const [commissionPercent, setCommissionPercent] = useState("10.00");
+  const [commissionBurdenPercent, setCommissionBurdenPercent] = useState("20.00");
   const [roundUp, setRoundUp] = useState(false);
 
   // Generate markup options from 200% down to 10% in increments of 10
@@ -29,6 +31,8 @@ export default function RepairCalculator() {
       setSalesTaxPercent(settings.salesTaxPercent || "6.35");
       setCommissionPercent(settings.commissionPercent || "10.00");
       setLaborRate(settings.laborHourlyRate || "125.00");
+      setLaborBurdenPercent(settings.laborBurdenPercent || "20.00");
+      setCommissionBurdenPercent(settings.commissionBurdenPercent || "20.00");
     }
   }, [settings]);
 
@@ -38,18 +42,24 @@ export default function RepairCalculator() {
   const markedUpMaterials = materialsVal * markupRate;
   const laborRateVal = parseFloat(laborRate) || 0;
   const laborHoursVal = parseFloat(laborHours) || 0;
+  const laborBurdenRate = (parseFloat(laborBurdenPercent) || 0) / 100;
   const taxRate = (parseFloat(salesTaxPercent) || 0) / 100;
   const commissionRate = (parseFloat(commissionPercent) || 0) / 100;
+  const commissionBurdenRate = (parseFloat(commissionBurdenPercent) || 0) / 100;
 
   // Calculations - tax is applied to marked-up materials
   const tax = markedUpMaterials * taxRate;
-  const laborCost = laborRateVal * laborHoursVal;
-  const subtotal = markedUpMaterials + tax + laborCost;
-  const commission = subtotal * commissionRate;
-  const totalPrice = roundUp ? Math.ceil(subtotal + commission) : subtotal + commission;
+  const directLaborCost = laborRateVal * laborHoursVal;
+  const laborBurden = directLaborCost * laborBurdenRate;
+  const burdenedLaborCost = directLaborCost + laborBurden;
+  const subtotal = markedUpMaterials + tax + burdenedLaborCost;
+  const directCommission = subtotal * commissionRate;
+  const commissionBurden = directCommission * commissionBurdenRate;
+  const burdenedCommission = directCommission + commissionBurden;
+  const totalPrice = roundUp ? Math.ceil(subtotal + burdenedCommission) : subtotal + burdenedCommission;
 
-  // Margin calculation - COGS uses raw materials cost (before markup)
-  const cogs = materialsVal + laborCost;  // Raw materials + labor cost
+  // Margin calculation - COGS uses raw materials cost + burdened labor (true costs)
+  const cogs = materialsVal + burdenedLaborCost;  // Raw materials + burdened labor cost
   const grossMargin = totalPrice - cogs;  // Profit from markup + commission
   const grossMarginPercent = totalPrice > 0 ? (grossMargin / totalPrice) * 100 : 0;
 
@@ -61,6 +71,8 @@ export default function RepairCalculator() {
       setSalesTaxPercent(settings.salesTaxPercent || "6.35");
       setCommissionPercent(settings.commissionPercent || "10.00");
       setLaborRate(settings.laborHourlyRate || "125.00");
+      setLaborBurdenPercent(settings.laborBurdenPercent || "20.00");
+      setCommissionBurdenPercent(settings.commissionBurdenPercent || "20.00");
     }
     setRoundUp(false);
   };
@@ -178,6 +190,28 @@ export default function RepairCalculator() {
               />
             </div>
 
+            {/* Labor Burden */}
+            <div className="space-y-2">
+              <Label htmlFor="laborBurden" className="flex items-center gap-2">
+                <Percent className="w-4 h-4 text-muted-foreground" />
+                Labor Burden %
+              </Label>
+              <div className="relative">
+                <Input
+                  id="laborBurden"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={laborBurdenPercent}
+                  onChange={(e) => setLaborBurdenPercent(e.target.value)}
+                  className="pr-7"
+                  data-testid="input-labor-burden"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+              </div>
+            </div>
+
             {/* Sales Tax */}
             <div className="space-y-2">
               <Label htmlFor="salesTax" className="flex items-center gap-2">
@@ -222,6 +256,28 @@ export default function RepairCalculator() {
               </div>
             </div>
 
+            {/* Commission Burden */}
+            <div className="space-y-2">
+              <Label htmlFor="commissionBurden" className="flex items-center gap-2">
+                <Percent className="w-4 h-4 text-muted-foreground" />
+                Commission Burden %
+              </Label>
+              <div className="relative">
+                <Input
+                  id="commissionBurden"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={commissionBurdenPercent}
+                  onChange={(e) => setCommissionBurdenPercent(e.target.value)}
+                  className="pr-7"
+                  data-testid="input-commission-burden"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+              </div>
+            </div>
+
             {/* Round Up Toggle */}
             <div className="flex items-center space-x-2 pt-2">
               <Checkbox
@@ -258,16 +314,32 @@ export default function RepairCalculator() {
                 <span className="font-medium">${tax.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Labor ({laborHoursVal} hrs × ${laborRateVal}/hr)</span>
-                <span className="font-medium">${laborCost.toFixed(2)}</span>
+                <span className="text-muted-foreground">Direct Labor ({laborHoursVal} hrs × ${laborRateVal}/hr)</span>
+                <span className="font-medium">${directLaborCost.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Labor Burden ({laborBurdenPercent}%)</span>
+                <span className="font-medium">${laborBurden.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Burdened Labor</span>
+                <span className="font-medium">${burdenedLaborCost.toFixed(2)}</span>
               </div>
               <div className="border-t border-border pt-2 flex justify-between text-sm">
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="font-medium">${subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Commission ({commissionPercent}%)</span>
-                <span className="font-medium">${commission.toFixed(2)}</span>
+                <span className="text-muted-foreground">Direct Commission ({commissionPercent}%)</span>
+                <span className="font-medium">${directCommission.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Commission Burden ({commissionBurdenPercent}%)</span>
+                <span className="font-medium">${commissionBurden.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Burdened Commission</span>
+                <span className="font-medium">${burdenedCommission.toFixed(2)}</span>
               </div>
             </div>
 
