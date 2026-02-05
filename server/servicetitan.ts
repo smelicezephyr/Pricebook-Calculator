@@ -456,7 +456,7 @@ interface CreateServiceRequest {
   memberPrice?: number;
   hours?: number;
   categories?: number[];
-  generalLedgerAccountId?: number;
+  account?: number;
   allowDiscountCodes?: boolean;
   allowMembershipDiscounts?: boolean;
 }

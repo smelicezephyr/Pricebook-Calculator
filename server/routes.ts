@@ -325,7 +325,7 @@ export async function registerRoutes(
     memberPrice: z.number().min(0).optional(),
     hours: z.number().min(0, "Hours must be non-negative").optional(),
     categories: z.array(z.number()).optional(),
-    generalLedgerAccountId: z.number().optional(),
+    account: z.number().optional(),
     allowDiscountCodes: z.boolean().optional(),
     allowMembershipDiscounts: z.boolean().optional(),
   });

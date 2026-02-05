@@ -477,7 +477,7 @@ export default function PushToServiceTitan() {
       };
       
       if (newTaskGlAccountId) {
-        serviceData.generalLedgerAccountId = newTaskGlAccountId;
+        serviceData.account = newTaskGlAccountId;
       }
 
       const response = await fetch(`/api/servicetitan/${selectedTenantId}/services`, {
@@ -618,7 +618,7 @@ export default function PushToServiceTitan() {
       };
       
       if (repairGlAccountId) {
-        serviceData.generalLedgerAccountId = repairGlAccountId;
+        serviceData.account = repairGlAccountId;
       }
 
       const response = await fetch(`/api/servicetitan/${selectedTenantId}/services`, {
