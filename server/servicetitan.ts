@@ -347,31 +347,49 @@ export class ServiceTitanAPI {
   }
 
   async getGLAccounts(): Promise<GLAccount[]> {
+    // Use Pricebook accounts endpoint instead of accounting GL accounts
+    // The Pricebook API requires account IDs from this endpoint, not accounting GL accounts
     const allAccounts: GLAccount[] = [];
     let page = 1;
     let hasMore = true;
     
-    console.log(`[ServiceTitan] Starting GL accounts fetch...`);
+    console.log(`[ServiceTitan] Starting Pricebook accounts fetch...`);
     
     while (hasMore) {
-      const url = `/accounting/v2/tenant/${this.tenant.tenantId}/gl-accounts?pageSize=500&page=${page}`;
+      const url = `/pricebook/v2/tenant/${this.tenant.tenantId}/accounts?pageSize=500&page=${page}`;
       const response = await this.request<{ 
-        data: GLAccount[]; 
+        data: Array<{
+          id: number;
+          name: string;
+          number: string | null;
+          type: string;
+          active: boolean;
+        }>; 
         hasMore: boolean;
       }>(url);
       
-      console.log(`[ServiceTitan] GL accounts page ${page}: got ${response.data.length} items, hasMore: ${response.hasMore}`);
-      allAccounts.push(...response.data);
+      console.log(`[ServiceTitan] Pricebook accounts page ${page}: got ${response.data.length} items, hasMore: ${response.hasMore}`);
+      
+      // Map Pricebook accounts to GLAccount format
+      const mappedAccounts: GLAccount[] = response.data.map(acc => ({
+        id: acc.id,
+        name: acc.name,
+        number: acc.number ?? undefined,
+        type: acc.type,
+        active: acc.active,
+      }));
+      
+      allAccounts.push(...mappedAccounts);
       hasMore = response.hasMore;
       page++;
       
       if (page > 20) {
-        console.log(`[ServiceTitan] Hit GL accounts safety limit at page 20`);
+        console.log(`[ServiceTitan] Hit Pricebook accounts safety limit at page 20`);
         break;
       }
     }
     
-    console.log(`[ServiceTitan] Finished GL accounts fetch: ${allAccounts.length} total items`);
+    console.log(`[ServiceTitan] Finished Pricebook accounts fetch: ${allAccounts.length} total items`);
     return allAccounts;
   }
 
