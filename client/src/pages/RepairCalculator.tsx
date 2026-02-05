@@ -12,12 +12,12 @@ export default function RepairCalculator() {
   // Input state
   const [partsCost, setPartsCost] = useState("0");
   const [materialMarkup, setMaterialMarkup] = useState("200");
-  const [laborRate, setLaborRate] = useState("125.00");
+  const [laborRate, setLaborRate] = useState("175.00");
   const [laborHours, setLaborHours] = useState("1");
   const [burdenPercent, setBurdenPercent] = useState("20.00");
   const [salesTaxPercent, setSalesTaxPercent] = useState("6.35");
   const [commissionPercent, setCommissionPercent] = useState("10.00");
-  const [financingFeePercent, setFinancingFeePercent] = useState("6.00");
+  const [financingFeePercent, setFinancingFeePercent] = useState("4.00");
   const [roundUp, setRoundUp] = useState(false);
   const [psiMode, setPsiMode] = useState(false);
 
@@ -31,7 +31,7 @@ export default function RepairCalculator() {
     } else {
       // Reset to defaults from settings or standard defaults
       setMaterialMarkup("200");
-      setLaborRate(settings?.laborHourlyRate || "125.00");
+      setLaborRate(settings?.laborHourlyRate || "175.00");
       setSalesTaxPercent(settings?.salesTaxPercent || "6.35");
     }
   };
@@ -44,9 +44,9 @@ export default function RepairCalculator() {
     if (settings) {
       setSalesTaxPercent(settings.salesTaxPercent || "6.35");
       setCommissionPercent(settings.commissionPercent || "10.00");
-      setLaborRate(settings.laborHourlyRate || "125.00");
+      setLaborRate(settings.laborHourlyRate || "175.00");
       setBurdenPercent(settings.laborBurdenPercent || "20.00");
-      setFinancingFeePercent(settings.financingFeePercent || "6.00");
+      setFinancingFeePercent(settings.financingFeePercent || "4.00");
     }
   }, [settings]);
 
@@ -110,9 +110,9 @@ export default function RepairCalculator() {
     if (settings) {
       setSalesTaxPercent(settings.salesTaxPercent || "6.35");
       setCommissionPercent(settings.commissionPercent || "10.00");
-      setLaborRate(settings.laborHourlyRate || "125.00");
+      setLaborRate(settings.laborHourlyRate || "175.00");
       setBurdenPercent(settings.laborBurdenPercent || "20.00");
-      setFinancingFeePercent(settings.financingFeePercent || "6.00");
+      setFinancingFeePercent(settings.financingFeePercent || "4.00");
     }
     setRoundUp(false);
   };
