@@ -3,7 +3,7 @@ import { useServiceTitanAuth } from "@/contexts/ServiceTitanAuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Lock, AlertCircle } from "lucide-react";
+import { Lock, AlertCircle, Loader2 } from "lucide-react";
 
 interface PasswordGateProps {
   children: React.ReactNode;
@@ -13,14 +13,17 @@ export function PasswordGate({ children }: PasswordGateProps) {
   const { isUnlocked, unlock } = useServiceTitanAuth();
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   if (isUnlocked) {
     return <>{children}</>;
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = unlock(password);
+    setIsLoading(true);
+    const success = await unlock(password);
+    setIsLoading(false);
     if (!success) {
       setError(true);
       setPassword("");
@@ -61,8 +64,9 @@ export function PasswordGate({ children }: PasswordGateProps) {
                 </p>
               )}
             </div>
-            <Button type="submit" className="w-full" data-testid="button-unlock">
-              Unlock
+            <Button type="submit" className="w-full" disabled={isLoading} data-testid="button-unlock">
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              {isLoading ? "Verifying..." : "Unlock"}
             </Button>
           </form>
         </CardContent>

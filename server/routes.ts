@@ -50,6 +50,47 @@ export async function registerRoutes(
     }
   });
 
+  // Admin Routes
+  app.post("/api/admin/verify-password", async (req, res) => {
+    try {
+      const { password } = req.body;
+      const settings = await storage.getSettings();
+      const valid = password === settings.serviceTitanPassword;
+      res.json({ valid });
+    } catch (err) {
+      res.status(500).json({ valid: false, error: "Failed to verify password" });
+    }
+  });
+
+  app.post("/api/admin/change-password", async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const settings = await storage.getSettings();
+      
+      if (currentPassword !== settings.serviceTitanPassword) {
+        return res.json({ success: false, error: "Current password is incorrect" });
+      }
+      
+      if (!newPassword || newPassword.length < 4) {
+        return res.json({ success: false, error: "New password must be at least 4 characters" });
+      }
+      
+      await storage.updateSettings({ serviceTitanPassword: newPassword });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ success: false, error: "Failed to change password" });
+    }
+  });
+
+  app.delete("/api/admin/clear-history", async (req, res) => {
+    try {
+      await storage.clearAllQuotes();
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ success: false, error: "Failed to clear history" });
+    }
+  });
+
   // Quotes Routes
   app.get(api.quotes.list.path, async (req, res) => {
     const quotes = await storage.getQuotes();

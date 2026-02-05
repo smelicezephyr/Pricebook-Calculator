@@ -37,6 +37,9 @@ export const settings = pgTable("settings", {
   
   // Margin Health Settings
   grossMarginMinPercent: numeric("gross_margin_min_percent").notNull().default("52.00"),
+  
+  // ServiceTitan Section Password
+  serviceTitanPassword: text("servicetitan_password").notNull().default("ZephyrHome160"),
 });
 
 // Push History for ServiceTitan

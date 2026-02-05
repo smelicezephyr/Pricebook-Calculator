@@ -2,13 +2,13 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 
 interface ServiceTitanAuthContextType {
   isUnlocked: boolean;
-  unlock: (password: string) => boolean;
+  unlock: (password: string) => Promise<boolean>;
   lock: () => void;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const ServiceTitanAuthContext = createContext<ServiceTitanAuthContextType | null>(null);
 
-const CORRECT_PASSWORD = "ZephyrHome160";
 const STORAGE_KEY = "servicetitan_unlocked";
 
 export function ServiceTitanAuthProvider({ children }: { children: ReactNode }) {
@@ -16,13 +16,23 @@ export function ServiceTitanAuthProvider({ children }: { children: ReactNode }) 
     return sessionStorage.getItem(STORAGE_KEY) === "true";
   });
 
-  const unlock = (password: string): boolean => {
-    if (password === CORRECT_PASSWORD) {
-      setIsUnlocked(true);
-      sessionStorage.setItem(STORAGE_KEY, "true");
-      return true;
+  const unlock = async (password: string): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/admin/verify-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const result = await response.json();
+      if (result.valid) {
+        setIsUnlocked(true);
+        sessionStorage.setItem(STORAGE_KEY, "true");
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
     }
-    return false;
   };
 
   const lock = () => {
@@ -30,8 +40,22 @@ export function ServiceTitanAuthProvider({ children }: { children: ReactNode }) 
     sessionStorage.removeItem(STORAGE_KEY);
   };
 
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const response = await fetch("/api/admin/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const result = await response.json();
+      return result;
+    } catch {
+      return { success: false, error: "Failed to change password" };
+    }
+  };
+
   return (
-    <ServiceTitanAuthContext.Provider value={{ isUnlocked, unlock, lock }}>
+    <ServiceTitanAuthContext.Provider value={{ isUnlocked, unlock, lock, changePassword }}>
       {children}
     </ServiceTitanAuthContext.Provider>
   );
