@@ -165,6 +165,22 @@ export default function PushToServiceTitan() {
   const [repairBurdenPercent, setRepairBurdenPercent] = useState("20.00");
   const [repairCommissionPercent, setRepairCommissionPercent] = useState("10.00");
   const [repairFinancingFeePercent, setRepairFinancingFeePercent] = useState("6.00");
+  const [repairPsiMode, setRepairPsiMode] = useState(false);
+
+  // Handle PSI mode toggle
+  const handlePsiToggle = (enabled: boolean) => {
+    setRepairPsiMode(enabled);
+    if (enabled) {
+      setRepairMaterialMarkup("40");
+      setRepairLaborRate("600");
+      setRepairSalesTaxPercent("7.4");
+    } else {
+      // Reset to defaults
+      setRepairMaterialMarkup("200");
+      setRepairLaborRate("125.00");
+      setRepairSalesTaxPercent("6.35");
+    }
+  };
   const [repairImage, setRepairImage] = useState<File | null>(null);
   const [repairImagePreview, setRepairImagePreview] = useState<string | null>(null);
   const [isCreatingRepair, setIsCreatingRepair] = useState(false);
@@ -2008,10 +2024,23 @@ export default function PushToServiceTitan() {
                   <CardContent className="space-y-6">
                     {/* Calculator Section */}
                     <div className="p-4 bg-muted/30 rounded-lg border space-y-4">
-                      <h3 className="font-medium text-sm flex items-center gap-2">
-                        <DollarSign className="w-4 h-4 text-primary" />
-                        Repair Price Calculator
-                      </h3>
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium text-sm flex items-center gap-2">
+                          <DollarSign className="w-4 h-4 text-primary" />
+                          Repair Price Calculator
+                        </h3>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="psiMode" className="text-sm font-medium cursor-pointer">
+                            PSI
+                          </Label>
+                          <Switch
+                            id="psiMode"
+                            checked={repairPsiMode}
+                            onCheckedChange={handlePsiToggle}
+                            data-testid="switch-psi-mode"
+                          />
+                        </div>
+                      </div>
                       
                       {/* Parts & Markup Row */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
