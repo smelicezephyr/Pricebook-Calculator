@@ -147,7 +147,7 @@ export default function PushToServiceTitan() {
   const [repairAllowDiscounts, setRepairAllowDiscounts] = useState(true);
   const [repairAllowMembership, setRepairAllowMembership] = useState(true);
   const [repairLaborHours, setRepairLaborHours] = useState("1");
-  const [repairLaborRate, setRepairLaborRate] = useState("125.00");
+  const [repairLaborRate, setRepairLaborRate] = useState("175");
   const [repairGlAccount, setRepairGlAccount] = useState<string>("Revenue");
   const [repairCategoryId, setRepairCategoryId] = useState<number | null>(null);
   const [repairMaterialsCost, setRepairMaterialsCost] = useState("0");
@@ -155,7 +155,7 @@ export default function PushToServiceTitan() {
   const [repairSalesTaxPercent, setRepairSalesTaxPercent] = useState("6.35");
   const [repairBurdenPercent, setRepairBurdenPercent] = useState("20.00");
   const [repairCommissionPercent, setRepairCommissionPercent] = useState("10.00");
-  const [repairFinancingFeePercent, setRepairFinancingFeePercent] = useState("6.00");
+  const [repairFinancingFeePercent, setRepairFinancingFeePercent] = useState("4");
   const [repairPsiMode, setRepairPsiMode] = useState(false);
 
   // Handle PSI mode toggle
