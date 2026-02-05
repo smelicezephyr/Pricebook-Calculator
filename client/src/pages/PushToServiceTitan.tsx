@@ -476,9 +476,8 @@ export default function PushToServiceTitan() {
         allowMembershipDiscounts: newTaskAllowMembership,
       };
       
-      if (newTaskGlAccountId) {
-        serviceData.account = newTaskGlAccountId;
-      }
+      // Note: GL Account IDs from accounting API are not compatible with Pricebook API
+      // The account can be set directly in ServiceTitan after creation
 
       const response = await fetch(`/api/servicetitan/${selectedTenantId}/services`, {
         method: 'POST',
@@ -617,9 +616,8 @@ export default function PushToServiceTitan() {
         allowMembershipDiscounts: repairAllowMembership,
       };
       
-      if (repairGlAccountId) {
-        serviceData.account = repairGlAccountId;
-      }
+      // Note: GL Account IDs from accounting API are not compatible with Pricebook API
+      // The account can be set directly in ServiceTitan after creation
 
       const response = await fetch(`/api/servicetitan/${selectedTenantId}/services`, {
         method: 'POST',
