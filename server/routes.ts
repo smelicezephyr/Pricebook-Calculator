@@ -313,6 +313,27 @@ export async function registerRoutes(
       res.status(500).json({ message: err.message });
     }
   });
+  
+  // Debug endpoint to get a single service with full details
+  app.get("/api/servicetitan/:tenantId/services/:serviceId/debug", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    const serviceId = Number(req.params.serviceId);
+    if (isNaN(tenantId) || isNaN(serviceId)) {
+      return res.status(400).json({ message: "Invalid tenant ID or service ID" });
+    }
+    const tenant = await storage.getTenant(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+    try {
+      const api = new ServiceTitanAPI(tenant);
+      const service = await api.getServiceById(serviceId);
+      res.json(service);
+    } catch (err: any) {
+      console.error(`[ServiceDebug] Error:`, err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
 
   const createServiceSchema = z.object({
     code: z.string().min(1, "Code is required").max(31, "Code must be 31 characters or less"),
@@ -325,7 +346,7 @@ export async function registerRoutes(
     memberPrice: z.number().min(0).optional(),
     hours: z.number().min(0, "Hours must be non-negative").optional(),
     categories: z.array(z.number()).optional(),
-    account: z.number().optional(),
+    account: z.string().optional(), // Account is a string name like "Sales", not a numeric ID
     allowDiscountCodes: z.boolean().optional(),
     allowMembershipDiscounts: z.boolean().optional(),
   });

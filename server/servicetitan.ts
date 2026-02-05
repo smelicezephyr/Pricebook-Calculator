@@ -474,7 +474,7 @@ interface CreateServiceRequest {
   memberPrice?: number;
   hours?: number;
   categories?: number[];
-  account?: number;
+  account?: string; // Account name like "Sales", not a numeric ID
   allowDiscountCodes?: boolean;
   allowMembershipDiscounts?: boolean;
 }

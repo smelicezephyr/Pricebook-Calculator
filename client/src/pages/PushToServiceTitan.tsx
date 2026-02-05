@@ -478,10 +478,9 @@ export default function PushToServiceTitan() {
         allowMembershipDiscounts: newTaskAllowMembership,
       };
       
-      // Add Pricebook account ID (required field for service creation)
-      if (newTaskGlAccountId) {
-        serviceData.account = newTaskGlAccountId;
-      }
+      // Add account name (required field for service creation)
+      // ServiceTitan uses account names like "Sales", not numeric IDs
+      serviceData.account = "Sales";
 
       const response = await fetch(`/api/servicetitan/${selectedTenantId}/services`, {
         method: 'POST',
@@ -620,10 +619,9 @@ export default function PushToServiceTitan() {
         allowMembershipDiscounts: repairAllowMembership,
       };
       
-      // Add Pricebook account ID (required field for service creation)
-      if (repairGlAccountId) {
-        serviceData.account = repairGlAccountId;
-      }
+      // Add account name (required field for service creation)
+      // ServiceTitan uses account names like "Sales", not numeric IDs
+      serviceData.account = "Sales";
 
       const response = await fetch(`/api/servicetitan/${selectedTenantId}/services`, {
         method: 'POST',
