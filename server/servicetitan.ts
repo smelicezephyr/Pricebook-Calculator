@@ -417,18 +417,18 @@ export class ServiceTitanAPI {
     const uploadResult = await uploadResponse.json();
     console.log(`[UploadImage] Image uploaded, result:`, JSON.stringify(uploadResult));
     
-    // Then update the service with the image path
+    // Then update the service with the image as an asset
     if (uploadResult && uploadResult.path) {
       const updateResponse = await this.request<PricebookService>(
         `/pricebook/v2/tenant/${this.tenant.tenantId}/services/${serviceId}`,
         {
           method: "PATCH",
           body: JSON.stringify({ 
-            images: [{ url: uploadResult.path }] 
+            assets: [{ type: "Image", url: uploadResult.path }]
           }),
         }
       );
-      console.log(`[UploadImage] Service updated with image path: ${uploadResult.path}`);
+      console.log(`[UploadImage] Service updated with asset image path: ${uploadResult.path}`);
       return updateResponse;
     }
     
