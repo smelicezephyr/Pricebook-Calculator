@@ -307,8 +307,8 @@ export default function PushToServiceTitan() {
     setNewTaskDescription("");
     setNewTaskWarranty("");
     setNewTaskTaxable(true);
-    setNewTaskAllowDiscounts(false);
-    setNewTaskAllowMembership(false);
+    setNewTaskAllowDiscounts(true);
+    setNewTaskAllowMembership(true);
     setNewTaskHours("0");
     setNewTaskGlAccountId(null);
     setNewTaskCategoryId(null);
@@ -351,14 +351,14 @@ export default function PushToServiceTitan() {
     try {
       const serviceData: any = {
         code,
-        displayName: name,
+        name,
         description: newTaskDescription.trim() || undefined,
-        warranty: newTaskWarranty.trim() ? { description: newTaskWarranty.trim() } : undefined,
-        isTaxable: newTaskTaxable,
-        isActive: true,
+        warrantyDescription: newTaskWarranty.trim() || undefined,
+        taxable: newTaskTaxable,
+        active: true,
         price: newTaskCalculatedPrice,
         hours: hoursVal,
-        categories: [{ id: newTaskCategoryId }],
+        categoryId: newTaskCategoryId,
         allowDiscountCodes: newTaskAllowDiscounts,
         allowMembershipDiscounts: newTaskAllowMembership,
       };

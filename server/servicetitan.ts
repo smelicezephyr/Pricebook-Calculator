@@ -392,8 +392,9 @@ export class ServiceTitanAPI {
     const blob = new Blob([imageBuffer], { type: mimeType });
     formData.append('file', blob, filename);
     
-    const response = await fetch(
-      `${this.baseUrl}/pricebook/v2/tenant/${this.tenant.tenantId}/services/${serviceId}/image`,
+    // First upload image to the pricebook images endpoint
+    const uploadResponse = await fetch(
+      `${this.baseUrl}/pricebook/v2/tenant/${this.tenant.tenantId}/images`,
       {
         method: 'POST',
         headers: {
@@ -404,12 +405,31 @@ export class ServiceTitanAPI {
       }
     );
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to upload image: ${response.status} - ${error}`);
+    if (!uploadResponse.ok) {
+      const error = await uploadResponse.text();
+      console.log(`[UploadImage] Upload failed: ${uploadResponse.status} - ${error}`);
+      throw new Error(`Failed to upload image: ${uploadResponse.status} - ${error}`);
     }
 
-    return response.json();
+    const uploadResult = await uploadResponse.json();
+    console.log(`[UploadImage] Image uploaded, result:`, JSON.stringify(uploadResult));
+    
+    // Then update the service with the image URL
+    if (uploadResult && uploadResult.url) {
+      const updateResponse = await this.request<PricebookService>(
+        `/pricebook/v2/tenant/${this.tenant.tenantId}/services/${serviceId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ 
+            images: [{ url: uploadResult.url }] 
+          }),
+        }
+      );
+      console.log(`[UploadImage] Service updated with image`);
+      return updateResponse;
+    }
+    
+    return uploadResult;
   }
 }
 
@@ -424,18 +444,15 @@ interface GLAccount {
 
 interface CreateServiceRequest {
   code: string;
-  displayName: string;
+  name: string;
   description?: string;
-  warranty?: {
-    duration?: number;
-    description?: string;
-  };
-  isTaxable?: boolean;
-  isActive?: boolean;
+  warrantyDescription?: string;
+  taxable?: boolean;
+  active?: boolean;
   price?: number;
   memberPrice?: number;
   hours?: number;
-  categories?: { id: number }[];
+  categoryId?: number;
   generalLedgerAccountId?: number;
   allowDiscountCodes?: boolean;
   allowMembershipDiscounts?: boolean;
