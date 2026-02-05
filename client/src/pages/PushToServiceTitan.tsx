@@ -434,7 +434,7 @@ export default function PushToServiceTitan() {
     }
   }, [connectionStatus, selectedTenantId]);
 
-  const getChildren = (parentId: number) => categories.filter(c => c.parentId === parentId);
+  const getChildren = (parentId: number) => categories.filter(c => c.parentId === parentId && c.active);
   
   const getAllDescendants = (parentId: number): number[] => {
     const children = getChildren(parentId);
@@ -641,7 +641,7 @@ export default function PushToServiceTitan() {
     };
   }, []);
 
-  const parentCategories = categories.filter(c => !c.parentId);
+  const parentCategories = categories.filter(c => !c.parentId && c.active);
 
   if (isTenantsLoading) {
     return (
