@@ -141,6 +141,69 @@ export async function registerRoutes(
     }
   });
 
+  // Admin PIN Routes - IP-based authentication (separate from ServiceTitan password)
+  const unlockedAdminIPs = new Map<string, number>(); // IP -> expiration timestamp
+
+  app.get("/api/admin/check-pin-auth", (req, res) => {
+    const ip = getClientIP(req);
+    const expiration = unlockedAdminIPs.get(ip);
+    const unlocked = expiration ? Date.now() <= expiration : false;
+    if (!unlocked && expiration) {
+      unlockedAdminIPs.delete(ip);
+    }
+    res.json({ unlocked, ip });
+  });
+
+  app.post("/api/admin/verify-pin", async (req, res) => {
+    try {
+      const { pin } = req.body;
+      const settings = await storage.getSettings();
+      const valid = pin === settings.adminPin;
+      
+      if (valid) {
+        const ip = getClientIP(req);
+        unlockedAdminIPs.set(ip, Date.now() + AUTH_DURATION);
+        console.log(`[Auth] IP ${ip} unlocked Admin section`);
+      }
+      
+      res.json({ valid });
+    } catch (err) {
+      res.status(500).json({ valid: false, error: "Failed to verify PIN" });
+    }
+  });
+
+  app.post("/api/admin/lock-pin", (req, res) => {
+    const ip = getClientIP(req);
+    unlockedAdminIPs.delete(ip);
+    console.log(`[Auth] IP ${ip} locked Admin section`);
+    res.json({ success: true });
+  });
+
+  app.post("/api/admin/change-pin", async (req, res) => {
+    try {
+      const { currentPin, newPin } = req.body;
+      const settings = await storage.getSettings();
+      
+      if (currentPin !== settings.adminPin) {
+        return res.json({ success: false, error: "Current PIN is incorrect" });
+      }
+      
+      if (!newPin || newPin.length < 4) {
+        return res.json({ success: false, error: "New PIN must be at least 4 characters" });
+      }
+      
+      await storage.updateSettings({ adminPin: newPin });
+      
+      // Clear all unlocked admin IPs when PIN changes
+      unlockedAdminIPs.clear();
+      console.log("[Auth] Admin PIN changed, all IPs locked");
+      
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ success: false, error: "Failed to change PIN" });
+    }
+  });
+
   // Quotes Routes
   app.get(api.quotes.list.path, async (req, res) => {
     const quotes = await storage.getQuotes();

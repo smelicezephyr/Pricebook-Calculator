@@ -40,6 +40,9 @@ export const settings = pgTable("settings", {
   
   // ServiceTitan Section Password
   serviceTitanPassword: text("servicetitan_password").notNull().default("ZephyrHome160"),
+  
+  // Admin Section PIN
+  adminPin: text("admin_pin").notNull().default("7437"),
 });
 
 // Push History for ServiceTitan

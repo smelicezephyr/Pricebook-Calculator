@@ -1,8 +1,9 @@
 import { Link, useLocation } from "wouter";
-import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Lock, Clock, Wrench, Shield, Key, Trash2, Loader2 } from "lucide-react";
+import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Lock, Clock, Wrench, Shield, Key, Trash2, Loader2, Hash } from "lucide-react";
 import { useState } from "react";
 import clsx from "clsx";
 import { useServiceTitanAuth } from "@/contexts/ServiceTitanAuthContext";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +36,7 @@ export function Navigation() {
   const isServiceTitanPath = location.startsWith("/push") || location.startsWith("/tenants");
   const [stExpanded, setStExpanded] = useState(() => isServiceTitanPath);
   const { isUnlocked, lock, changePassword } = useServiceTitanAuth();
+  const { isUnlocked: isAdminUnlocked, isLoading: isAdminLoading, unlock: unlockAdmin, lock: lockAdmin, changePin } = useAdminAuth();
   const { toast } = useToast();
   
   // Admin section state
@@ -46,6 +48,17 @@ export function Navigation() {
   const [passwordError, setPasswordError] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isClearingHistory, setIsClearingHistory] = useState(false);
+  
+  // Admin PIN state
+  const [adminPin, setAdminPin] = useState("");
+  const [pinError, setPinError] = useState(false);
+  const [isVerifyingPin, setIsVerifyingPin] = useState(false);
+  const [pinDialogOpen, setPinDialogOpen] = useState(false);
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [changePinError, setChangePinError] = useState("");
+  const [isChangingPin, setIsChangingPin] = useState(false);
 
   const handleChangePassword = async () => {
     setPasswordError("");
@@ -97,6 +110,56 @@ export function Navigation() {
       toast({ title: "Error", description: "Failed to clear history", variant: "destructive" });
     } finally {
       setIsClearingHistory(false);
+    }
+  };
+
+  const handlePinSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsVerifyingPin(true);
+    setPinError(false);
+    
+    const success = await unlockAdmin(adminPin);
+    
+    setIsVerifyingPin(false);
+    if (success) {
+      setAdminPin("");
+    } else {
+      setPinError(true);
+    }
+  };
+
+  const handleChangePin = async () => {
+    setChangePinError("");
+    
+    if (!currentPin) {
+      setChangePinError("Current PIN is required");
+      return;
+    }
+    if (!newPin) {
+      setChangePinError("New PIN is required");
+      return;
+    }
+    if (newPin.length < 4) {
+      setChangePinError("New PIN must be at least 4 characters");
+      return;
+    }
+    if (newPin !== confirmPin) {
+      setChangePinError("New PINs do not match");
+      return;
+    }
+    
+    setIsChangingPin(true);
+    const result = await changePin(currentPin, newPin);
+    setIsChangingPin(false);
+    
+    if (result.success) {
+      toast({ title: "Success", description: "PIN changed successfully" });
+      setPinDialogOpen(false);
+      setCurrentPin("");
+      setNewPin("");
+      setConfirmPin("");
+    } else {
+      setChangePinError(result.error || "Failed to change PIN");
     }
   };
 
@@ -273,6 +336,7 @@ export function Navigation() {
               <div className="flex items-center gap-3">
                 <Shield size={20} className="stroke-2" />
                 Admin
+                {!isAdminUnlocked && <Lock size={14} className="text-muted-foreground" />}
               </div>
               <ChevronDown 
                 size={16} 
@@ -285,123 +349,247 @@ export function Navigation() {
             
             {adminExpanded && (
               <div className="ml-4 mt-1 space-y-1 border-l-2 border-border pl-4">
-                {/* Change Password */}
-                <Dialog open={passwordDialogOpen} onOpenChange={(open) => {
-                  setPasswordDialogOpen(open);
-                  if (!open) {
-                    setCurrentPassword("");
-                    setNewPassword("");
-                    setConfirmPassword("");
-                    setPasswordError("");
-                  }
-                }}>
-                  <DialogTrigger asChild>
-                    <button
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted w-full"
-                      data-testid="button-change-password"
-                    >
-                      <Key size={16} />
-                      Change Password
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Change ServiceTitan Password</DialogTitle>
-                      <DialogDescription>
-                        Update the password used to access the ServiceTitan section.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="currentPassword">Current Password</Label>
-                        <Input
-                          id="currentPassword"
-                          type="password"
-                          value={currentPassword}
-                          onChange={(e) => setCurrentPassword(e.target.value)}
-                          data-testid="input-current-password"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="newPassword">New Password</Label>
-                        <Input
-                          id="newPassword"
-                          type="password"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          data-testid="input-new-password"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                        <Input
-                          id="confirmPassword"
-                          type="password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          data-testid="input-confirm-password"
-                        />
-                      </div>
-                      {passwordError && (
-                        <p className="text-sm text-destructive">{passwordError}</p>
+                {isAdminLoading ? (
+                  <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
+                    <Loader2 size={16} className="animate-spin" />
+                    Checking...
+                  </div>
+                ) : !isAdminUnlocked ? (
+                  <form onSubmit={handlePinSubmit} className="space-y-2 p-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="adminPin" className="text-xs text-muted-foreground">Enter PIN to unlock</Label>
+                      <Input
+                        id="adminPin"
+                        type="password"
+                        placeholder="PIN"
+                        value={adminPin}
+                        onChange={(e) => {
+                          setAdminPin(e.target.value);
+                          setPinError(false);
+                        }}
+                        className={clsx("h-8 text-sm", pinError && "border-destructive")}
+                        data-testid="input-admin-pin"
+                      />
+                      {pinError && (
+                        <p className="text-xs text-destructive">Invalid PIN</p>
                       )}
                     </div>
-                    <DialogFooter>
-                      <Button 
-                        onClick={handleChangePassword} 
-                        disabled={isChangingPassword}
-                        data-testid="button-save-password"
-                      >
-                        {isChangingPassword && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                        Save Password
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-
-                {/* Lock Push Section */}
-                {isUnlocked && (
-                  <button
-                    onClick={() => lock()}
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted w-full"
-                    data-testid="button-lock-push-section"
-                  >
-                    <Lock size={16} />
-                    Lock Push Section
-                  </button>
-                )}
-
-                {/* Clear All History */}
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <button
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-destructive hover:text-destructive hover:bg-destructive/10 w-full"
-                      data-testid="button-clear-history"
+                    <Button 
+                      type="submit" 
+                      size="sm" 
+                      className="w-full"
+                      disabled={isVerifyingPin || !adminPin}
+                      data-testid="button-unlock-admin"
                     >
-                      <Trash2 size={16} />
-                      Clear All History
-                    </button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Clear All History?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete all saved quotes and calculation history. This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleClearHistory}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        disabled={isClearingHistory}
+                      {isVerifyingPin && <Loader2 className="w-3 h-3 animate-spin mr-1" />}
+                      Unlock
+                    </Button>
+                  </form>
+                ) : (
+                  <>
+                    {/* Change Password */}
+                    <Dialog open={passwordDialogOpen} onOpenChange={(open) => {
+                      setPasswordDialogOpen(open);
+                      if (!open) {
+                        setCurrentPassword("");
+                        setNewPassword("");
+                        setConfirmPassword("");
+                        setPasswordError("");
+                      }
+                    }}>
+                      <DialogTrigger asChild>
+                        <button
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted w-full"
+                          data-testid="button-change-password"
+                        >
+                          <Key size={16} />
+                          Change Password
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Change ServiceTitan Password</DialogTitle>
+                          <DialogDescription>
+                            Update the password used to access the ServiceTitan section.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="currentPassword">Current Password</Label>
+                            <Input
+                              id="currentPassword"
+                              type="password"
+                              value={currentPassword}
+                              onChange={(e) => setCurrentPassword(e.target.value)}
+                              data-testid="input-current-password"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="newPassword">New Password</Label>
+                            <Input
+                              id="newPassword"
+                              type="password"
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                              data-testid="input-new-password"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                            <Input
+                              id="confirmPassword"
+                              type="password"
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              data-testid="input-confirm-password"
+                            />
+                          </div>
+                          {passwordError && (
+                            <p className="text-sm text-destructive">{passwordError}</p>
+                          )}
+                        </div>
+                        <DialogFooter>
+                          <Button 
+                            onClick={handleChangePassword} 
+                            disabled={isChangingPassword}
+                            data-testid="button-save-password"
+                          >
+                            {isChangingPassword && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                            Save Password
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+
+                    {/* Change PIN */}
+                    <Dialog open={pinDialogOpen} onOpenChange={(open) => {
+                      setPinDialogOpen(open);
+                      if (!open) {
+                        setCurrentPin("");
+                        setNewPin("");
+                        setConfirmPin("");
+                        setChangePinError("");
+                      }
+                    }}>
+                      <DialogTrigger asChild>
+                        <button
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted w-full"
+                          data-testid="button-change-pin"
+                        >
+                          <Hash size={16} />
+                          Change PIN
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Change Admin PIN</DialogTitle>
+                          <DialogDescription>
+                            Update the PIN used to access the Admin section.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="currentPin">Current PIN</Label>
+                            <Input
+                              id="currentPin"
+                              type="password"
+                              value={currentPin}
+                              onChange={(e) => setCurrentPin(e.target.value)}
+                              data-testid="input-current-pin"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="newPin">New PIN</Label>
+                            <Input
+                              id="newPin"
+                              type="password"
+                              value={newPin}
+                              onChange={(e) => setNewPin(e.target.value)}
+                              data-testid="input-new-pin"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="confirmPin">Confirm New PIN</Label>
+                            <Input
+                              id="confirmPin"
+                              type="password"
+                              value={confirmPin}
+                              onChange={(e) => setConfirmPin(e.target.value)}
+                              data-testid="input-confirm-pin"
+                            />
+                          </div>
+                          {changePinError && (
+                            <p className="text-sm text-destructive">{changePinError}</p>
+                          )}
+                        </div>
+                        <DialogFooter>
+                          <Button 
+                            onClick={handleChangePin} 
+                            disabled={isChangingPin}
+                            data-testid="button-save-pin"
+                          >
+                            {isChangingPin && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                            Save PIN
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+
+                    {/* Lock Push Section */}
+                    {isUnlocked && (
+                      <button
+                        onClick={() => lock()}
+                        className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted w-full"
+                        data-testid="button-lock-push-section"
                       >
-                        {isClearingHistory && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                        Delete All
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                        <Lock size={16} />
+                        Lock Push Section
+                      </button>
+                    )}
+
+                    {/* Clear All History */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-destructive hover:text-destructive hover:bg-destructive/10 w-full"
+                          data-testid="button-clear-history"
+                        >
+                          <Trash2 size={16} />
+                          Clear All History
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Clear All History?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete all saved quotes and calculation history. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={handleClearHistory}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            disabled={isClearingHistory}
+                          >
+                            {isClearingHistory && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                            Delete All
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+
+                    {/* Lock Admin Section */}
+                    <button
+                      onClick={() => lockAdmin()}
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted w-full"
+                      data-testid="button-lock-admin"
+                    >
+                      <Lock size={16} />
+                      Lock Admin
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>

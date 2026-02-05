@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Navigation } from "@/components/Navigation";
 import { CalculatorProvider } from "@/contexts/CalculatorContext";
 import { ServiceTitanAuthProvider } from "@/contexts/ServiceTitanAuthContext";
+import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 import { PasswordGate } from "@/components/PasswordGate";
 import NotFound from "@/pages/not-found";
 import Calculator from "@/pages/Calculator";
@@ -66,10 +67,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <ServiceTitanAuthProvider>
-          <CalculatorProvider>
-            <Toaster />
-            <Router />
-          </CalculatorProvider>
+          <AdminAuthProvider>
+            <CalculatorProvider>
+              <Toaster />
+              <Router />
+            </CalculatorProvider>
+          </AdminAuthProvider>
         </ServiceTitanAuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
