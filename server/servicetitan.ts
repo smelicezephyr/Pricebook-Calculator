@@ -452,6 +452,66 @@ export class ServiceTitanAPI {
     
     return uploadResult;
   }
+
+  // Estimate Functions
+  async getEstimate(estimateId: number): Promise<EstimateResponse | null> {
+    try {
+      const result = await this.request<EstimateResponse>(
+        `/sales/v2/tenant/${this.tenant.tenantId}/estimates/${estimateId}`
+      );
+      return result;
+    } catch (error: any) {
+      if (error.message?.includes("404")) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  async addItemToEstimate(estimateId: number, item: EstimateItemRequest): Promise<EstimateResponse> {
+    // First get the current estimate
+    const estimate = await this.getEstimate(estimateId);
+    if (!estimate) {
+      throw new Error(`Estimate ${estimateId} not found`);
+    }
+
+    // Add the new item to the existing items
+    const result = await this.request<EstimateResponse>(
+      `/sales/v2/tenant/${this.tenant.tenantId}/estimates/${estimateId}/items`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item),
+      }
+    );
+    return result;
+  }
+}
+
+interface EstimateResponse {
+  id: number;
+  name?: string;
+  summary?: string;
+  status?: {
+    name?: string;
+    value?: number;
+  };
+  items?: Array<{
+    id: number;
+    type?: string;
+    skuId?: number;
+    skuName?: string;
+    quantity?: number;
+    unitPrice?: number;
+    total?: number;
+  }>;
+}
+
+interface EstimateItemRequest {
+  type: "Service" | "Material" | "Equipment";
+  skuId: number;
+  quantity?: number;
+  description?: string;
 }
 
 interface GLAccount {

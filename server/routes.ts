@@ -565,6 +565,59 @@ export async function registerRoutes(
     }
   });
 
+  // Estimate routes
+  app.get("/api/servicetitan/:tenantId/estimates/:estimateId", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    const estimateId = Number(req.params.estimateId);
+    if (isNaN(tenantId) || isNaN(estimateId)) {
+      return res.status(400).json({ message: "Invalid ID" });
+    }
+    const tenant = await storage.getTenant(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+    try {
+      const api = new ServiceTitanAPI(tenant);
+      const estimate = await api.getEstimate(estimateId);
+      if (!estimate) {
+        return res.status(404).json({ message: "Estimate not found" });
+      }
+      res.json(estimate);
+    } catch (err: any) {
+      console.error(`[Estimate] Error fetching estimate ${estimateId}:`, err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/servicetitan/:tenantId/estimates/:estimateId/items", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    const estimateId = Number(req.params.estimateId);
+    if (isNaN(tenantId) || isNaN(estimateId)) {
+      return res.status(400).json({ message: "Invalid ID" });
+    }
+    const tenant = await storage.getTenant(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+    try {
+      const { skuId, quantity, description } = req.body;
+      if (!skuId) {
+        return res.status(400).json({ message: "skuId is required" });
+      }
+      const api = new ServiceTitanAPI(tenant);
+      const result = await api.addItemToEstimate(estimateId, {
+        type: "Service",
+        skuId: Number(skuId),
+        quantity: quantity || 1,
+        description,
+      });
+      res.json(result);
+    } catch (err: any) {
+      console.error(`[Estimate] Error adding item to estimate ${estimateId}:`, err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // Diagnostic endpoint: Get single service details to see raw API response
   app.get("/api/servicetitan/:tenantId/service-debug/:serviceId", async (req, res) => {
     const tenantId = Number(req.params.tenantId);
