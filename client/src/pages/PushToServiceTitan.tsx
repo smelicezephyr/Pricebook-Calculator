@@ -328,6 +328,7 @@ export default function PushToServiceTitan() {
     setSelectedTenantId(id);
     setConnectionStatus('testing');
     setCategories([]);
+    setGlAccounts([]);
     setSelectedCategories(new Set());
     // Reset form fields that depend on tenant-specific data
     setNewTaskCategoryId(null);
@@ -341,6 +342,7 @@ export default function PushToServiceTitan() {
       if (result.success) {
         setConnectionStatus('connected');
         await loadCategories(id);
+        await loadGlAccounts(id);
       } else {
         setConnectionStatus('failed');
       }
@@ -476,8 +478,9 @@ export default function PushToServiceTitan() {
         allowMembershipDiscounts: newTaskAllowMembership,
       };
       
-      // Note: GL Account IDs from accounting API are not compatible with Pricebook API
-      // The account can be set directly in ServiceTitan after creation
+      if (newTaskGlAccountId) {
+        serviceData.account = newTaskGlAccountId;
+      }
 
       const response = await fetch(`/api/servicetitan/${selectedTenantId}/services`, {
         method: 'POST',
@@ -616,8 +619,9 @@ export default function PushToServiceTitan() {
         allowMembershipDiscounts: repairAllowMembership,
       };
       
-      // Note: GL Account IDs from accounting API are not compatible with Pricebook API
-      // The account can be set directly in ServiceTitan after creation
+      if (repairGlAccountId) {
+        serviceData.account = repairGlAccountId;
+      }
 
       const response = await fetch(`/api/servicetitan/${selectedTenantId}/services`, {
         method: 'POST',
