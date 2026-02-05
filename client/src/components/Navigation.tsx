@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Lock, Clock } from "lucide-react";
+import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Lock, Clock, Wrench } from "lucide-react";
 import { useState } from "react";
 import clsx from "clsx";
 import { useServiceTitanAuth } from "@/contexts/ServiceTitanAuthContext";
@@ -53,7 +53,7 @@ export function Navigation() {
           </div>
 
           <div className="space-y-2 flex-1">
-            {/* Calculator link */}
+            {/* System Calculator link */}
             <Link href="/">
               <div className={clsx(
                 "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer font-medium",
@@ -64,7 +64,22 @@ export function Navigation() {
               onClick={() => setIsOpen(false)}
               >
                 <Calculator size={20} className={location === "/" ? "stroke-[2.5px]" : "stroke-2"} />
-                Calculator
+                System Calculator
+              </div>
+            </Link>
+
+            {/* Repair Calculator link */}
+            <Link href="/repair">
+              <div className={clsx(
+                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer font-medium",
+                location === "/repair" 
+                  ? "bg-primary/10 text-primary shadow-sm" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+              onClick={() => setIsOpen(false)}
+              >
+                <Wrench size={20} className={location === "/repair" ? "stroke-[2.5px]" : "stroke-2"} />
+                Repair Calculator
               </div>
             </Link>
 

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign, ArrowUp, Plus, ImagePlus, Search, Check, ChevronsUpDown } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign, ArrowUp, Plus, ImagePlus, Search, Check, ChevronsUpDown, Wrench } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -147,6 +147,27 @@ export default function PushToServiceTitan() {
   const [glAccountOpen, setGlAccountOpen] = useState(false);
   const [categorySelectOpen, setCategorySelectOpen] = useState(false);
 
+  // Push New Repair Task State
+  const [repairCode, setRepairCode] = useState("");
+  const [repairName, setRepairName] = useState("");
+  const [repairDescription, setRepairDescription] = useState("");
+  const [repairWarranty, setRepairWarranty] = useState("");
+  const [repairTaxable, setRepairTaxable] = useState(true);
+  const [repairAllowDiscounts, setRepairAllowDiscounts] = useState(true);
+  const [repairAllowMembership, setRepairAllowMembership] = useState(true);
+  const [repairLaborHours, setRepairLaborHours] = useState("1");
+  const [repairLaborRate, setRepairLaborRate] = useState("125.00");
+  const [repairGlAccountId, setRepairGlAccountId] = useState<number | null>(null);
+  const [repairCategoryId, setRepairCategoryId] = useState<number | null>(null);
+  const [repairMaterialsCost, setRepairMaterialsCost] = useState("0");
+  const [repairSalesTaxPercent, setRepairSalesTaxPercent] = useState("6.35");
+  const [repairCommissionPercent, setRepairCommissionPercent] = useState("10.00");
+  const [repairImage, setRepairImage] = useState<File | null>(null);
+  const [repairImagePreview, setRepairImagePreview] = useState<string | null>(null);
+  const [isCreatingRepair, setIsCreatingRepair] = useState(false);
+  const [repairGlAccountOpen, setRepairGlAccountOpen] = useState(false);
+  const [repairCategorySelectOpen, setRepairCategorySelectOpen] = useState(false);
+
   // Calculate price and metrics for new task
   const newTaskCalculations = useMemo(() => {
     const matVal = parseFloat(newTaskMaterialsCost) || 0;
@@ -214,6 +235,40 @@ export default function PushToServiceTitan() {
   ]);
   
   const newTaskCalculatedPrice = newTaskCalculations.price;
+
+  // Calculate price for repair task (simpler calculation)
+  const repairCalculations = useMemo(() => {
+    const materialsVal = parseFloat(repairMaterialsCost) || 0;
+    const laborRateVal = parseFloat(repairLaborRate) || 0;
+    const laborHoursVal = parseFloat(repairLaborHours) || 0;
+    const taxRate = (parseFloat(repairSalesTaxPercent) || 0) / 100;
+    const commissionRate = (parseFloat(repairCommissionPercent) || 0) / 100;
+
+    const tax = materialsVal * taxRate;
+    const laborCost = laborRateVal * laborHoursVal;
+    const subtotal = materialsVal + tax + laborCost;
+    const commission = subtotal * commissionRate;
+    const totalPrice = roundUp ? Math.ceil(subtotal + commission) : subtotal + commission;
+
+    // Margin calculation - Cost of Goods Sold excludes commission (commission is the profit/markup)
+    const cogs = materialsVal + tax + laborCost;
+    const grossMargin = totalPrice - cogs;  // This equals commission + any rounding
+    const grossMarginPercent = totalPrice > 0 ? (grossMargin / totalPrice) * 100 : 0;
+
+    return {
+      price: totalPrice,
+      materials: materialsVal,
+      tax,
+      laborCost,
+      subtotal,
+      commission,
+      grossMargin,
+      grossMarginPercent,
+      laborHours: laborHoursVal,
+    };
+  }, [repairMaterialsCost, repairLaborRate, repairLaborHours, repairSalesTaxPercent, repairCommissionPercent, roundUp]);
+
+  const repairCalculatedPrice = repairCalculations.price;
 
   const handleTenantSelect = async (value: string) => {
     const id = Number(value);
@@ -424,6 +479,147 @@ export default function PushToServiceTitan() {
       });
     } finally {
       setIsCreatingTask(false);
+    }
+  };
+
+  // Repair Task Handlers
+  const handleRepairImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setRepairImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setRepairImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const resetRepairForm = () => {
+    setRepairCode("");
+    setRepairName("");
+    setRepairDescription("");
+    setRepairWarranty("");
+    setRepairTaxable(true);
+    setRepairAllowDiscounts(true);
+    setRepairAllowMembership(true);
+    setRepairLaborHours("1");
+    setRepairLaborRate("125.00");
+    setRepairGlAccountId(null);
+    setRepairCategoryId(null);
+    setRepairMaterialsCost("0");
+    setRepairSalesTaxPercent("6.35");
+    setRepairCommissionPercent("10.00");
+    setRepairImage(null);
+    setRepairImagePreview(null);
+  };
+
+  const handleCreateRepair = async () => {
+    if (!selectedTenantId) return;
+    
+    const code = repairCode.trim();
+    const name = repairName.trim();
+    
+    if (!code) {
+      toast({ title: "Error", description: "Code is required", variant: "destructive" });
+      return;
+    }
+    if (code.length > 31) {
+      toast({ title: "Error", description: "Code must be 31 characters or less", variant: "destructive" });
+      return;
+    }
+    if (!name) {
+      toast({ title: "Error", description: "Name is required", variant: "destructive" });
+      return;
+    }
+    if (!repairCategoryId) {
+      toast({ title: "Error", description: "Please select a category", variant: "destructive" });
+      return;
+    }
+    
+    const hoursVal = parseFloat(repairLaborHours);
+    if (isNaN(hoursVal) || hoursVal < 0) {
+      toast({ title: "Error", description: "Hours must be a non-negative number", variant: "destructive" });
+      return;
+    }
+
+    setIsCreatingRepair(true);
+    try {
+      const serviceData: any = {
+        code,
+        displayName: name,
+        description: repairDescription.trim() || undefined,
+        warranty: repairWarranty.trim() ? { duration: 0, description: repairWarranty.trim() } : undefined,
+        taxable: repairTaxable,
+        active: true,
+        price: repairCalculatedPrice,
+        hours: hoursVal,
+        categories: [repairCategoryId],
+        allowDiscountCodes: repairAllowDiscounts,
+        allowMembershipDiscounts: repairAllowMembership,
+      };
+      
+      if (repairGlAccountId) {
+        serviceData.generalLedgerAccountId = repairGlAccountId;
+      }
+
+      const response = await fetch(`/api/servicetitan/${selectedTenantId}/services`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(serviceData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create repair task');
+      }
+
+      const createdService = await response.json();
+
+      if (repairImage) {
+        try {
+          const reader = new FileReader();
+          const imageData = await new Promise<string>((resolve, reject) => {
+            reader.onloadend = () => {
+              const base64 = (reader.result as string).split(',')[1];
+              resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(repairImage);
+          });
+
+          await fetch(`/api/servicetitan/${selectedTenantId}/services/${createdService.id}/image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              imageData,
+              filename: repairImage.name,
+              mimeType: repairImage.type,
+            }),
+          });
+        } catch (imgErr) {
+          console.error("Failed to upload image:", imgErr);
+          toast({
+            title: "Repair Task Created",
+            description: "Task was created but image upload failed. You can add the image in ServiceTitan.",
+          });
+        }
+      }
+
+      toast({
+        title: "Success",
+        description: `Repair task "${repairName}" created successfully with price $${repairCalculatedPrice.toFixed(2)}`,
+      });
+      
+      resetRepairForm();
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to create repair task",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingRepair(false);
     }
   };
 
@@ -731,12 +927,15 @@ export default function PushToServiceTitan() {
 
           {connectionStatus === 'connected' && (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="update-category" data-testid="tab-update-category">
-                  Update Pricebook Category
+                  Update Pricebook
                 </TabsTrigger>
-                <TabsTrigger value="push-new-task" data-testid="tab-push-new-task">
-                  Push New Task
+                <TabsTrigger value="push-new-task" data-testid="tab-push-new-system-task">
+                  New System Task
+                </TabsTrigger>
+                <TabsTrigger value="push-new-repair" data-testid="tab-push-new-repair-task">
+                  New Repair Task
                 </TabsTrigger>
               </TabsList>
               
@@ -1221,15 +1420,15 @@ export default function PushToServiceTitan() {
               </TabsContent>
 
               <TabsContent value="push-new-task" className="space-y-6 mt-6">
-                {/* Push New Task Section */}
+                {/* Push New System Task Section */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Plus className="w-5 h-5" />
-                      Create New Service Task
+                      Create New System Task
                     </CardTitle>
                     <CardDescription>
-                      Create a new service in your ServiceTitan pricebook with calculated pricing
+                      Create a new system installation service with M&E calculated pricing
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
@@ -1751,6 +1950,420 @@ export default function PushToServiceTitan() {
                           <Plus className="w-4 h-4" />
                         )}
                         Create Task
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="push-new-repair" className="space-y-6 mt-6">
+                {/* Push New Repair Task Section */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Wrench className="w-5 h-5" />
+                      Create New Repair Task
+                    </CardTitle>
+                    <CardDescription>
+                      Create a new repair service with materials, labor, and commission-based pricing
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Calculator Section */}
+                    <div className="p-4 bg-muted/30 rounded-lg border space-y-4">
+                      <h3 className="font-medium text-sm flex items-center gap-2">
+                        <DollarSign className="w-4 h-4 text-primary" />
+                        Repair Price Calculator
+                      </h3>
+                      
+                      {/* Repair Inputs Row */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="repairMaterialsCost">Materials Cost</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                            <Input
+                              id="repairMaterialsCost"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={repairMaterialsCost}
+                              onChange={(e) => setRepairMaterialsCost(e.target.value)}
+                              className="pl-7"
+                              data-testid="input-repair-materials-cost"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="repairLaborRate">Labor Rate (per hour)</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                            <Input
+                              id="repairLaborRate"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={repairLaborRate}
+                              onChange={(e) => setRepairLaborRate(e.target.value)}
+                              className="pl-7"
+                              data-testid="input-repair-labor-rate"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="repairLaborHours">Labor Hours</Label>
+                          <Input
+                            id="repairLaborHours"
+                            type="number"
+                            step="0.25"
+                            min="0"
+                            value={repairLaborHours}
+                            onChange={(e) => setRepairLaborHours(e.target.value)}
+                            data-testid="input-repair-labor-hours"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Tax and Commission Row */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="repairSalesTax">Sales Tax %</Label>
+                          <div className="relative">
+                            <Input
+                              id="repairSalesTax"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="20"
+                              value={repairSalesTaxPercent}
+                              onChange={(e) => setRepairSalesTaxPercent(e.target.value)}
+                              className="pr-7"
+                              data-testid="input-repair-sales-tax"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="repairCommission">Commission %</Label>
+                          <div className="relative">
+                            <Input
+                              id="repairCommission"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="50"
+                              value={repairCommissionPercent}
+                              onChange={(e) => setRepairCommissionPercent(e.target.value)}
+                              className="pr-7"
+                              data-testid="input-repair-commission"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Price Breakdown */}
+                      <div className="bg-background rounded-lg p-4 space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Materials</span>
+                          <span className="font-medium">${repairCalculations.materials.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Tax ({repairSalesTaxPercent}%)</span>
+                          <span className="font-medium">${repairCalculations.tax.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Labor ({repairCalculations.laborHours} hrs)</span>
+                          <span className="font-medium">${repairCalculations.laborCost.toFixed(2)}</span>
+                        </div>
+                        <div className="border-t pt-2 flex justify-between text-sm">
+                          <span className="text-muted-foreground">Subtotal</span>
+                          <span className="font-medium">${repairCalculations.subtotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Commission ({repairCommissionPercent}%)</span>
+                          <span className="font-medium">${repairCalculations.commission.toFixed(2)}</span>
+                        </div>
+                        <div className="border-t pt-2 flex justify-between items-center">
+                          <span className="font-medium">Total Price</span>
+                          <span className="text-2xl font-bold text-primary" data-testid="text-repair-price">
+                            ${repairCalculatedPrice.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Gross Margin</span>
+                          <span className={`font-medium ${repairCalculations.grossMarginPercent >= 30 ? 'text-green-600' : repairCalculations.grossMarginPercent >= 20 ? 'text-yellow-600' : 'text-red-600'}`}>
+                            {repairCalculations.grossMarginPercent.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Task Details Form */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="repairCode">Code *</Label>
+                        <Input
+                          id="repairCode"
+                          value={repairCode}
+                          onChange={(e) => setRepairCode(e.target.value)}
+                          placeholder="e.g., RPR-001"
+                          maxLength={31}
+                          data-testid="input-repair-code"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="repairName">Name *</Label>
+                        <Input
+                          id="repairName"
+                          value={repairName}
+                          onChange={(e) => setRepairName(e.target.value)}
+                          placeholder="e.g., AC Compressor Repair"
+                          data-testid="input-repair-name"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="repairDescription">Description</Label>
+                      <Textarea
+                        id="repairDescription"
+                        value={repairDescription}
+                        onChange={(e) => setRepairDescription(e.target.value)}
+                        placeholder="Enter repair description..."
+                        rows={3}
+                        data-testid="input-repair-description"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="repairWarranty">Warranty Description</Label>
+                      <Textarea
+                        id="repairWarranty"
+                        value={repairWarranty}
+                        onChange={(e) => setRepairWarranty(e.target.value)}
+                        placeholder="Enter warranty terms..."
+                        rows={2}
+                        data-testid="input-repair-warranty"
+                      />
+                    </div>
+
+                    {/* Toggles */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="repairTaxable"
+                          checked={repairTaxable}
+                          onCheckedChange={(checked) => setRepairTaxable(checked === true)}
+                          data-testid="checkbox-repair-taxable"
+                        />
+                        <Label htmlFor="repairTaxable" className="cursor-pointer">Taxable</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="repairAllowDiscounts"
+                          checked={repairAllowDiscounts}
+                          onCheckedChange={(checked) => setRepairAllowDiscounts(checked === true)}
+                          data-testid="checkbox-repair-allow-discounts"
+                        />
+                        <Label htmlFor="repairAllowDiscounts" className="cursor-pointer">Allow Discount Codes</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="repairAllowMembership"
+                          checked={repairAllowMembership}
+                          onCheckedChange={(checked) => setRepairAllowMembership(checked === true)}
+                          data-testid="checkbox-repair-allow-membership"
+                        />
+                        <Label htmlFor="repairAllowMembership" className="cursor-pointer">Allow Membership Discounts</Label>
+                      </div>
+                    </div>
+
+                    {/* GL Account and Category */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>GL Account</Label>
+                        <Popover open={repairGlAccountOpen} onOpenChange={setRepairGlAccountOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={repairGlAccountOpen}
+                              className="w-full justify-between"
+                              data-testid="button-select-repair-gl-account"
+                            >
+                              {repairGlAccountId
+                                ? glAccounts.find(a => a.id === repairGlAccountId)?.name || "Select..."
+                                : "Select GL account..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[400px] p-0">
+                            <Command>
+                              <CommandInput placeholder="Search GL accounts..." />
+                              <CommandList>
+                                <CommandEmpty>
+                                  {isLoadingGlAccounts ? "Loading..." : "No GL account found."}
+                                </CommandEmpty>
+                                <CommandGroup>
+                                  {glAccounts.map((account) => (
+                                    <CommandItem
+                                      key={account.id}
+                                      value={account.name}
+                                      onSelect={() => {
+                                        setRepairGlAccountId(account.id === repairGlAccountId ? null : account.id);
+                                        setRepairGlAccountOpen(false);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          repairGlAccountId === account.id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      <div className="flex flex-col">
+                                        <span>{account.name}</span>
+                                        <span className="text-xs text-muted-foreground">{account.number}</span>
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Category *</Label>
+                        <Popover open={repairCategorySelectOpen} onOpenChange={setRepairCategorySelectOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={repairCategorySelectOpen}
+                              className="w-full justify-between"
+                              data-testid="button-select-repair-category"
+                            >
+                              {repairCategoryId
+                                ? categories.find(c => c.id === repairCategoryId)?.name || "Select..."
+                                : "Select category..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[400px] p-0">
+                            <Command>
+                              <CommandInput placeholder="Search categories..." />
+                              <CommandList>
+                                <CommandEmpty>
+                                  {isLoadingCategories ? "Loading..." : "No category found."}
+                                </CommandEmpty>
+                                <CommandGroup>
+                                  {(() => {
+                                    const activeCategories = categories.filter(c => c.active);
+                                    const parentCats = activeCategories.filter(c => !c.parentId);
+                                    const getChildCats = (parentId: number) => 
+                                      activeCategories.filter(c => c.parentId === parentId);
+                                    
+                                    const renderCat = (category: Category, depth: number = 0): React.ReactNode[] => {
+                                      const children = getChildCats(category.id);
+                                      const items: React.ReactNode[] = [
+                                        <CommandItem
+                                          key={category.id}
+                                          value={category.name}
+                                          onSelect={() => {
+                                            setRepairCategoryId(category.id === repairCategoryId ? null : category.id);
+                                            setRepairCategorySelectOpen(false);
+                                          }}
+                                          className={depth > 0 ? "pl-6" : ""}
+                                        >
+                                          <Check
+                                            className={cn(
+                                              "mr-2 h-4 w-4",
+                                              repairCategoryId === category.id ? "opacity-100" : "opacity-0"
+                                            )}
+                                          />
+                                          <span className={depth > 0 ? "text-muted-foreground" : "font-medium"}>
+                                            {depth > 0 ? "└ " : ""}{category.name}
+                                          </span>
+                                        </CommandItem>
+                                      ];
+                                      children.forEach(child => {
+                                        items.push(...renderCat(child, depth + 1));
+                                      });
+                                      return items;
+                                    };
+                                    
+                                    return parentCats.flatMap(cat => renderCat(cat, 0));
+                                  })()}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+
+                    {/* Image Upload */}
+                    <div className="space-y-2">
+                      <Label>Image (optional)</Label>
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1">
+                          <label
+                            htmlFor="repairTaskImage"
+                            className="flex items-center justify-center gap-2 h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                          >
+                            <ImagePlus className="w-6 h-6 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">
+                              {repairImage ? repairImage.name : "Click to upload image"}
+                            </span>
+                          </label>
+                          <input
+                            id="repairTaskImage"
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleRepairImageSelect}
+                            data-testid="input-repair-task-image"
+                          />
+                        </div>
+                        {repairImagePreview && (
+                          <div className="relative">
+                            <img
+                              src={repairImagePreview}
+                              alt="Preview"
+                              className="w-24 h-24 object-cover rounded-lg border"
+                            />
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              className="absolute -top-2 -right-2 w-6 h-6"
+                              onClick={() => {
+                                setRepairImage(null);
+                                setRepairImagePreview(null);
+                              }}
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Submit Button */}
+                    <div className="flex justify-end pt-4 border-t">
+                      <Button
+                        onClick={handleCreateRepair}
+                        disabled={isCreatingRepair || !repairCode || !repairName || !repairCategoryId}
+                        className="gap-2"
+                        data-testid="button-create-repair-task"
+                      >
+                        {isCreatingRepair ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Wrench className="w-4 h-4" />
+                        )}
+                        Create Repair Task
                       </Button>
                     </div>
                   </CardContent>

@@ -108,16 +108,28 @@ shared/           # Shared code between client/server
 - Implemented M&E percentage calculation push functionality
 - Security: Tenant credentials masked in all API responses
 
+### Repair Calculator (February 2026)
+- Added standalone Repair Calculator page for HVAC repair job pricing
+- Inputs: Materials cost, Labor rate, Labor hours, Sales tax %, Commission %
+- Calculation: Materials + Tax + Labor + Commission = Total Price
+- Shows gross margin percentage with color-coded health indicators
+- Renamed "Calculator" to "System Calculator" in navigation
+
 ### Push to ServiceTitan Restructure (February 2026)
-- Restructured Push to ServiceTitan page with two tabs:
-  - **Update Pricebook Category**: Updates existing services with calculated M&E pricing
-  - **Push New Task**: Creates new service tasks in ServiceTitan with calculated pricing
-- Push New Task includes:
+- Restructured Push to ServiceTitan page with three tabs:
+  - **Update Pricebook**: Updates existing services with calculated M&E pricing
+  - **New System Task**: Creates new system installation services with M&E pricing
+  - **New Repair Task**: Creates new repair services with labor/commission pricing
+- New System Task includes:
   - Price calculator with Materials/Equipment cost inputs
   - Form fields: Code, Name, Description, Warranty Description
   - Checkboxes: Taxable, Allow Discount Codes, Allow Membership Discounts
   - Hours field, GL Account dropdown (searchable), Category selection
   - Image upload support
+- New Repair Task includes:
+  - Repair price calculator with Materials, Labor Rate, Labor Hours, Tax %, Commission %
+  - Same form fields as System Task (Code, Name, Description, etc.)
+  - Real-time price breakdown with gross margin indicator
 - New API endpoints:
   - GET /api/servicetitan/:tenantId/gl-accounts - Fetch GL accounts
   - POST /api/servicetitan/:tenantId/services - Create new service
