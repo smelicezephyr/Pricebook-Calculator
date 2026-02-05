@@ -127,7 +127,7 @@ export default function PushToServiceTitan() {
   const [newTaskAllowDiscounts, setNewTaskAllowDiscounts] = useState(true);
   const [newTaskAllowMembership, setNewTaskAllowMembership] = useState(true);
   const [newTaskHours, setNewTaskHours] = useState("0");
-  const [newTaskGlAccount, setNewTaskGlAccount] = useState<string>("Sales");
+  const [newTaskGlAccount, setNewTaskGlAccount] = useState<string>("Revenue");
   const [newTaskCategoryId, setNewTaskCategoryId] = useState<number | null>(null);
   const [newTaskMaterialsCost, setNewTaskMaterialsCost] = useState("0");
   const [newTaskEquipmentCost, setNewTaskEquipmentCost] = useState("0");
@@ -146,7 +146,7 @@ export default function PushToServiceTitan() {
   const [repairAllowMembership, setRepairAllowMembership] = useState(true);
   const [repairLaborHours, setRepairLaborHours] = useState("1");
   const [repairLaborRate, setRepairLaborRate] = useState("125.00");
-  const [repairGlAccount, setRepairGlAccount] = useState<string>("Sales");
+  const [repairGlAccount, setRepairGlAccount] = useState<string>("Revenue");
   const [repairCategoryId, setRepairCategoryId] = useState<number | null>(null);
   const [repairMaterialsCost, setRepairMaterialsCost] = useState("0");
   const [repairMaterialMarkup, setRepairMaterialMarkup] = useState("200");
@@ -169,6 +169,7 @@ export default function PushToServiceTitan() {
       setRepairMaterialMarkup("200");
       setRepairLaborRate("125.00");
       setRepairSalesTaxPercent("6.35");
+      setRepairGlAccount("Revenue");
     }
   };
   const [repairImage, setRepairImage] = useState<File | null>(null);
@@ -320,9 +321,9 @@ export default function PushToServiceTitan() {
     setSelectedCategories(new Set());
     // Reset form fields that depend on tenant-specific data
     setNewTaskCategoryId(null);
-    setNewTaskGlAccount("Sales");
+    setNewTaskGlAccount("Revenue");
     setRepairCategoryId(null);
-    setRepairGlAccount("Sales");
+    setRepairGlAccount("Revenue");
 
     try {
       const response = await testConnection(id);
