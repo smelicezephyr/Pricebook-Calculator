@@ -19,6 +19,22 @@ export default function RepairCalculator() {
   const [commissionPercent, setCommissionPercent] = useState("10.00");
   const [financingFeePercent, setFinancingFeePercent] = useState("6.00");
   const [roundUp, setRoundUp] = useState(false);
+  const [psiMode, setPsiMode] = useState(false);
+
+  // Handle PSI mode toggle
+  const handlePsiToggle = (enabled: boolean) => {
+    setPsiMode(enabled);
+    if (enabled) {
+      setMaterialMarkup("40");
+      setLaborRate("600");
+      setSalesTaxPercent("7.4");
+    } else {
+      // Reset to defaults from settings or standard defaults
+      setMaterialMarkup("200");
+      setLaborRate(settings?.laborHourlyRate || "125.00");
+      setSalesTaxPercent(settings?.salesTaxPercent || "6.35");
+    }
+  };
 
   // Generate markup options from 200% down to 10% in increments of 10
   const markupOptions = Array.from({ length: 20 }, (_, i) => 200 - i * 10);
@@ -90,6 +106,7 @@ export default function RepairCalculator() {
     setPartsCost("0");
     setMaterialMarkup("200");
     setLaborHours("1");
+    setPsiMode(false);
     if (settings) {
       setSalesTaxPercent(settings.salesTaxPercent || "6.35");
       setCommissionPercent(settings.commissionPercent || "10.00");
@@ -120,10 +137,23 @@ export default function RepairCalculator() {
           <p className="text-muted-foreground mt-1">Calculate pricing for HVAC repair jobs.</p>
         </div>
 
-        <Button variant="outline" onClick={handleReset} className="gap-2" data-testid="button-reset">
-          <RefreshCw size={16} />
-          Reset
-        </Button>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="psiMode" className="text-sm font-medium cursor-pointer">
+              PSI
+            </Label>
+            <Switch
+              id="psiMode"
+              checked={psiMode}
+              onCheckedChange={handlePsiToggle}
+              data-testid="switch-psi-mode"
+            />
+          </div>
+          <Button variant="outline" onClick={handleReset} className="gap-2" data-testid="button-reset">
+            <RefreshCw size={16} />
+            Reset
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
