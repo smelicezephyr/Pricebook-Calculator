@@ -29,9 +29,9 @@ export default function RepairCalculator() {
       setLaborRate("600");
       setSalesTaxPercent("7.4");
     } else {
-      // Reset to defaults from settings or standard defaults
+      // Reset to defaults
       setMaterialMarkup("200");
-      setLaborRate(settings?.laborHourlyRate || "175.00");
+      setLaborRate("175.00");
       setSalesTaxPercent(settings?.salesTaxPercent || "6.35");
     }
   };
@@ -107,13 +107,11 @@ export default function RepairCalculator() {
     setMaterialMarkup("200");
     setLaborHours("1");
     setPsiMode(false);
-    if (settings) {
-      setSalesTaxPercent(settings.salesTaxPercent || "6.35");
-      setCommissionPercent(settings.commissionPercent || "10.00");
-      setLaborRate(settings.laborHourlyRate || "175.00");
-      setBurdenPercent(settings.laborBurdenPercent || "20.00");
-      setFinancingFeePercent(settings.financingFeePercent || "4.00");
-    }
+    setSalesTaxPercent(settings?.salesTaxPercent || "6.35");
+    setCommissionPercent(settings?.commissionPercent || "10.00");
+    setLaborRate("175.00");
+    setBurdenPercent(settings?.laborBurdenPercent || "20.00");
+    setFinancingFeePercent("4.00");
     setRoundUp(false);
   };
 
