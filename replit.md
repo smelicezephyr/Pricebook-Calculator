@@ -134,3 +134,26 @@ shared/           # Shared code between client/server
   - GET /api/servicetitan/:tenantId/gl-accounts - Fetch GL accounts
   - POST /api/servicetitan/:tenantId/services - Create new service
   - POST /api/servicetitan/:tenantId/services/:serviceId/image - Upload image
+  - GET /api/servicetitan/:tenantId/estimates/:estimateId - Fetch estimate details
+  - POST /api/servicetitan/:tenantId/estimates/:estimateId/items - Add item to estimate
+
+### ServiceTitan Estimates Integration (February 2026)
+- Added optional "Estimate ID" fields to both New System Task and New Repair Task forms
+- When an estimate ID is provided, newly created services are automatically added to the estimate
+- Uses ServiceTitan Estimates API v2 with skuId linking
+- Error handling: Service creation succeeds even if estimate addition fails (with warning toast)
+
+### PSI Mode Toggle (February 2026)
+- Added PSI Mode toggle to both New System Task and New Repair Task forms
+- **New System Task PSI Mode**: Switches GL Account from "Revenue" (default) to "Sales"
+- **New Repair Task PSI Mode** (enabled):
+  - Material Markup: 40%
+  - Labor Rate: $600
+  - Sales Tax: 7.4%
+  - GL Account: "Sales"
+- **New Repair Task Defaults** (PSI off):
+  - Material Markup: 200%
+  - Labor Rate: $175
+  - Sales Tax: 6.35%
+  - GL Account: "Revenue"
+  - Financing Fee: 4%
