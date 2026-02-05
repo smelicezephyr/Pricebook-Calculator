@@ -449,13 +449,13 @@ interface CreateServiceRequest {
   code: string;
   displayName: string;
   description?: string;
-  warranty?: { description: string };
+  warranty?: { duration: number; description: string };
   taxable?: boolean;
   active?: boolean;
   price?: number;
   memberPrice?: number;
   hours?: number;
-  categories?: { id: number }[];
+  categories?: number[];
   generalLedgerAccountId?: number;
   allowDiscountCodes?: boolean;
   allowMembershipDiscounts?: boolean;
