@@ -137,7 +137,6 @@ export default function PushToServiceTitan() {
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [categorySelectOpen, setCategorySelectOpen] = useState(false);
   const [newTaskPsiMode, setNewTaskPsiMode] = useState(false);
-  const [newTaskEstimateId, setNewTaskEstimateId] = useState("");
 
   // Push New Repair Task State
   const [repairCode, setRepairCode] = useState("");
@@ -159,7 +158,6 @@ export default function PushToServiceTitan() {
   const [repairCommissionPercent, setRepairCommissionPercent] = useState("10.00");
   const [repairFinancingFeePercent, setRepairFinancingFeePercent] = useState("4");
   const [repairPsiMode, setRepairPsiMode] = useState(false);
-  const [repairEstimateId, setRepairEstimateId] = useState("");
 
   // Handle PSI mode toggle for New System Task
   const handleNewTaskPsiToggle = (enabled: boolean) => {
@@ -407,7 +405,6 @@ export default function PushToServiceTitan() {
     setNewTaskImage(null);
     setNewTaskImagePreview(null);
     setNewTaskPsiMode(false);
-    setNewTaskEstimateId("");
   };
 
   const handleCreateTask = async () => {
@@ -515,42 +512,9 @@ export default function PushToServiceTitan() {
         }
       }
 
-      // Add to estimate if estimate ID is provided
-      let estimateMessage = "";
-      if (newTaskEstimateId.trim()) {
-        try {
-          const estimateResponse = await fetch(`/api/servicetitan/${selectedTenantId}/estimates/${newTaskEstimateId.trim()}/items`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              skuId: createdService.id,
-              quantity: 1,
-            }),
-          });
-          
-          if (estimateResponse.ok) {
-            estimateMessage = ` and added to estimate #${newTaskEstimateId.trim()}`;
-          } else {
-            const estimateError = await estimateResponse.json();
-            toast({
-              title: "Warning",
-              description: `Task created but could not add to estimate: ${estimateError.message}`,
-              variant: "destructive",
-            });
-          }
-        } catch (estErr) {
-          console.error("Failed to add to estimate:", estErr);
-          toast({
-            title: "Warning",
-            description: "Task created but could not add to estimate. Please add manually in ServiceTitan.",
-            variant: "destructive",
-          });
-        }
-      }
-
       toast({
         title: "Success",
-        description: `Task "${newTaskName}" created successfully with price $${newTaskCalculatedPrice.toFixed(2)}${estimateMessage}`,
+        description: `Task "${newTaskName}" created successfully with price $${newTaskCalculatedPrice.toFixed(2)}`,
       });
       
       resetNewTaskForm();
@@ -597,7 +561,6 @@ export default function PushToServiceTitan() {
     setRepairImage(null);
     setRepairImagePreview(null);
     setRepairPsiMode(false);
-    setRepairEstimateId("");
   };
 
   const handleCreateRepair = async () => {
@@ -705,42 +668,9 @@ export default function PushToServiceTitan() {
         }
       }
 
-      // Add to estimate if estimate ID is provided
-      let estimateMessage = "";
-      if (repairEstimateId.trim()) {
-        try {
-          const estimateResponse = await fetch(`/api/servicetitan/${selectedTenantId}/estimates/${repairEstimateId.trim()}/items`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              skuId: createdService.id,
-              quantity: 1,
-            }),
-          });
-          
-          if (estimateResponse.ok) {
-            estimateMessage = ` and added to estimate #${repairEstimateId.trim()}`;
-          } else {
-            const estimateError = await estimateResponse.json();
-            toast({
-              title: "Warning",
-              description: `Repair task created but could not add to estimate: ${estimateError.message}`,
-              variant: "destructive",
-            });
-          }
-        } catch (estErr) {
-          console.error("Failed to add to estimate:", estErr);
-          toast({
-            title: "Warning",
-            description: "Repair task created but could not add to estimate. Please add manually in ServiceTitan.",
-            variant: "destructive",
-          });
-        }
-      }
-
       toast({
         title: "Success",
-        description: `Repair task "${repairName}" created successfully with price $${repairCalculatedPrice.toFixed(2)}${estimateMessage}`,
+        description: `Repair task "${repairName}" created successfully with price $${repairCalculatedPrice.toFixed(2)}`,
       });
       
       resetRepairForm();
@@ -2044,22 +1974,6 @@ export default function PushToServiceTitan() {
                       </div>
                     </div>
 
-                    {/* Estimate ID (Optional) */}
-                    <div className="space-y-2">
-                      <Label htmlFor="newTaskEstimateId">Add to Estimate (Optional)</Label>
-                      <Input
-                        id="newTaskEstimateId"
-                        type="text"
-                        placeholder="Enter estimate ID to add this service"
-                        value={newTaskEstimateId}
-                        onChange={(e) => setNewTaskEstimateId(e.target.value)}
-                        data-testid="input-new-task-estimate-id"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        If provided, the new service will be added to this estimate after being created in the pricebook
-                      </p>
-                    </div>
-
                     {/* Submit Button */}
                     <div className="flex justify-end pt-4 border-t">
                       <Button
@@ -2527,22 +2441,6 @@ export default function PushToServiceTitan() {
                           </div>
                         )}
                       </div>
-                    </div>
-
-                    {/* Estimate ID (Optional) */}
-                    <div className="space-y-2">
-                      <Label htmlFor="repairEstimateId">Add to Estimate (Optional)</Label>
-                      <Input
-                        id="repairEstimateId"
-                        type="text"
-                        placeholder="Enter estimate ID to add this service"
-                        value={repairEstimateId}
-                        onChange={(e) => setRepairEstimateId(e.target.value)}
-                        data-testid="input-repair-estimate-id"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        If provided, the new service will be added to this estimate after being created in the pricebook
-                      </p>
                     </div>
 
                     {/* Submit Button */}
