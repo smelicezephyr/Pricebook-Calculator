@@ -5,19 +5,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RefreshCw, DollarSign, Clock, Percent, Wrench
-} from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RefreshCw, DollarSign, Clock, Percent, Wrench, TrendingUp } from "lucide-react";
 
 export default function RepairCalculator() {
   const { settings, isLoading: settingsLoading } = useSettings();
 
   // Input state
   const [materialsCost, setMaterialsCost] = useState("0");
+  const [materialMarkup, setMaterialMarkup] = useState("200");
   const [laborRate, setLaborRate] = useState("125.00");
   const [laborHours, setLaborHours] = useState("1");
   const [salesTaxPercent, setSalesTaxPercent] = useState("6.35");
   const [commissionPercent, setCommissionPercent] = useState("10.00");
   const [roundUp, setRoundUp] = useState(false);
+
+  // Generate markup options from 200% down to 10% in increments of 10
+  const markupOptions = Array.from({ length: 20 }, (_, i) => 200 - i * 10);
 
   // Initialize from settings
   useEffect(() => {
@@ -30,25 +34,28 @@ export default function RepairCalculator() {
 
   // Calculated values
   const materialsVal = parseFloat(materialsCost) || 0;
+  const markupRate = (parseFloat(materialMarkup) || 200) / 100;
+  const markedUpMaterials = materialsVal * markupRate;
   const laborRateVal = parseFloat(laborRate) || 0;
   const laborHoursVal = parseFloat(laborHours) || 0;
   const taxRate = (parseFloat(salesTaxPercent) || 0) / 100;
   const commissionRate = (parseFloat(commissionPercent) || 0) / 100;
 
-  // Calculations
-  const tax = materialsVal * taxRate;
+  // Calculations - tax is applied to marked-up materials
+  const tax = markedUpMaterials * taxRate;
   const laborCost = laborRateVal * laborHoursVal;
-  const subtotal = materialsVal + tax + laborCost;
+  const subtotal = markedUpMaterials + tax + laborCost;
   const commission = subtotal * commissionRate;
   const totalPrice = roundUp ? Math.ceil(subtotal + commission) : subtotal + commission;
 
-  // Margin calculation - Cost of Goods Sold excludes commission (commission is the profit/markup)
-  const cogs = materialsVal + tax + laborCost;
-  const grossMargin = totalPrice - cogs;  // This equals commission + any rounding
+  // Margin calculation - COGS uses raw materials cost (before markup)
+  const cogs = materialsVal + laborCost;  // Raw materials + labor cost
+  const grossMargin = totalPrice - cogs;  // Profit from markup + commission
   const grossMarginPercent = totalPrice > 0 ? (grossMargin / totalPrice) * 100 : 0;
 
   const handleReset = () => {
     setMaterialsCost("0");
+    setMaterialMarkup("200");
     setLaborHours("1");
     if (settings) {
       setSalesTaxPercent(settings.salesTaxPercent || "6.35");
@@ -111,6 +118,26 @@ export default function RepairCalculator() {
                   data-testid="input-materials-cost"
                 />
               </div>
+            </div>
+
+            {/* Material Markup */}
+            <div className="space-y-2">
+              <Label htmlFor="materialMarkup" className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                Material Mark Up
+              </Label>
+              <Select value={materialMarkup} onValueChange={setMaterialMarkup}>
+                <SelectTrigger id="materialMarkup" data-testid="select-material-markup">
+                  <SelectValue placeholder="Select markup" />
+                </SelectTrigger>
+                <SelectContent>
+                  {markupOptions.map((option) => (
+                    <SelectItem key={option} value={option.toString()}>
+                      {option}%
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Labor Rate */}
@@ -219,8 +246,12 @@ export default function RepairCalculator() {
             {/* Breakdown */}
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Materials</span>
+                <span className="text-muted-foreground">Materials Cost</span>
                 <span className="font-medium">${materialsVal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Marked Up Materials ({materialMarkup}%)</span>
+                <span className="font-medium">${markedUpMaterials.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Sales Tax ({salesTaxPercent}%)</span>
