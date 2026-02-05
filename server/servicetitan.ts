@@ -19,7 +19,8 @@ interface PricebookCategory {
 
 interface PricebookService {
   id: number;
-  name: string;
+  name?: string;
+  displayName?: string;
   code: string;
   description?: string;
   price?: number;
@@ -29,6 +30,8 @@ interface PricebookService {
   hours?: number; // Hours field in ServiceTitan
   active: boolean;
   categoryId?: number;
+  categories?: Array<{ id: number; name?: string }>;
+  warranty?: { duration?: number; description?: string | null };
   serviceMaterials?: Array<{
     skuId: number;
     quantity: number;
@@ -381,7 +384,7 @@ export class ServiceTitanAPI {
         body: JSON.stringify(serviceData),
       }
     );
-    console.log(`[ServiceTitan] Created service - id: ${result.id}, name: ${result.name}, price: ${result.price}`);
+    console.log(`[ServiceTitan] Created service - id: ${result.id}, displayName: ${result.displayName}, price: ${result.price}`);
     return result;
   }
 
@@ -414,18 +417,18 @@ export class ServiceTitanAPI {
     const uploadResult = await uploadResponse.json();
     console.log(`[UploadImage] Image uploaded, result:`, JSON.stringify(uploadResult));
     
-    // Then update the service with the image URL
-    if (uploadResult && uploadResult.url) {
+    // Then update the service with the image path
+    if (uploadResult && uploadResult.path) {
       const updateResponse = await this.request<PricebookService>(
         `/pricebook/v2/tenant/${this.tenant.tenantId}/services/${serviceId}`,
         {
           method: "PATCH",
           body: JSON.stringify({ 
-            images: [{ url: uploadResult.url }] 
+            images: [{ url: uploadResult.path }] 
           }),
         }
       );
-      console.log(`[UploadImage] Service updated with image`);
+      console.log(`[UploadImage] Service updated with image path: ${uploadResult.path}`);
       return updateResponse;
     }
     
@@ -444,15 +447,15 @@ interface GLAccount {
 
 interface CreateServiceRequest {
   code: string;
-  name: string;
+  displayName: string;
   description?: string;
-  warrantyDescription?: string;
+  warranty?: { description: string };
   taxable?: boolean;
   active?: boolean;
   price?: number;
   memberPrice?: number;
   hours?: number;
-  categoryId?: number;
+  categories?: { id: number }[];
   generalLedgerAccountId?: number;
   allowDiscountCodes?: boolean;
   allowMembershipDiscounts?: boolean;

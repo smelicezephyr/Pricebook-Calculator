@@ -351,14 +351,14 @@ export default function PushToServiceTitan() {
     try {
       const serviceData: any = {
         code,
-        name,
+        displayName: name,
         description: newTaskDescription.trim() || undefined,
-        warrantyDescription: newTaskWarranty.trim() || undefined,
+        warranty: newTaskWarranty.trim() ? { description: newTaskWarranty.trim() } : undefined,
         taxable: newTaskTaxable,
         active: true,
         price: newTaskCalculatedPrice,
         hours: hoursVal,
-        categoryId: newTaskCategoryId,
+        categories: [{ id: newTaskCategoryId }],
         allowDiscountCodes: newTaskAllowDiscounts,
         allowMembershipDiscounts: newTaskAllowMembership,
       };
