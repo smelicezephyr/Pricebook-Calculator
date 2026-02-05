@@ -384,7 +384,7 @@ export default function PushToServiceTitan() {
     setNewTaskAllowDiscounts(true);
     setNewTaskAllowMembership(true);
     setNewTaskHours("0");
-    setNewTaskGlAccountId(null);
+    setNewTaskGlAccount("Revenue");
     setNewTaskCategoryId(null);
     setNewTaskMaterialsCost("0");
     setNewTaskEquipmentCost("0");
@@ -524,7 +524,7 @@ export default function PushToServiceTitan() {
     setRepairAllowMembership(true);
     setRepairLaborHours("1");
     setRepairLaborRate("125.00");
-    setRepairGlAccountId(null);
+    setRepairGlAccount("Revenue");
     setRepairCategoryId(null);
     setRepairMaterialsCost("0");
     setRepairSalesTaxPercent("6.35");
