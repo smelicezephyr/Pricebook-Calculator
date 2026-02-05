@@ -120,6 +120,7 @@ export default function PushToServiceTitan() {
   // Push New Task State
   const [activeTab, setActiveTab] = useState<string>("update-category");
   const [newTaskCode, setNewTaskCode] = useState("");
+  const [newTaskCodeError, setNewTaskCodeError] = useState<string | null>(null);
   const [newTaskName, setNewTaskName] = useState("");
   const [newTaskDescription, setNewTaskDescription] = useState("");
   const [newTaskWarranty, setNewTaskWarranty] = useState("");
@@ -138,6 +139,7 @@ export default function PushToServiceTitan() {
 
   // Push New Repair Task State
   const [repairCode, setRepairCode] = useState("");
+  const [repairCodeError, setRepairCodeError] = useState<string | null>(null);
   const [repairName, setRepairName] = useState("");
   const [repairDescription, setRepairDescription] = useState("");
   const [repairWarranty, setRepairWarranty] = useState("");
@@ -422,6 +424,7 @@ export default function PushToServiceTitan() {
     }
 
     setIsCreatingTask(true);
+    setNewTaskCodeError(null); // Clear previous error
     try {
       const serviceData: any = {
         code,
@@ -449,7 +452,19 @@ export default function PushToServiceTitan() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to create task');
+        const errorMessage = error.message || 'Failed to create task';
+        
+        // Check for duplicate code error
+        if (errorMessage.toLowerCase().includes('code') && 
+            (errorMessage.toLowerCase().includes('repeat') || 
+             errorMessage.toLowerCase().includes('duplicate') ||
+             errorMessage.toLowerCase().includes('already exists') ||
+             errorMessage.toLowerCase().includes('unique'))) {
+          setNewTaskCodeError("This code already exists. Please use a unique code.");
+          throw new Error("Code already exists - please use a unique code");
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const createdService = await response.json();
@@ -563,6 +578,7 @@ export default function PushToServiceTitan() {
     }
 
     setIsCreatingRepair(true);
+    setRepairCodeError(null); // Clear previous error
     try {
       const serviceData: any = {
         code,
@@ -590,7 +606,19 @@ export default function PushToServiceTitan() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to create repair task');
+        const errorMessage = error.message || 'Failed to create repair task';
+        
+        // Check for duplicate code error
+        if (errorMessage.toLowerCase().includes('code') && 
+            (errorMessage.toLowerCase().includes('repeat') || 
+             errorMessage.toLowerCase().includes('duplicate') ||
+             errorMessage.toLowerCase().includes('already exists') ||
+             errorMessage.toLowerCase().includes('unique'))) {
+          setRepairCodeError("This code already exists. Please use a unique code.");
+          throw new Error("Code already exists - please use a unique code");
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const createdService = await response.json();
@@ -1678,16 +1706,24 @@ export default function PushToServiceTitan() {
                     {/* Service Details */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="newTaskCode">Code *</Label>
+                        <Label htmlFor="newTaskCode" className={newTaskCodeError ? "text-destructive" : ""}>Code *</Label>
                         <Input
                           id="newTaskCode"
                           value={newTaskCode}
-                          onChange={(e) => setNewTaskCode(e.target.value.slice(0, 31))}
+                          onChange={(e) => {
+                            setNewTaskCode(e.target.value.slice(0, 31));
+                            if (newTaskCodeError) setNewTaskCodeError(null);
+                          }}
                           placeholder="e.g., 10015"
                           maxLength={31}
+                          className={newTaskCodeError ? "border-destructive focus-visible:ring-destructive" : ""}
                           data-testid="input-new-task-code"
                         />
-                        <p className="text-xs text-muted-foreground">{newTaskCode.length}/31 characters</p>
+                        {newTaskCodeError ? (
+                          <p className="text-sm text-destructive">{newTaskCodeError}</p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">{newTaskCode.length}/31 characters</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="newTaskName">Name *</Label>
@@ -2164,15 +2200,22 @@ export default function PushToServiceTitan() {
                     {/* Task Details Form */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="repairCode">Code *</Label>
+                        <Label htmlFor="repairCode" className={repairCodeError ? "text-destructive" : ""}>Code *</Label>
                         <Input
                           id="repairCode"
                           value={repairCode}
-                          onChange={(e) => setRepairCode(e.target.value)}
+                          onChange={(e) => {
+                            setRepairCode(e.target.value);
+                            if (repairCodeError) setRepairCodeError(null);
+                          }}
                           placeholder="e.g., RPR-001"
                           maxLength={31}
+                          className={repairCodeError ? "border-destructive focus-visible:ring-destructive" : ""}
                           data-testid="input-repair-code"
                         />
+                        {repairCodeError && (
+                          <p className="text-sm text-destructive">{repairCodeError}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="repairName">Name *</Label>
