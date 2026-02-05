@@ -50,16 +50,61 @@ export async function registerRoutes(
     }
   });
 
-  // Admin Routes
+  // Admin Routes - IP-based authentication
+  // Store unlocked IPs with expiration (8 hours)
+  const unlockedIPs = new Map<string, number>(); // IP -> expiration timestamp
+  const AUTH_DURATION = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
+
+  const getClientIP = (req: any): string => {
+    // Check for forwarded IP (behind proxy/load balancer)
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) {
+      return (typeof forwarded === 'string' ? forwarded : forwarded[0]).split(',')[0].trim();
+    }
+    return req.ip || req.connection?.remoteAddress || 'unknown';
+  };
+
+  const isIPUnlocked = (ip: string): boolean => {
+    const expiration = unlockedIPs.get(ip);
+    if (!expiration) return false;
+    if (Date.now() > expiration) {
+      unlockedIPs.delete(ip);
+      return false;
+    }
+    return true;
+  };
+
+  // Check if current IP is authenticated
+  app.get("/api/admin/check-auth", (req, res) => {
+    const ip = getClientIP(req);
+    const unlocked = isIPUnlocked(ip);
+    res.json({ unlocked, ip });
+  });
+
   app.post("/api/admin/verify-password", async (req, res) => {
     try {
       const { password } = req.body;
       const settings = await storage.getSettings();
       const valid = password === settings.serviceTitanPassword;
+      
+      if (valid) {
+        const ip = getClientIP(req);
+        unlockedIPs.set(ip, Date.now() + AUTH_DURATION);
+        console.log(`[Auth] IP ${ip} unlocked ServiceTitan section`);
+      }
+      
       res.json({ valid });
     } catch (err) {
       res.status(500).json({ valid: false, error: "Failed to verify password" });
     }
+  });
+
+  // Lock the current IP
+  app.post("/api/admin/lock", (req, res) => {
+    const ip = getClientIP(req);
+    unlockedIPs.delete(ip);
+    console.log(`[Auth] IP ${ip} locked ServiceTitan section`);
+    res.json({ success: true });
   });
 
   app.post("/api/admin/change-password", async (req, res) => {
@@ -76,6 +121,11 @@ export async function registerRoutes(
       }
       
       await storage.updateSettings({ serviceTitanPassword: newPassword });
+      
+      // Clear all unlocked IPs when password changes
+      unlockedIPs.clear();
+      console.log("[Auth] Password changed, all IPs locked");
+      
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ success: false, error: "Failed to change password" });

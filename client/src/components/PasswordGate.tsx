@@ -10,10 +10,22 @@ interface PasswordGateProps {
 }
 
 export function PasswordGate({ children }: PasswordGateProps) {
-  const { isUnlocked, unlock } = useServiceTitanAuth();
+  const { isUnlocked, isLoading: isCheckingAuth, unlock } = useServiceTitanAuth();
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Show loading while checking auth status with server
+  if (isCheckingAuth) {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isUnlocked) {
     return <>{children}</>;

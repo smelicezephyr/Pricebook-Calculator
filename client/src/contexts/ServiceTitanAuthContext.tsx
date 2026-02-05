@@ -2,19 +2,33 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 
 interface ServiceTitanAuthContextType {
   isUnlocked: boolean;
+  isLoading: boolean;
   unlock: (password: string) => Promise<boolean>;
-  lock: () => void;
+  lock: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const ServiceTitanAuthContext = createContext<ServiceTitanAuthContextType | null>(null);
 
-const STORAGE_KEY = "servicetitan_unlocked";
-
 export function ServiceTitanAuthProvider({ children }: { children: ReactNode }) {
-  const [isUnlocked, setIsUnlocked] = useState(() => {
-    return sessionStorage.getItem(STORAGE_KEY) === "true";
-  });
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Check auth status with server on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch("/api/admin/check-auth");
+        const result = await response.json();
+        setIsUnlocked(result.unlocked);
+      } catch {
+        setIsUnlocked(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    checkAuth();
+  }, []);
 
   const unlock = async (password: string): Promise<boolean> => {
     try {
@@ -26,7 +40,6 @@ export function ServiceTitanAuthProvider({ children }: { children: ReactNode }) 
       const result = await response.json();
       if (result.valid) {
         setIsUnlocked(true);
-        sessionStorage.setItem(STORAGE_KEY, "true");
         return true;
       }
       return false;
@@ -35,9 +48,13 @@ export function ServiceTitanAuthProvider({ children }: { children: ReactNode }) 
     }
   };
 
-  const lock = () => {
+  const lock = async () => {
+    try {
+      await fetch("/api/admin/lock", { method: "POST" });
+    } catch {
+      // Ignore errors
+    }
     setIsUnlocked(false);
-    sessionStorage.removeItem(STORAGE_KEY);
   };
 
   const changePassword = async (currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
@@ -48,6 +65,10 @@ export function ServiceTitanAuthProvider({ children }: { children: ReactNode }) 
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       const result = await response.json();
+      if (result.success) {
+        // Password changed, user will be locked out
+        setIsUnlocked(false);
+      }
       return result;
     } catch {
       return { success: false, error: "Failed to change password" };
@@ -55,7 +76,7 @@ export function ServiceTitanAuthProvider({ children }: { children: ReactNode }) 
   };
 
   return (
-    <ServiceTitanAuthContext.Provider value={{ isUnlocked, unlock, lock, changePassword }}>
+    <ServiceTitanAuthContext.Provider value={{ isUnlocked, isLoading, unlock, lock, changePassword }}>
       {children}
     </ServiceTitanAuthContext.Provider>
   );
