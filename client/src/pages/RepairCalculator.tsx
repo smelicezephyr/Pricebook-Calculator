@@ -107,9 +107,9 @@ export default function RepairCalculator() {
   const marginHealth = getMarginHealth();
 
   const handleReset = () => {
-    setPartsCost("0");
+    setPartsCost("");
     setMaterialMarkup("200");
-    setLaborHours("1");
+    setLaborHours("");
     setPsiMode(false);
     setSalesTaxPercent(settings?.salesTaxPercent || "6.35");
     setCommissionPercent(settings?.commissionPercent || "10.00");
