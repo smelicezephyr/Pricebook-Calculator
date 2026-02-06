@@ -142,8 +142,38 @@ export class ServiceTitanAPI {
       });
 
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`ServiceTitan API error: ${response.status} - ${error}`);
+        const errorText = await response.text();
+        let friendlyMessage = `ServiceTitan API error (${response.status})`;
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.title) {
+            friendlyMessage = errorJson.title;
+          } else if (errorJson.RawException) {
+            const rawEx = errorJson.RawException;
+            const match = rawEx.match(/^([^\.]+\.?\s*)/);
+            friendlyMessage = match ? match[1].trim() : rawEx.substring(0, 200);
+          } else if (errorJson.message) {
+            friendlyMessage = errorJson.message;
+          } else if (errorJson.detail) {
+            friendlyMessage = errorJson.detail;
+          }
+          if (errorJson.errors && typeof errorJson.errors === 'object') {
+            const fieldErrors = Object.entries(errorJson.errors)
+              .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
+              .join('; ');
+            if (fieldErrors) {
+              friendlyMessage += ` - ${fieldErrors}`;
+            }
+          }
+        } catch {
+          if (errorText.length > 300) {
+            friendlyMessage += `: ${errorText.substring(0, 300)}...`;
+          } else {
+            friendlyMessage += `: ${errorText}`;
+          }
+        }
+        console.error(`[ServiceTitan] API error ${response.status} on ${endpoint}: ${errorText.substring(0, 500)}`);
+        throw new Error(friendlyMessage);
       }
 
       return response.json();
@@ -394,12 +424,31 @@ export class ServiceTitanAPI {
   }
 
   async createService(serviceData: CreateServiceRequest): Promise<PricebookService> {
-    console.log(`[ServiceTitan] Creating new service:`, JSON.stringify(serviceData));
+    const payload: Record<string, any> = {
+      code: serviceData.code,
+      displayName: serviceData.displayName,
+      active: serviceData.active ?? true,
+    };
+
+    if (serviceData.description) payload.description = serviceData.description;
+    if (serviceData.warranty && serviceData.warranty.description) {
+      payload.warranty = serviceData.warranty;
+    }
+    if (typeof serviceData.taxable === 'boolean') payload.taxable = serviceData.taxable;
+    if (typeof serviceData.price === 'number' && !isNaN(serviceData.price)) payload.price = serviceData.price;
+    if (typeof serviceData.memberPrice === 'number' && !isNaN(serviceData.memberPrice)) payload.memberPrice = serviceData.memberPrice;
+    if (typeof serviceData.hours === 'number' && !isNaN(serviceData.hours)) payload.hours = serviceData.hours;
+    if (serviceData.categories && serviceData.categories.length > 0) payload.categories = serviceData.categories;
+    if (serviceData.account) payload.account = serviceData.account;
+    if (typeof serviceData.allowDiscountCodes === 'boolean') payload.allowDiscountCodes = serviceData.allowDiscountCodes;
+    if (typeof serviceData.allowMembershipDiscounts === 'boolean') payload.allowMembershipDiscounts = serviceData.allowMembershipDiscounts;
+
+    console.log(`[ServiceTitan] Creating new service:`, JSON.stringify(payload));
     const result = await this.request<PricebookService>(
       `/pricebook/v2/tenant/${this.tenant.tenantId}/services`,
       {
         method: "POST",
-        body: JSON.stringify(serviceData),
+        body: JSON.stringify(payload),
       }
     );
     console.log(`[ServiceTitan] Created service - id: ${result.id}, displayName: ${result.displayName}, price: ${result.price}`);
