@@ -157,6 +157,7 @@ export default function PushToServiceTitan() {
   const [repairBurdenPercent, setRepairBurdenPercent] = useState("20.00");
   const [repairCommissionPercent, setRepairCommissionPercent] = useState("10.00");
   const [repairFinancingFeePercent, setRepairFinancingFeePercent] = useState("4");
+  const [repairHighestTechRate, setRepairHighestTechRate] = useState("150");
   const [repairPsiMode, setRepairPsiMode] = useState(false);
 
   // Handle PSI mode toggle for New System Task
@@ -296,9 +297,11 @@ export default function PushToServiceTitan() {
     const totalBeforeRounding = subtotal4 + financingFee;
     const totalPrice = roundUp ? Math.ceil(totalBeforeRounding) : totalBeforeRounding;
 
-    // COGS uses flat $150/hr for labor (not the billed labor rate)
-    const flatLaborCost = 150 * laborHoursVal;
-    const cogs = partsTotal + flatLaborCost;
+    // COGS uses highest tech pay rate (burdened) for labor
+    const highestTechRateVal = parseFloat(repairHighestTechRate) || 0;
+    const techLaborCost = highestTechRateVal * laborHoursVal;
+    const burdenedTechLabor = techLaborCost * (1 + burdenRate);
+    const cogs = partsTotal + burdenedTechLabor;
     const grossMargin = totalPrice - cogs;
     const grossMarginPercent = totalPrice > 0 ? (grossMargin / totalPrice) * 100 : 0;
 
@@ -324,7 +327,7 @@ export default function PushToServiceTitan() {
       grossMarginPercent,
       laborHours: laborHoursVal,
     };
-  }, [repairMaterialsCost, repairMaterialMarkup, repairLaborRate, repairLaborHours, repairBurdenPercent, repairSalesTaxPercent, repairCommissionPercent, repairFinancingFeePercent, roundUp]);
+  }, [repairMaterialsCost, repairMaterialMarkup, repairLaborRate, repairLaborHours, repairBurdenPercent, repairSalesTaxPercent, repairCommissionPercent, repairFinancingFeePercent, repairHighestTechRate, roundUp]);
 
   const repairCalculatedPrice = repairCalculations.price;
 
@@ -2110,6 +2113,27 @@ export default function PushToServiceTitan() {
                             onChange={(e) => setRepairLaborHours(e.target.value)}
                             data-testid="input-repair-labor-hours"
                           />
+                        </div>
+                      </div>
+
+                      {/* Highest Tech Pay Rate */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="repairHighestTechRate">Highest Tech Pay Rate</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                            <Input
+                              id="repairHighestTechRate"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={repairHighestTechRate}
+                              onChange={(e) => setRepairHighestTechRate(e.target.value)}
+                              className="pl-7"
+                              data-testid="input-repair-highest-tech-rate"
+                            />
+                          </div>
+                          <p className="text-xs text-muted-foreground">Used for gross margin calculation only</p>
                         </div>
                       </div>
 

@@ -18,6 +18,7 @@ export default function RepairCalculator() {
   const [salesTaxPercent, setSalesTaxPercent] = useState("6.35");
   const [commissionPercent, setCommissionPercent] = useState("10.00");
   const [financingFeePercent, setFinancingFeePercent] = useState("4.00");
+  const [highestTechRate, setHighestTechRate] = useState("150");
   const [roundUp, setRoundUp] = useState(false);
   const [psiMode, setPsiMode] = useState(false);
 
@@ -85,9 +86,11 @@ export default function RepairCalculator() {
   const totalBeforeRounding = subtotal4 + financingFee;
   const totalPrice = roundUp ? Math.ceil(totalBeforeRounding) : totalBeforeRounding;
 
-  // Margin calculation - COGS uses flat $150/hr for labor (not the billed labor rate)
-  const flatLaborCost = 150 * laborHoursVal;
-  const cogs = partsTotal + flatLaborCost;
+  // Margin calculation - COGS uses highest tech pay rate (burdened) for labor
+  const highestTechRateVal = parseFloat(highestTechRate) || 0;
+  const techLaborCost = highestTechRateVal * laborHoursVal;
+  const burdenedTechLabor = techLaborCost * (1 + burdenRate);
+  const cogs = partsTotal + burdenedTechLabor;
   const grossMargin = totalPrice - cogs;
   const grossMarginPercent = totalPrice > 0 ? (grossMargin / totalPrice) * 100 : 0;
 
@@ -226,6 +229,14 @@ export default function RepairCalculator() {
                 value={laborHours}
                 onChange={(e) => setLaborHours(e.target.value)}
                 data-testid="input-labor-hours"
+              />
+
+              <InputMoney
+                label="Highest Tech Pay Rate"
+                placeholder="150.00"
+                value={highestTechRate}
+                onChange={(e) => setHighestTechRate(e.target.value)}
+                data-testid="input-highest-tech-rate"
               />
             </div>
           </div>
