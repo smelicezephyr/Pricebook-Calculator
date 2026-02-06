@@ -986,14 +986,14 @@ export default function PushToServiceTitan() {
 
           {connectionStatus === 'connected' && (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="update-category" data-testid="tab-update-category">
+              <TabsList className="grid w-full grid-cols-3 h-auto">
+                <TabsTrigger value="update-category" className="text-xs sm:text-sm px-1 sm:px-3 py-2 whitespace-normal" data-testid="tab-update-category">
                   Update Pricebook
                 </TabsTrigger>
-                <TabsTrigger value="push-new-task" data-testid="tab-push-new-system-task">
+                <TabsTrigger value="push-new-task" className="text-xs sm:text-sm px-1 sm:px-3 py-2 whitespace-normal" data-testid="tab-push-new-system-task">
                   New System Task
                 </TabsTrigger>
-                <TabsTrigger value="push-new-repair" data-testid="tab-push-new-repair-task">
+                <TabsTrigger value="push-new-repair" className="text-xs sm:text-sm px-1 sm:px-3 py-2 whitespace-normal" data-testid="tab-push-new-repair-task">
                   New Repair Task
                 </TabsTrigger>
               </TabsList>
