@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Lock, Clock, Wrench, Shield, Key, Trash2, Loader2, Hash } from "lucide-react";
+import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Lock, Clock, Wrench, Shield, Key, Trash2, Loader2, Hash, MapPin } from "lucide-react";
 import { useState } from "react";
 import clsx from "clsx";
 import { useServiceTitanAuth } from "@/contexts/ServiceTitanAuthContext";
@@ -33,7 +33,7 @@ import { queryClient } from "@/lib/queryClient";
 export function Navigation() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const isServiceTitanPath = location.startsWith("/push") || location.startsWith("/tenants");
+  const isServiceTitanPath = location.startsWith("/push") || location.startsWith("/tenants") || location.startsWith("/locations");
   const [stExpanded, setStExpanded] = useState(() => isServiceTitanPath);
   const { isUnlocked, lock, changePassword } = useServiceTitanAuth();
   const { isUnlocked: isAdminUnlocked, isLoading: isAdminLoading, unlock: unlockAdmin, lock: lockAdmin, changePin } = useAdminAuth();
@@ -173,6 +173,7 @@ export function Navigation() {
     { href: "/push", label: "Push to Pricebook", icon: Upload },
     { href: "/push-history", label: "Push History", icon: Clock },
     { href: "/tenants", label: "Manage Tenants", icon: Building2 },
+    { href: "/locations", label: "Manage Locations", icon: MapPin },
   ];
 
   const isStActive = isServiceTitanPath;

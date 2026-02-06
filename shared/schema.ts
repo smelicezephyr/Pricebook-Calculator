@@ -2,6 +2,14 @@ import { pgTable, text, serial, numeric, timestamp, boolean, integer } from "dri
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Locations (reference library for sales tax rates)
+export const locations = pgTable("locations", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  salesTaxPercent: numeric("sales_tax_percent").notNull().default("0.00"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // ServiceTitan Tenants
 export const tenants = pgTable("tenants", {
   id: serial("id").primaryKey(),
@@ -10,6 +18,7 @@ export const tenants = pgTable("tenants", {
   clientId: text("client_id").notNull(),
   clientSecret: text("client_secret").notNull(),
   appKey: text("app_key").notNull(),
+  locationId: integer("location_id"),
   isActive: boolean("is_active").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
@@ -103,6 +112,11 @@ export const quotes = pgTable("quotes", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const insertLocationSchema = createInsertSchema(locations).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertSettingsSchema = createInsertSchema(settings);
 export const insertQuoteSchema = createInsertSchema(quotes).omit({ 
   id: true, 
@@ -138,6 +152,8 @@ export const insertPushHistorySchema = createInsertSchema(pushHistory).omit({
   originalValues: true,
 });
 
+export type Location = typeof locations.$inferSelect;
+export type InsertLocation = z.infer<typeof insertLocationSchema>;
 export type Settings = typeof settings.$inferSelect;
 export type InsertSettings = z.infer<typeof insertSettingsSchema>;
 export type Quote = typeof quotes.$inferSelect;

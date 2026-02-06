@@ -3,6 +3,7 @@ import {
   settings,
   quotes,
   tenants,
+  locations,
   pushHistory,
   type Settings,
   type InsertSettings,
@@ -10,6 +11,8 @@ import {
   type InsertQuote,
   type Tenant,
   type InsertTenant,
+  type Location,
+  type InsertLocation,
   type PushHistory,
   type InsertPushHistory
 } from "@shared/schema";
@@ -23,6 +26,12 @@ export interface IStorage {
   getQuotes(): Promise<Quote[]>;
   deleteQuote(id: number): Promise<void>;
   clearAllQuotes(): Promise<void>;
+  
+  getLocations(): Promise<Location[]>;
+  getLocation(id: number): Promise<Location | undefined>;
+  createLocation(location: InsertLocation): Promise<Location>;
+  updateLocation(id: number, location: Partial<InsertLocation>): Promise<Location>;
+  deleteLocation(id: number): Promise<void>;
   
   getTenants(): Promise<Tenant[]>;
   getTenant(id: number): Promise<Tenant | undefined>;
@@ -78,6 +87,34 @@ export class DatabaseStorage implements IStorage {
 
   async clearAllQuotes(): Promise<void> {
     await db.delete(quotes);
+  }
+
+  async getLocations(): Promise<Location[]> {
+    return await db.select().from(locations).orderBy(asc(locations.name));
+  }
+
+  async getLocation(id: number): Promise<Location | undefined> {
+    const [location] = await db.select().from(locations).where(eq(locations.id, id));
+    return location;
+  }
+
+  async createLocation(location: InsertLocation): Promise<Location> {
+    const [created] = await db.insert(locations).values(location).returning();
+    return created;
+  }
+
+  async updateLocation(id: number, location: Partial<InsertLocation>): Promise<Location> {
+    const [updated] = await db
+      .update(locations)
+      .set(location)
+      .where(eq(locations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteLocation(id: number): Promise<void> {
+    await db.update(tenants).set({ locationId: null }).where(eq(tenants.locationId, id));
+    await db.delete(locations).where(eq(locations.id, id));
   }
 
   async getTenants(): Promise<Tenant[]> {

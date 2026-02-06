@@ -28,10 +28,11 @@ Preferred communication style: Simple, everyday language.
 ### Data Storage
 - **Database**: PostgreSQL
 - **ORM**: Drizzle ORM with drizzle-zod for schema validation
-- **Schema**: Three main tables:
+- **Schema**: Main tables:
   - `settings` - Calculator configuration (singleton pattern)
   - `quotes` - Saved calculation snapshots
-  - `tenants` - ServiceTitan API credentials for multi-tenant support
+  - `tenants` - ServiceTitan API credentials for multi-tenant support (with locationId FK)
+  - `locations` - Location-to-sales-tax reference library
 
 ### Project Structure
 ```
@@ -145,6 +146,16 @@ shared/           # Shared code between client/server
 - **New Repair Task Defaults** (PSI off):
   - Material Markup: 200%
   - Labor Rate: $175
-  - Sales Tax: 6.35%
+  - Sales Tax: from tenant's assigned location (fallback 6.35%)
   - GL Account: "Revenue"
   - Financing Fee: 4%
+
+### Location-Based Sales Tax Management (February 2026)
+- Added `locations` table as a reference library mapping location names to sales tax percentages
+- Seeded 6 initial locations: Gaithersburg MD (6%), Hartford CT (6.35%), Gypsum CO (7.4%), Jupiter FL (7%), Denver CO (9.15%), Houston TX (8.25%)
+- Admin section includes Locations management page (CRUD operations)
+- Tenants can be assigned a location via dropdown in tenant configuration
+- When a tenant is selected on Push to ServiceTitan page, the repair tab's sales tax auto-populates from the tenant's assigned location
+- PSI mode toggle off restores location-based tax; fallback is 6.35% if no location assigned
+- API endpoints: GET/POST/PUT/DELETE /api/locations
+- Location displayed in tenant cards on Tenants page

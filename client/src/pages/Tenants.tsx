@@ -1,17 +1,19 @@
 import { useState } from "react";
 import { useTenants } from "@/hooks/use-tenants";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTenantSchema, updateTenantSchema } from "@shared/schema";
-import { Loader2, Plus, Trash2, Edit, Building2, ArrowLeft, Plug, CheckCircle2, XCircle, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown } from "lucide-react";
+import { Loader2, Plus, Trash2, Edit, Building2, ArrowLeft, Plug, CheckCircle2, XCircle, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, MapPin } from "lucide-react";
 import { useLocation } from "wouter";
 import { z } from "zod";
-import type { Tenant } from "@shared/schema";
+import type { Tenant, Location } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 
 type CreateTenantFormValues = z.infer<typeof insertTenantSchema>;
@@ -24,6 +26,7 @@ interface TestResult {
 
 export default function Tenants() {
   const { tenants, isLoading, createTenant, updateTenant, deleteTenant, reorderTenants, isCreating, isUpdating, isReordering } = useTenants();
+  const { data: locationsList = [] } = useQuery<Location[]>({ queryKey: ["/api/locations"] });
 
   const moveUp = (index: number) => {
     if (index <= 0) return;
@@ -83,6 +86,7 @@ export default function Tenants() {
       clientId: "",
       clientSecret: "",
       appKey: "",
+      locationId: null,
       isActive: true,
     });
     setIsOpen(true);
@@ -91,7 +95,6 @@ export default function Tenants() {
   const openEdit = async (tenant: Tenant) => {
     setEditingTenant(tenant);
     try {
-      // Fetch full tenant data (unmasked)
       const response = await fetch(`/api/tenants/${tenant.id}/full`);
       if (response.ok) {
         const fullTenant = await response.json();
@@ -101,16 +104,17 @@ export default function Tenants() {
           clientId: fullTenant.clientId,
           clientSecret: fullTenant.clientSecret,
           appKey: fullTenant.appKey,
+          locationId: fullTenant.locationId ?? null,
           isActive: fullTenant.isActive,
         });
       } else {
-        // Fallback to masked data
         form.reset({
           name: tenant.name,
           tenantId: tenant.tenantId,
           clientId: "",
           clientSecret: "",
           appKey: "",
+          locationId: tenant.locationId ?? null,
           isActive: tenant.isActive,
         });
       }
@@ -121,6 +125,7 @@ export default function Tenants() {
         clientId: "",
         clientSecret: "",
         appKey: "",
+        locationId: tenant.locationId ?? null,
         isActive: tenant.isActive,
       });
     }
@@ -285,7 +290,7 @@ export default function Tenants() {
                 </div>
               </CardHeader>
               <CardContent className="pt-0 pb-4 space-y-3">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                   <div>
                     <p className="text-muted-foreground text-xs font-medium mb-1">Tenant ID</p>
                     <p className="font-mono">{tenant.tenantId}</p>
@@ -301,6 +306,16 @@ export default function Tenants() {
                   <div>
                     <p className="text-muted-foreground text-xs font-medium mb-1">App Key</p>
                     <p className="font-mono truncate">{tenant.appKey}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs font-medium mb-1">Location</p>
+                    <p className="flex items-center gap-1" data-testid={`text-tenant-location-${tenant.id}`}>
+                      <MapPin size={12} className="text-muted-foreground" />
+                      {tenant.locationId 
+                        ? locationsList.find(l => l.id === tenant.locationId)?.name || "Unknown"
+                        : <span className="text-muted-foreground">Not set</span>
+                      }
+                    </p>
                   </div>
                 </div>
                 
@@ -398,6 +413,35 @@ export default function Tenants() {
                     <FormControl>
                       <Input {...field} placeholder={editingTenant ? "Leave blank to keep existing" : "ServiceTitan App Key"} data-testid="input-app-key" />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="locationId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Location</FormLabel>
+                    <Select
+                      value={field.value ? String(field.value) : "none"}
+                      onValueChange={(val) => field.onChange(val === "none" ? null : Number(val))}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-tenant-location">
+                          <SelectValue placeholder="Select a location" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">No location</SelectItem>
+                        {locationsList.map((loc) => (
+                          <SelectItem key={loc.id} value={String(loc.id)}>
+                            {loc.name} ({loc.salesTaxPercent}%)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>Assigns a sales tax rate to this tenant</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

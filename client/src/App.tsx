@@ -14,6 +14,7 @@ import RepairCalculator from "@/pages/RepairCalculator";
 import Settings from "@/pages/Settings";
 import History from "@/pages/History";
 import Tenants from "@/pages/Tenants";
+import Locations from "@/pages/Locations";
 import PushToServiceTitan from "@/pages/PushToServiceTitan";
 import PushHistory from "@/pages/PushHistory";
 
@@ -29,6 +30,14 @@ function ProtectedTenants() {
   return (
     <PasswordGate>
       <Tenants />
+    </PasswordGate>
+  );
+}
+
+function ProtectedLocations() {
+  return (
+    <PasswordGate>
+      <Locations />
     </PasswordGate>
   );
 }
@@ -54,6 +63,7 @@ function Router() {
           <Route path="/push-history" component={ProtectedPushHistory} />
           <Route path="/history" component={History} />
           <Route path="/tenants" component={ProtectedTenants} />
+          <Route path="/locations" component={ProtectedLocations} />
           <Route path="/settings" component={Settings} />
           <Route component={NotFound} />
         </Switch>

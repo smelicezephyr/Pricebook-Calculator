@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useTenants, useServiceTitan } from "@/hooks/use-tenants";
 import { useSettings } from "@/hooks/use-settings";
+import type { Location } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -76,6 +78,7 @@ export default function PushToServiceTitan() {
   const { settings } = useSettings();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { data: locationsList = [] } = useQuery<Location[]>({ queryKey: ['/api/locations'] });
   
   const [selectedTenantId, setSelectedTenantId] = useState<number | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle');
@@ -170,7 +173,6 @@ export default function PushToServiceTitan() {
     }
   };
 
-  // Handle PSI mode toggle
   const handlePsiToggle = (enabled: boolean) => {
     setRepairPsiMode(enabled);
     if (enabled) {
@@ -179,12 +181,21 @@ export default function PushToServiceTitan() {
       setRepairSalesTaxPercent("7.4");
       setRepairGlAccount("Sales");
     } else {
-      // Reset to defaults ($175 labor rate, 4% financing)
       setRepairMaterialMarkup("200");
       setRepairLaborRate("175");
-      setRepairSalesTaxPercent("6.35");
       setRepairGlAccount("Revenue");
       setRepairFinancingFeePercent("4");
+      const selectedTenant = tenants.find(t => t.id === selectedTenantId);
+      if (selectedTenant?.locationId) {
+        const loc = locationsList.find(l => l.id === selectedTenant.locationId);
+        if (loc) {
+          setRepairSalesTaxPercent(loc.salesTaxPercent.toString());
+        } else {
+          setRepairSalesTaxPercent("6.35");
+        }
+      } else {
+        setRepairSalesTaxPercent("6.35");
+      }
     }
   };
   const [repairImage, setRepairImage] = useState<File | null>(null);
@@ -337,11 +348,18 @@ export default function PushToServiceTitan() {
     setConnectionStatus('testing');
     setCategories([]);
     setSelectedCategories(new Set());
-    // Reset form fields that depend on tenant-specific data
     setNewTaskCategoryId(null);
     setNewTaskGlAccount("Revenue");
     setRepairCategoryId(null);
     setRepairGlAccount("Revenue");
+
+    const selectedTenant = tenants.find(t => t.id === id);
+    if (selectedTenant?.locationId) {
+      const loc = locationsList.find(l => l.id === selectedTenant.locationId);
+      setRepairSalesTaxPercent(loc ? loc.salesTaxPercent.toString() : "6.35");
+    } else {
+      setRepairSalesTaxPercent("6.35");
+    }
 
     try {
       const response = await testConnection(id);
@@ -559,12 +577,18 @@ export default function PushToServiceTitan() {
     setRepairGlAccount("Revenue");
     setRepairCategoryId(null);
     setRepairMaterialsCost("0");
-    setRepairSalesTaxPercent("6.35");
     setRepairCommissionPercent("10.00");
     setRepairFinancingFeePercent("4");
     setRepairImage(null);
     setRepairImagePreview(null);
     setRepairPsiMode(false);
+    const selectedTenant = tenants.find(t => t.id === selectedTenantId);
+    if (selectedTenant?.locationId) {
+      const loc = locationsList.find(l => l.id === selectedTenant.locationId);
+      setRepairSalesTaxPercent(loc ? loc.salesTaxPercent.toString() : "6.35");
+    } else {
+      setRepairSalesTaxPercent("6.35");
+    }
   };
 
   const handleCreateRepair = async () => {

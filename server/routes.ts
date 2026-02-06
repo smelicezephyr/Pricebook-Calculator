@@ -242,8 +242,72 @@ export async function registerRoutes(
     clientId: tenant.clientId.substring(0, 8) + "...",
     clientSecret: "••••••••",
     appKey: tenant.appKey.substring(0, 8) + "...",
+    locationId: tenant.locationId,
     isActive: tenant.isActive,
+    sortOrder: tenant.sortOrder,
     createdAt: tenant.createdAt,
+  });
+
+  // Location Routes
+  app.get("/api/locations", async (_req, res) => {
+    const allLocations = await storage.getLocations();
+    res.json(allLocations);
+  });
+
+  app.post("/api/locations", async (req, res) => {
+    try {
+      const { name, salesTaxPercent } = req.body;
+      if (!name || !name.trim()) {
+        return res.status(400).json({ message: "Location name is required" });
+      }
+      const taxVal = parseFloat(salesTaxPercent);
+      if (isNaN(taxVal) || taxVal < 0 || taxVal > 100) {
+        return res.status(400).json({ message: "Sales tax must be a number between 0 and 100" });
+      }
+      const location = await storage.createLocation({
+        name: name.trim(),
+        salesTaxPercent: String(taxVal),
+      });
+      res.status(201).json(location);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.put("/api/locations/:id", async (req, res) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid ID" });
+    }
+    try {
+      const { name, salesTaxPercent } = req.body;
+      const updates: any = {};
+      if (name !== undefined) updates.name = name.trim();
+      if (salesTaxPercent !== undefined) {
+        const taxVal = parseFloat(salesTaxPercent);
+        if (isNaN(taxVal) || taxVal < 0 || taxVal > 100) {
+          return res.status(400).json({ message: "Sales tax must be a number between 0 and 100" });
+        }
+        updates.salesTaxPercent = String(taxVal);
+      }
+      const location = await storage.updateLocation(id, updates);
+      res.json(location);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/locations/:id", async (req, res) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid ID" });
+    }
+    try {
+      await storage.deleteLocation(id);
+      res.status(204).end();
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
   });
 
   // Tenant Routes
