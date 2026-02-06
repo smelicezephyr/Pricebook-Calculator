@@ -10,10 +10,10 @@ export default function RepairCalculator() {
   const { settings, isLoading: settingsLoading } = useSettings();
 
   // Input state
-  const [partsCost, setPartsCost] = useState("0");
+  const [partsCost, setPartsCost] = useState("");
   const [materialMarkup, setMaterialMarkup] = useState("200");
   const [laborRate, setLaborRate] = useState("175.00");
-  const [laborHours, setLaborHours] = useState("1");
+  const [laborHours, setLaborHours] = useState("");
   const [burdenPercent, setBurdenPercent] = useState("20.00");
   const [salesTaxPercent, setSalesTaxPercent] = useState("6.35");
   const [commissionPercent, setCommissionPercent] = useState("10.00");

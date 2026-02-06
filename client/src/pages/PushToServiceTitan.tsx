@@ -147,11 +147,11 @@ export default function PushToServiceTitan() {
   const [repairTaxable, setRepairTaxable] = useState(true);
   const [repairAllowDiscounts, setRepairAllowDiscounts] = useState(true);
   const [repairAllowMembership, setRepairAllowMembership] = useState(true);
-  const [repairLaborHours, setRepairLaborHours] = useState("1");
+  const [repairLaborHours, setRepairLaborHours] = useState("");
   const [repairLaborRate, setRepairLaborRate] = useState("175");
   const [repairGlAccount, setRepairGlAccount] = useState<string>("Revenue");
   const [repairCategoryId, setRepairCategoryId] = useState<number | null>(null);
-  const [repairMaterialsCost, setRepairMaterialsCost] = useState("0");
+  const [repairMaterialsCost, setRepairMaterialsCost] = useState("");
   const [repairMaterialMarkup, setRepairMaterialMarkup] = useState("200");
   const [repairSalesTaxPercent, setRepairSalesTaxPercent] = useState("6.35");
   const [repairBurdenPercent, setRepairBurdenPercent] = useState("20.00");
