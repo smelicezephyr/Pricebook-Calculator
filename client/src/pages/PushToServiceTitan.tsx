@@ -157,7 +157,7 @@ export default function PushToServiceTitan() {
   const [repairBurdenPercent, setRepairBurdenPercent] = useState("20.00");
   const [repairCommissionPercent, setRepairCommissionPercent] = useState("10.00");
   const [repairFinancingFeePercent, setRepairFinancingFeePercent] = useState("4");
-  const [repairHighestTechRate, setRepairHighestTechRate] = useState("150");
+  const [repairHighestTechRate, setRepairHighestTechRate] = useState("");
   const [repairPsiMode, setRepairPsiMode] = useState(false);
 
   // Handle PSI mode toggle for New System Task

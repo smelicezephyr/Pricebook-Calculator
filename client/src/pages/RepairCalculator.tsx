@@ -18,7 +18,7 @@ export default function RepairCalculator() {
   const [salesTaxPercent, setSalesTaxPercent] = useState("6.35");
   const [commissionPercent, setCommissionPercent] = useState("10.00");
   const [financingFeePercent, setFinancingFeePercent] = useState("4.00");
-  const [highestTechRate, setHighestTechRate] = useState("150");
+  const [highestTechRate, setHighestTechRate] = useState("");
   const [roundUp, setRoundUp] = useState(false);
   const [psiMode, setPsiMode] = useState(false);
 
@@ -116,6 +116,7 @@ export default function RepairCalculator() {
     setLaborRate("175.00");
     setBurdenPercent(settings?.laborBurdenPercent || "20.00");
     setFinancingFeePercent("4.00");
+    setHighestTechRate("");
     setRoundUp(false);
   };
 
@@ -233,7 +234,7 @@ export default function RepairCalculator() {
 
               <InputMoney
                 label="Highest Tech Pay Rate"
-                placeholder="150.00"
+                placeholder="0.00"
                 value={highestTechRate}
                 onChange={(e) => setHighestTechRate(e.target.value)}
                 data-testid="input-highest-tech-rate"
