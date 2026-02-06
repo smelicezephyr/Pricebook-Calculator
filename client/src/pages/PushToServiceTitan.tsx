@@ -296,8 +296,9 @@ export default function PushToServiceTitan() {
     const totalBeforeRounding = subtotal4 + financingFee;
     const totalPrice = roundUp ? Math.ceil(totalBeforeRounding) : totalBeforeRounding;
 
-    // COGS = raw parts + direct labor
-    const cogs = partsTotal + directLaborCost;
+    // COGS uses flat $150/hr for labor (not the billed labor rate)
+    const flatLaborCost = 150 * laborHoursVal;
+    const cogs = partsTotal + flatLaborCost;
     const grossMargin = totalPrice - cogs;
     const grossMarginPercent = totalPrice > 0 ? (grossMargin / totalPrice) * 100 : 0;
 

@@ -85,8 +85,9 @@ export default function RepairCalculator() {
   const totalBeforeRounding = subtotal4 + financingFee;
   const totalPrice = roundUp ? Math.ceil(totalBeforeRounding) : totalBeforeRounding;
 
-  // Margin calculation - COGS = raw parts cost + direct labor (what you actually pay out)
-  const cogs = partsTotal + directLaborCost;
+  // Margin calculation - COGS uses flat $150/hr for labor (not the billed labor rate)
+  const flatLaborCost = 150 * laborHoursVal;
+  const cogs = partsTotal + flatLaborCost;
   const grossMargin = totalPrice - cogs;
   const grossMarginPercent = totalPrice > 0 ? (grossMargin / totalPrice) * 100 : 0;
 
