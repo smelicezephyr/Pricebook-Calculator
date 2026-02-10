@@ -2110,7 +2110,7 @@ export default function PushToServiceTitan() {
                             data-testid="select-repair-markup"
                             className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-medium ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                           >
-                            {Array.from({ length: 20 }, (_, i) => 200 - i * 10).map((opt) => (
+                            {Array.from({ length: 30 }, (_, i) => 300 - i * 10).map((opt) => (
                               <option key={opt} value={opt}>
                                 {opt}%
                               </option>

@@ -35,7 +35,7 @@ export default function RepairCalculator() {
     }
   };
 
-  const markupOptions = Array.from({ length: 20 }, (_, i) => 200 - i * 10);
+  const markupOptions = Array.from({ length: 30 }, (_, i) => 300 - i * 10);
 
   useEffect(() => {
     if (settings) {
