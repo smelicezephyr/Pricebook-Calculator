@@ -115,6 +115,9 @@ export default function PushToServiceTitan() {
       setCommissionPercent(settings.commissionPercent);
       setCommissionBurdenPercent(settings.commissionBurdenPercent);
       setFinancingFeePercent(settings.financingFeePercent);
+      if (!repairPsiMode && !selectedTenantId) {
+        setRepairSalesTaxPercent(settings.salesTaxPercent);
+      }
     }
   }, [settings]);
 
@@ -156,7 +159,7 @@ export default function PushToServiceTitan() {
   const [repairCategoryId, setRepairCategoryId] = useState<number | null>(null);
   const [repairMaterialsCost, setRepairMaterialsCost] = useState("");
   const [repairMaterialMarkup, setRepairMaterialMarkup] = useState("200");
-  const [repairSalesTaxPercent, setRepairSalesTaxPercent] = useState("6.35");
+  const [repairSalesTaxPercent, setRepairSalesTaxPercent] = useState(settings?.salesTaxPercent || "6.35");
   const [repairBurdenPercent, setRepairBurdenPercent] = useState("20.00");
   const [repairCommissionPercent, setRepairCommissionPercent] = useState("10.00");
   const [repairFinancingFeePercent, setRepairFinancingFeePercent] = useState("4");
@@ -186,16 +189,17 @@ export default function PushToServiceTitan() {
       setRepairLaborRate("175");
       setRepairGlAccount("Revenue");
       setRepairFinancingFeePercent("4");
+      const fallbackTax = settings?.salesTaxPercent || "6.35";
       const selectedTenant = tenants.find(t => t.id === selectedTenantId);
       if (selectedTenant?.locationId) {
         const loc = locationsList.find(l => l.id === selectedTenant.locationId);
         if (loc) {
           setRepairSalesTaxPercent(loc.salesTaxPercent.toString());
         } else {
-          setRepairSalesTaxPercent("6.35");
+          setRepairSalesTaxPercent(fallbackTax);
         }
       } else {
-        setRepairSalesTaxPercent("6.35");
+        setRepairSalesTaxPercent(fallbackTax);
       }
     }
   };
@@ -381,11 +385,12 @@ export default function PushToServiceTitan() {
     setRepairGlAccount("Revenue");
 
     const selectedTenant = tenants.find(t => t.id === id);
+    const fallbackTax = settings?.salesTaxPercent || "6.35";
     if (selectedTenant?.locationId) {
       const loc = locationsList.find(l => l.id === selectedTenant.locationId);
-      setRepairSalesTaxPercent(loc ? loc.salesTaxPercent.toString() : "6.35");
+      setRepairSalesTaxPercent(loc ? loc.salesTaxPercent.toString() : fallbackTax);
     } else {
-      setRepairSalesTaxPercent("6.35");
+      setRepairSalesTaxPercent(fallbackTax);
     }
 
     try {
@@ -610,12 +615,13 @@ export default function PushToServiceTitan() {
     setRepairImagePreview(null);
     setRepairPsiMode(false);
     setRepairLaborMode("dollars");
+    const fallbackTax = settings?.salesTaxPercent || "6.35";
     const selectedTenant = tenants.find(t => t.id === selectedTenantId);
     if (selectedTenant?.locationId) {
       const loc = locationsList.find(l => l.id === selectedTenant.locationId);
-      setRepairSalesTaxPercent(loc ? loc.salesTaxPercent.toString() : "6.35");
+      setRepairSalesTaxPercent(loc ? loc.salesTaxPercent.toString() : fallbackTax);
     } else {
-      setRepairSalesTaxPercent("6.35");
+      setRepairSalesTaxPercent(fallbackTax);
     }
   };
 
