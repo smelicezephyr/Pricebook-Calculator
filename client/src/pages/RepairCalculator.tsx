@@ -235,7 +235,7 @@ export default function RepairCalculator() {
             <div className="space-y-2">
               <div className="flex items-center justify-end gap-2">
                 <Label htmlFor="laborMode" className="text-sm font-medium cursor-pointer">
-                  Labor % of Job
+                  Production Pay
                 </Label>
                 <Switch
                   id="laborMode"

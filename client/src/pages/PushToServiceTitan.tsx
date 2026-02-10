@@ -2140,7 +2140,7 @@ export default function PushToServiceTitan() {
                       <div className="space-y-3">
                         <div className="flex items-center justify-end gap-2">
                           <Label htmlFor="repairLaborMode" className="text-sm font-medium cursor-pointer">
-                            Labor % of Job
+                            Production Pay
                           </Label>
                           <Switch
                             id="repairLaborMode"
