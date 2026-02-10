@@ -1377,7 +1377,7 @@ export default function PushToServiceTitan() {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
                       <div className="space-y-2">
-                        <Label htmlFor="financingFeePercent">Financing Fee %</Label>
+                        <Label htmlFor="financingFeePercent">Finance Fee %</Label>
                         <div className="relative">
                           <Input
                             id="financingFeePercent"
@@ -1393,7 +1393,7 @@ export default function PushToServiceTitan() {
                           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Financing fee as percentage of price
+                          Financing fee and/or credit card processing fee
                         </p>
                       </div>
                     </div>
@@ -1660,7 +1660,7 @@ export default function PushToServiceTitan() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="newTaskFinancing">Financing Fee %</Label>
+                          <Label htmlFor="newTaskFinancing">Finance Fee %</Label>
                           <div className="relative">
                             <Input
                               id="newTaskFinancing"
@@ -2244,7 +2244,8 @@ export default function PushToServiceTitan() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="repairFinancing">Financing Fee %</Label>
+                          <Label htmlFor="repairFinancing">Finance Fee %</Label>
+                          <p className="text-xs text-muted-foreground">Financing fee and/or credit card processing fee</p>
                           <div className="relative">
                             <Input
                               id="repairFinancing"
@@ -2302,7 +2303,7 @@ export default function PushToServiceTitan() {
                           <span className="font-medium">${repairCalculations.burdenedCommission.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Financing Fee ({repairFinancingFeePercent}%)</span>
+                          <span className="text-muted-foreground">Finance Fee ({repairFinancingFeePercent}%)</span>
                           <span className="font-medium">${repairCalculations.financingFee.toFixed(2)}</span>
                         </div>
                         
