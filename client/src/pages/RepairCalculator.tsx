@@ -233,9 +233,9 @@ export default function RepairCalculator() {
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-end gap-2">
                 <Label htmlFor="laborMode" className="text-sm font-medium cursor-pointer">
-                  % of Job
+                  Labor % of Job
                 </Label>
                 <Switch
                   id="laborMode"
@@ -313,8 +313,8 @@ export default function RepairCalculator() {
               />
               <p className="text-xs text-muted-foreground -mt-1 col-span-full">Financing fee and/or credit card processing fee</p>
 
-              <div className="flex items-center justify-between pt-2">
-                <Label htmlFor="roundUp" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-pointer">
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Label htmlFor="roundUp" className="text-sm font-medium cursor-pointer">
                   Round Up
                 </Label>
                 <Switch
