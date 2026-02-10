@@ -112,7 +112,7 @@ export default function RepairCalculator() {
     ? 0
     : highestTechRateVal * laborHoursVal;
   const burdenedTechLabor = techLaborCost * (1 + burdenRate);
-  const cogs = partsTotal + burdenedTechLabor;
+  const cogs = partsTotal + burdenedTechLabor + burdenedCommission;
   const grossMargin = totalPrice - cogs;
   const grossMarginPercent = totalPrice > 0 ? (grossMargin / totalPrice) * 100 : 0;
 
@@ -440,7 +440,7 @@ export default function RepairCalculator() {
 
               <div className="space-y-1 pt-2 bg-muted/30 rounded-lg p-3 -mx-1">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">COGS (Parts + Direct Labor)</span>
+                  <span className="text-muted-foreground">COGS (Parts + Labor + Commission)</span>
                   <span className="font-medium">{formatCurrency(cogs)}</span>
                 </div>
                 <div className="flex justify-between text-sm">

@@ -339,7 +339,7 @@ export default function PushToServiceTitan() {
       ? 0
       : highestTechRateVal * laborHoursVal;
     const burdenedTechLabor = techLaborCost * (1 + burdenRate);
-    const cogs = partsTotal + burdenedTechLabor;
+    const cogs = partsTotal + burdenedTechLabor + burdenedCommission;
     const grossMargin = totalPrice - cogs;
     const grossMarginPercent = totalPrice > 0 ? (grossMargin / totalPrice) * 100 : 0;
 
@@ -2309,7 +2309,7 @@ export default function PushToServiceTitan() {
                         {/* COGS & Burden Summary */}
                         <div className="border-t pt-2 space-y-1 bg-muted/30 rounded p-2 -mx-1">
                           <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">COGS (Parts + Direct Labor)</span>
+                            <span className="text-muted-foreground">COGS (Parts + Labor + Commission)</span>
                             <span className="font-medium">${repairCalculations.cogs.toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between text-sm">
