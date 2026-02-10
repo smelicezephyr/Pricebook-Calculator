@@ -20,7 +20,8 @@ export default function RepairCalculator() {
   const [highestTechRate, setHighestTechRate] = useState("");
   const [roundUp, setRoundUp] = useState(false);
   const [psiMode, setPsiMode] = useState(false);
-  const [commissionMode, setCommissionMode] = useState<"hourly" | "selling">("hourly");
+  const [laborMode, setLaborMode] = useState<"dollars" | "percent">("dollars");
+  const [laborPercent, setLaborPercent] = useState("10.00");
 
   const handlePsiToggle = (enabled: boolean) => {
     setPsiMode(enabled);
@@ -51,6 +52,7 @@ export default function RepairCalculator() {
   const markupRate = (parseFloat(materialMarkup) || 200) / 100;
   const laborRateVal = parseFloat(laborRate) || 0;
   const laborHoursVal = parseFloat(laborHours) || 0;
+  const laborPercentVal = (parseFloat(laborPercent) || 0) / 100;
   const burdenRate = (parseFloat(burdenPercent) || 0) / 100;
   const taxRate = (parseFloat(salesTaxPercent) || 0) / 100;
   const commissionRate = (parseFloat(commissionPercent) || 0) / 100;
@@ -62,11 +64,10 @@ export default function RepairCalculator() {
   const markupAmount = subtotal1 * markupRate;
   const subtotal2 = subtotal1 + markupAmount;
 
-  const directLaborCost = laborRateVal * laborHoursVal;
-  const laborBurden = directLaborCost * burdenRate;
-  const burdenedLaborCost = directLaborCost + laborBurden;
-  const subtotal3 = subtotal2 + burdenedLaborCost;
-
+  let directLaborCost: number;
+  let laborBurden: number;
+  let burdenedLaborCost: number;
+  let subtotal3: number;
   let directCommission: number;
   let commissionBurden: number;
   let burdenedCommission: number;
@@ -74,29 +75,44 @@ export default function RepairCalculator() {
   let financingFee: number;
   let totalBeforeRounding: number;
 
-  if (commissionMode === "selling") {
-    const denominator = 1 - commissionRate * (1 + burdenRate) - financingRate;
-    const totalPrice = denominator > 0 ? subtotal3 / denominator : subtotal3;
+  if (laborMode === "percent") {
+    const denominator = 1 - laborPercentVal * (1 + burdenRate) - commissionRate * (1 + burdenRate) - financingRate;
+    const totalPriceCalc = denominator > 0 ? subtotal2 / denominator : subtotal2;
 
-    directCommission = totalPrice * commissionRate;
+    directLaborCost = totalPriceCalc * laborPercentVal;
+    laborBurden = directLaborCost * burdenRate;
+    burdenedLaborCost = directLaborCost + laborBurden;
+    subtotal3 = subtotal2 + burdenedLaborCost;
+
+    directCommission = totalPriceCalc * commissionRate;
     commissionBurden = directCommission * burdenRate;
     burdenedCommission = directCommission + commissionBurden;
-    financingFee = totalPrice * financingRate;
+    financingFee = totalPriceCalc * financingRate;
     subtotal4 = subtotal3 + burdenedCommission;
     totalBeforeRounding = subtotal4 + financingFee;
   } else {
-    directCommission = subtotal3 * commissionRate;
+    directLaborCost = laborRateVal * laborHoursVal;
+    laborBurden = directLaborCost * burdenRate;
+    burdenedLaborCost = directLaborCost + laborBurden;
+    subtotal3 = subtotal2 + burdenedLaborCost;
+
+    const denominator = 1 - commissionRate * (1 + burdenRate) - financingRate;
+    const totalPriceCalc = denominator > 0 ? subtotal3 / denominator : subtotal3;
+
+    directCommission = totalPriceCalc * commissionRate;
     commissionBurden = directCommission * burdenRate;
     burdenedCommission = directCommission + commissionBurden;
+    financingFee = totalPriceCalc * financingRate;
     subtotal4 = subtotal3 + burdenedCommission;
-    financingFee = subtotal4 * financingRate;
     totalBeforeRounding = subtotal4 + financingFee;
   }
 
   const totalPrice = roundUp ? Math.ceil(totalBeforeRounding) : totalBeforeRounding;
 
   const highestTechRateVal = parseFloat(highestTechRate) || 0;
-  const techLaborCost = highestTechRateVal * laborHoursVal;
+  const techLaborCost = laborMode === "percent"
+    ? highestTechRateVal * 1
+    : highestTechRateVal * laborHoursVal;
   const burdenedTechLabor = techLaborCost * (1 + burdenRate);
   const cogs = partsTotal + burdenedTechLabor;
   const grossMargin = totalPrice - cogs;
@@ -118,7 +134,8 @@ export default function RepairCalculator() {
     setMaterialMarkup("200");
     setLaborHours("");
     setPsiMode(false);
-    setCommissionMode("hourly");
+    setLaborMode("dollars");
+    setLaborPercent("10.00");
     setSalesTaxPercent(settings?.salesTaxPercent || "6.35");
     setCommissionPercent(settings?.commissionPercent || "10.00");
     setLaborRate(settings?.laborHourlyRate || "175.00");
@@ -216,25 +233,46 @@ export default function RepairCalculator() {
             <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
               <span className="w-5 h-5 rounded bg-blue-500/10 text-blue-600 flex items-center justify-center text-[10px] font-bold">2</span>
               <h2 className="font-display font-semibold text-sm">Labor</h2>
+              <button
+                type="button"
+                onClick={() => setLaborMode(laborMode === "dollars" ? "percent" : "dollars")}
+                className="ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground hover-elevate cursor-pointer"
+                data-testid="button-labor-mode"
+              >
+                {laborMode === "percent" ? "% of Job" : "$ + Hours"}
+              </button>
             </div>
 
             <div className="space-y-2">
-              <InputMoney
-                label="Labor Rate"
-                placeholder="125.00"
-                value={laborRate}
-                onChange={(e) => setLaborRate(e.target.value)}
-                data-testid="input-labor-rate"
-              />
+              {laborMode === "percent" ? (
+                <InputMoney
+                  label="Labor %"
+                  type="percent"
+                  placeholder="10.00"
+                  value={laborPercent}
+                  onChange={(e) => setLaborPercent(e.target.value)}
+                  data-testid="input-labor-percent"
+                />
+              ) : (
+                <>
+                  <InputMoney
+                    label="Labor Rate"
+                    placeholder="125.00"
+                    value={laborRate}
+                    onChange={(e) => setLaborRate(e.target.value)}
+                    data-testid="input-labor-rate"
+                  />
 
-              <InputMoney
-                label="Labor Hours"
-                type="number"
-                placeholder="1"
-                value={laborHours}
-                onChange={(e) => setLaborHours(e.target.value)}
-                data-testid="input-labor-hours"
-              />
+                  <InputMoney
+                    label="Labor Hours"
+                    type="number"
+                    placeholder="1"
+                    value={laborHours}
+                    onChange={(e) => setLaborHours(e.target.value)}
+                    data-testid="input-labor-hours"
+                  />
+                </>
+              )}
 
               <InputMoney
                 label="Highest Tech Pay Rate"
@@ -262,29 +300,14 @@ export default function RepairCalculator() {
                 data-testid="input-burden"
               />
 
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Commission %
-                  </Label>
-                  <button
-                    type="button"
-                    onClick={() => setCommissionMode(commissionMode === "hourly" ? "selling" : "hourly")}
-                    className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground hover-elevate cursor-pointer"
-                    data-testid="button-commission-mode"
-                  >
-                    {commissionMode === "selling" ? "% of Job" : "% of Subtotal"}
-                  </button>
-                </div>
-                <InputMoney
-                  label=""
-                  type="percent"
-                  placeholder="10.00"
-                  value={commissionPercent}
-                  onChange={(e) => setCommissionPercent(e.target.value)}
-                  data-testid="input-commission"
-                />
-              </div>
+              <InputMoney
+                label="Commission %"
+                type="percent"
+                placeholder="10.00"
+                value={commissionPercent}
+                onChange={(e) => setCommissionPercent(e.target.value)}
+                data-testid="input-commission"
+              />
 
               <InputMoney
                 label="Financing Fee %"
@@ -380,7 +403,11 @@ export default function RepairCalculator() {
 
               <div className="space-y-1 pt-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Labor ({laborHoursVal} hrs × {formatCurrency(laborRateVal)}/hr)</span>
+                  <span className="text-muted-foreground">
+                    {laborMode === "percent"
+                      ? `Labor (${laborPercent}% of Job)`
+                      : `Labor (${laborHoursVal} hrs × ${formatCurrency(laborRateVal)}/hr)`}
+                  </span>
                   <span className="font-medium">{formatCurrency(directLaborCost)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -395,12 +422,7 @@ export default function RepairCalculator() {
 
               <div className="space-y-1 pt-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    Commission ({commissionPercent}%)
-                    {commissionMode === "selling" && (
-                      <span className="ml-1 text-xs text-primary">(% of Job)</span>
-                    )}
-                  </span>
+                  <span className="text-muted-foreground">Commission ({commissionPercent}%)</span>
                   <span className="font-medium">{formatCurrency(directCommission)}</span>
                 </div>
                 <div className="flex justify-between text-sm">

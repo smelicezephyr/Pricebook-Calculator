@@ -162,7 +162,8 @@ export default function PushToServiceTitan() {
   const [repairFinancingFeePercent, setRepairFinancingFeePercent] = useState("4");
   const [repairHighestTechRate, setRepairHighestTechRate] = useState("");
   const [repairPsiMode, setRepairPsiMode] = useState(false);
-  const [repairCommissionMode, setRepairCommissionMode] = useState<"hourly" | "selling">("hourly");
+  const [repairLaborMode, setRepairLaborMode] = useState<"dollars" | "percent">("dollars");
+  const [repairLaborPercent, setRepairLaborPercent] = useState("10.00");
 
   // Handle PSI mode toggle for New System Task
   const handleNewTaskPsiToggle = (enabled: boolean) => {
@@ -274,31 +275,26 @@ export default function PushToServiceTitan() {
 
   // Calculate price for repair task (matching RepairCalculator logic)
   const repairCalculations = useMemo(() => {
-    // Rates
     const partsTotal = parseFloat(repairMaterialsCost) || 0;
     const markupRate = (parseFloat(repairMaterialMarkup) || 200) / 100;
     const laborRateVal = parseFloat(repairLaborRate) || 0;
     const laborHoursVal = parseFloat(repairLaborHours) || 0;
+    const laborPercentVal = (parseFloat(repairLaborPercent) || 0) / 100;
     const burdenRate = (parseFloat(repairBurdenPercent) || 0) / 100;
     const taxRate = (parseFloat(repairSalesTaxPercent) || 0) / 100;
     const commissionRate = (parseFloat(repairCommissionPercent) || 0) / 100;
     const financingRate = (parseFloat(repairFinancingFeePercent) || 0) / 100;
 
-    // Step 1: Parts + Tax
     const salesTax = partsTotal * taxRate;
     const subtotal1 = partsTotal + salesTax;
 
-    // Step 2: Apply markup (ADDED on top)
     const markupAmount = subtotal1 * markupRate;
     const subtotal2 = subtotal1 + markupAmount;
 
-    // Step 3: Add Labor (with burden)
-    const directLaborCost = laborRateVal * laborHoursVal;
-    const laborBurden = directLaborCost * burdenRate;
-    const burdenedLaborCost = directLaborCost + laborBurden;
-    const subtotal3 = subtotal2 + burdenedLaborCost;
-
-    // Step 4: Add Commission (with same burden rate)
+    let directLaborCost: number;
+    let laborBurden: number;
+    let burdenedLaborCost: number;
+    let subtotal3: number;
     let directCommission: number;
     let commissionBurden: number;
     let burdenedCommission: number;
@@ -306,7 +302,27 @@ export default function PushToServiceTitan() {
     let financingFee: number;
     let totalBeforeRounding: number;
 
-    if (repairCommissionMode === "selling") {
+    if (repairLaborMode === "percent") {
+      const denominator = 1 - laborPercentVal * (1 + burdenRate) - commissionRate * (1 + burdenRate) - financingRate;
+      const totalPriceCalc = denominator > 0 ? subtotal2 / denominator : subtotal2;
+
+      directLaborCost = totalPriceCalc * laborPercentVal;
+      laborBurden = directLaborCost * burdenRate;
+      burdenedLaborCost = directLaborCost + laborBurden;
+      subtotal3 = subtotal2 + burdenedLaborCost;
+
+      directCommission = totalPriceCalc * commissionRate;
+      commissionBurden = directCommission * burdenRate;
+      burdenedCommission = directCommission + commissionBurden;
+      financingFee = totalPriceCalc * financingRate;
+      subtotal4 = subtotal3 + burdenedCommission;
+      totalBeforeRounding = subtotal4 + financingFee;
+    } else {
+      directLaborCost = laborRateVal * laborHoursVal;
+      laborBurden = directLaborCost * burdenRate;
+      burdenedLaborCost = directLaborCost + laborBurden;
+      subtotal3 = subtotal2 + burdenedLaborCost;
+
       const denominator = 1 - commissionRate * (1 + burdenRate) - financingRate;
       const totalPriceCalc = denominator > 0 ? subtotal3 / denominator : subtotal3;
 
@@ -316,20 +332,14 @@ export default function PushToServiceTitan() {
       financingFee = totalPriceCalc * financingRate;
       subtotal4 = subtotal3 + burdenedCommission;
       totalBeforeRounding = subtotal4 + financingFee;
-    } else {
-      directCommission = subtotal3 * commissionRate;
-      commissionBurden = directCommission * burdenRate;
-      burdenedCommission = directCommission + commissionBurden;
-      subtotal4 = subtotal3 + burdenedCommission;
-      financingFee = subtotal4 * financingRate;
-      totalBeforeRounding = subtotal4 + financingFee;
     }
 
     const totalPrice = roundUp ? Math.ceil(totalBeforeRounding) : totalBeforeRounding;
 
-    // COGS uses highest tech pay rate (burdened) for labor
     const highestTechRateVal = parseFloat(repairHighestTechRate) || 0;
-    const techLaborCost = highestTechRateVal * laborHoursVal;
+    const techLaborCost = repairLaborMode === "percent"
+      ? highestTechRateVal * 1
+      : highestTechRateVal * laborHoursVal;
     const burdenedTechLabor = techLaborCost * (1 + burdenRate);
     const cogs = partsTotal + burdenedTechLabor;
     const grossMargin = totalPrice - cogs;
@@ -357,7 +367,7 @@ export default function PushToServiceTitan() {
       grossMarginPercent,
       laborHours: laborHoursVal,
     };
-  }, [repairMaterialsCost, repairMaterialMarkup, repairLaborRate, repairLaborHours, repairBurdenPercent, repairSalesTaxPercent, repairCommissionPercent, repairFinancingFeePercent, repairHighestTechRate, roundUp, repairCommissionMode]);
+  }, [repairMaterialsCost, repairMaterialMarkup, repairLaborRate, repairLaborHours, repairLaborPercent, repairBurdenPercent, repairSalesTaxPercent, repairCommissionPercent, repairFinancingFeePercent, repairHighestTechRate, roundUp, repairLaborMode]);
 
   const repairCalculatedPrice = repairCalculations.price;
 
@@ -601,6 +611,8 @@ export default function PushToServiceTitan() {
     setRepairImage(null);
     setRepairImagePreview(null);
     setRepairPsiMode(false);
+    setRepairLaborMode("dollars");
+    setRepairLaborPercent("10.00");
     const selectedTenant = tenants.find(t => t.id === selectedTenantId);
     if (selectedTenant?.locationId) {
       const loc = locationsList.find(l => l.id === selectedTenant.locationId);
@@ -2128,35 +2140,70 @@ export default function PushToServiceTitan() {
                       </div>
 
                       {/* Labor Row */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="repairLaborRate">Labor Rate (per hour)</Label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                            <Input
-                              id="repairLaborRate"
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={repairLaborRate}
-                              onChange={(e) => setRepairLaborRate(e.target.value)}
-                              className="pl-7"
-                              data-testid="input-repair-labor-rate"
-                            />
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label>Labor</Label>
+                          <button
+                            type="button"
+                            onClick={() => setRepairLaborMode(repairLaborMode === "dollars" ? "percent" : "dollars")}
+                            className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground hover-elevate cursor-pointer"
+                            data-testid="button-repair-labor-mode"
+                          >
+                            {repairLaborMode === "percent" ? "% of Job" : "$ + Hours"}
+                          </button>
+                        </div>
+                        {repairLaborMode === "percent" ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="repairLaborPercent">Labor %</Label>
+                              <div className="relative">
+                                <Input
+                                  id="repairLaborPercent"
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  max="100"
+                                  value={repairLaborPercent}
+                                  onChange={(e) => setRepairLaborPercent(e.target.value)}
+                                  className="pr-7"
+                                  data-testid="input-repair-labor-percent"
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="repairLaborHours">Labor Hours</Label>
-                          <Input
-                            id="repairLaborHours"
-                            type="number"
-                            step="0.25"
-                            min="0"
-                            value={repairLaborHours}
-                            onChange={(e) => setRepairLaborHours(e.target.value)}
-                            data-testid="input-repair-labor-hours"
-                          />
-                        </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="repairLaborRate">Labor Rate (per hour)</Label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                                <Input
+                                  id="repairLaborRate"
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={repairLaborRate}
+                                  onChange={(e) => setRepairLaborRate(e.target.value)}
+                                  className="pl-7"
+                                  data-testid="input-repair-labor-rate"
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="repairLaborHours">Labor Hours</Label>
+                              <Input
+                                id="repairLaborHours"
+                                type="number"
+                                step="0.25"
+                                min="0"
+                                value={repairLaborHours}
+                                onChange={(e) => setRepairLaborHours(e.target.value)}
+                                data-testid="input-repair-labor-hours"
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Highest Tech Pay Rate */}
@@ -2200,17 +2247,7 @@ export default function PushToServiceTitan() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor="repairCommission">Commission %</Label>
-                            <button
-                              type="button"
-                              onClick={() => setRepairCommissionMode(repairCommissionMode === "hourly" ? "selling" : "hourly")}
-                              className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground hover-elevate cursor-pointer"
-                              data-testid="button-repair-commission-mode"
-                            >
-                              {repairCommissionMode === "selling" ? "% of Job" : "% of Subtotal"}
-                            </button>
-                          </div>
+                          <Label htmlFor="repairCommission">Commission %</Label>
                           <div className="relative">
                             <Input
                               id="repairCommission"
@@ -2271,16 +2308,15 @@ export default function PushToServiceTitan() {
                           <span className="font-medium">${repairCalculations.markupAmount.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Labor ({repairCalculations.laborHours} hrs)</span>
+                          <span className="text-muted-foreground">
+                            {repairLaborMode === "percent"
+                              ? `Labor (${repairLaborPercent}% of Job)`
+                              : `Labor (${repairCalculations.laborHours} hrs)`}
+                          </span>
                           <span className="font-medium">${repairCalculations.burdenedLaborCost.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">
-                            Commission
-                            {repairCommissionMode === "selling" && (
-                              <span className="ml-1 text-xs text-primary">(% of Job)</span>
-                            )}
-                          </span>
+                          <span className="text-muted-foreground">Commission</span>
                           <span className="font-medium">${repairCalculations.burdenedCommission.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
