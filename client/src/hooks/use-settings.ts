@@ -1,6 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type InsertSettings } from "@shared/routes";
+import { api } from "@shared/routes";
+import type { InsertSettings } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+
+const LOCAL_SETTINGS_KEY = "pricebookcalc_settings";
+
+function getLocalSettings(): Partial<InsertSettings> | null {
+  try {
+    const stored = localStorage.getItem(LOCAL_SETTINGS_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return null;
+}
+
+function saveLocalSettings(data: InsertSettings) {
+  try {
+    localStorage.setItem(LOCAL_SETTINGS_KEY, JSON.stringify(data));
+  } catch {}
+}
 
 export function useSettings() {
   const { toast } = useToast();
@@ -11,12 +28,19 @@ export function useSettings() {
     queryFn: async () => {
       const res = await fetch(api.settings.get.path, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch settings");
-      return api.settings.get.responses[200].parse(await res.json());
+      const serverSettings = api.settings.get.responses[200].parse(await res.json());
+      const localSettings = getLocalSettings();
+      if (localSettings) {
+        return { ...serverSettings, ...localSettings, id: serverSettings.id };
+      }
+      return serverSettings;
     },
   });
 
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: InsertSettings) => {
+      saveLocalSettings(data);
+
       const res = await fetch(api.settings.update.path, {
         method: api.settings.update.method,
         headers: { "Content-Type": "application/json" },
@@ -38,7 +62,7 @@ export function useSettings() {
       queryClient.invalidateQueries({ queryKey: [api.settings.get.path] });
       toast({
         title: "Settings Saved",
-        description: "Your calculator configuration has been updated.",
+        description: "Your settings have been saved to this device.",
       });
     },
     onError: (error) => {

@@ -159,3 +159,10 @@ shared/           # Shared code between client/server
 - PSI mode toggle off restores location-based tax; fallback is 6.35% if no location assigned
 - API endpoints: GET/POST/PUT/DELETE /api/locations
 - Location displayed in tenant cards on Tenants page
+
+### Per-Device Settings Cache (February 2026)
+- Settings are saved to browser localStorage (`pricebookcalc_settings` key) when user saves
+- Each device/browser retains its own saved settings independently
+- On load, localStorage values override database defaults
+- Settings are also saved to the database as a shared fallback
+- If no local settings exist, database settings are used as defaults
