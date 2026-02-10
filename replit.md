@@ -160,6 +160,15 @@ shared/           # Shared code between client/server
 - API endpoints: GET/POST/PUT/DELETE /api/locations
 - Location displayed in tenant cards on Tenants page
 
+### Commission & Labor Mode Changes (February 2026)
+- **Commission is always "% of Job"**: Commission is calculated as a percentage of the total selling price (backed into the total), no toggle needed
+- **Labor mode toggle** added to both Repair Calculator and Push to ServiceTitan repair tab:
+  - **$ + Hours** (default): Labor Rate × Labor Hours (traditional flat rate)
+  - **% of Job**: Single "Labor %" input; labor is calculated as a percentage of total selling price
+- When labor is "% of Job": `T = subtotal2 / (1 - laborRate*(1+burdenRate) - commissionRate*(1+burdenRate) - financingRate)`
+- When labor is "$ + Hours": `T = subtotal3 / (1 - commissionRate*(1+burdenRate) - financingRate)`
+- Both modes back commission and financing into the total price
+
 ### Per-Device Settings Cache (February 2026)
 - Settings are saved to browser localStorage (`pricebookcalc_settings` key) when user saves
 - Each device/browser retains its own saved settings independently
