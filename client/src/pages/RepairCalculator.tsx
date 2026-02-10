@@ -4,7 +4,7 @@ import { InputMoney } from "@/components/InputMoney";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { RefreshCw, Loader2 } from "lucide-react";
+import { RefreshCw, Loader2, DollarSign, TrendingUp } from "lucide-react";
 
 export default function RepairCalculator() {
   const { settings, isLoading: settingsLoading } = useSettings();
@@ -116,13 +116,15 @@ export default function RepairCalculator() {
   const grossMargin = totalPrice - cogs;
   const grossMarginPercent = totalPrice > 0 ? (grossMargin / totalPrice) * 100 : 0;
 
+  const formatPercent = (val: number) => `${val.toFixed(2)}%`;
+
   const getMarginHealth = () => {
     if (grossMarginPercent >= 50) {
-      return { status: 'strong', label: 'Strong', color: 'bg-emerald-500', textColor: 'text-emerald-600' };
+      return { status: 'strong', label: 'Margin Health: Strong', color: 'bg-emerald-500', textColor: 'text-emerald-600', glow: '0 0 8px 2px rgba(16, 185, 129, 0.6)' };
     } else if (grossMarginPercent >= 40) {
-      return { status: 'caution', label: 'Caution', color: 'bg-amber-500', textColor: 'text-amber-600' };
+      return { status: 'caution', label: 'Margin Health: Caution', color: 'bg-amber-500', textColor: 'text-amber-600', glow: '0 0 8px 2px rgba(245, 158, 11, 0.6)' };
     } else {
-      return { status: 'danger', label: 'Low', color: 'bg-red-500', textColor: 'text-red-600' };
+      return { status: 'danger', label: 'Margin Health: Low', color: 'bg-red-500', textColor: 'text-red-600', glow: '0 0 8px 2px rgba(239, 68, 68, 0.6)' };
     }
   };
   const marginHealth = getMarginHealth();
@@ -329,134 +331,189 @@ export default function RepairCalculator() {
         </div>
 
         <div className="lg:col-span-9 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-card rounded-lg p-4 shadow-sm border border-border">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-primary text-lg font-bold">$</span>
-                </div>
-                <span className="text-sm font-medium text-muted-foreground">Total Price</span>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="md:col-span-3 bg-primary text-primary-foreground rounded-xl p-5 shadow-xl shadow-primary/20 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                <DollarSign size={100} />
               </div>
-              <div className="text-4xl font-bold text-primary" data-testid="text-total-price">
-                {formatCurrency(totalPrice)}
-              </div>
-              {roundUp && totalBeforeRounding !== totalPrice && (
-                <div className="text-xs text-muted-foreground mt-1">
-                  Before rounding: {formatCurrency(totalBeforeRounding)}
+              <div className="relative z-10">
+                <div className="mb-3" data-testid="margin-health-bar">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-sm font-medium text-primary-foreground/90">{marginHealth.label}</span>
+                  </div>
+                  <div className="h-1.5 w-1/2 bg-primary-foreground/20 rounded-full overflow-visible">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${marginHealth.color}`}
+                      style={{ width: '100%', boxShadow: marginHealth.glow }}
+                    />
+                  </div>
                 </div>
-              )}
+                <h2 className="text-5xl font-display font-bold tracking-tight" data-testid="text-total-price">
+                  {formatCurrency(totalPrice)}
+                </h2>
+                {roundUp && totalBeforeRounding !== totalPrice && (
+                  <p className="text-sm text-primary-foreground/80 mt-2 font-medium">
+                    Before rounding: {formatCurrency(totalBeforeRounding)}
+                  </p>
+                )}
+              </div>
             </div>
 
-            <div className="bg-card rounded-lg p-4 shadow-sm border border-border">
-              <div className="flex items-center gap-2 mb-2">
-                <div className={`w-8 h-8 rounded-full ${marginHealth.color}/10 flex items-center justify-center`}>
-                  <span className={`${marginHealth.textColor} text-lg font-bold`}>%</span>
-                </div>
-                <span className="text-sm font-medium text-muted-foreground">Gross Margin</span>
-                <span className={`ml-auto text-xs font-medium px-2 py-0.5 rounded-full ${marginHealth.color} text-white`}>
-                  {marginHealth.label}
-                </span>
-              </div>
-              <div className={`text-4xl font-bold ${marginHealth.textColor}`} data-testid="text-margin-percent">
-                {grossMarginPercent.toFixed(1)}%
-              </div>
-              <div className="text-sm text-muted-foreground mt-1">
-                {formatCurrency(grossMargin)} profit
+            <div className="md:col-span-2 bg-card border border-border rounded-xl p-5 shadow-lg shadow-black/5 relative overflow-hidden group">
+              <div className="relative z-10">
+                <p className="text-muted-foreground font-medium text-sm mb-1">Gross Margin</p>
+                <h2 className={`text-4xl font-display font-bold tracking-tight ${marginHealth.textColor}`} data-testid="text-margin-percent">
+                  {grossMarginPercent.toFixed(2)}%
+                </h2>
+                <p className="text-sm text-muted-foreground mt-2">
+                  {formatCurrency(grossMargin)} profit
+                </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-card rounded-lg p-4 shadow-sm border border-border">
-            <h3 className="font-display font-semibold text-sm mb-4 pb-2 border-b border-border">Price Breakdown</h3>
-            
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Parts Total</span>
-                  <span className="font-medium">{formatCurrency(partsTotal)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Sales Tax ({salesTaxPercent}%)</span>
-                  <span className="font-medium">{formatCurrency(salesTax)}</span>
-                </div>
-                <div className="flex justify-between text-sm font-medium border-t border-dashed border-border pt-1">
-                  <span>Subtotal</span>
-                  <span>{formatCurrency(subtotal1)}</span>
-                </div>
-              </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
+              <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">COGS</p>
+              <p className="text-lg font-bold text-foreground" data-testid="text-cogs">{formatCurrency(cogs)}</p>
+            </div>
+            <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
+              <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Total Burden</p>
+              <p className="text-lg font-bold text-foreground" data-testid="text-total-burden">{formatCurrency(laborBurden + commissionBurden)}</p>
+            </div>
+            <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
+              <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Parts + Tax</p>
+              <p className="text-lg font-bold text-foreground" data-testid="text-parts-tax">{formatCurrency(subtotal1)}</p>
+            </div>
+            <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
+              <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Finance Fee</p>
+              <p className="text-lg font-bold text-foreground" data-testid="text-finance-fee">{formatCurrency(financingFee)}</p>
+            </div>
+          </div>
 
-              <div className="space-y-1 pt-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{materialMarkup}% Markup</span>
-                  <span className="font-medium">{formatCurrency(markupAmount)}</span>
-                </div>
-                <div className="flex justify-between text-sm font-medium border-t border-dashed border-border pt-1">
-                  <span>Subtotal</span>
-                  <span>{formatCurrency(subtotal2)}</span>
+          <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
+            <div className="mb-3">
+              <h3 className="font-display font-bold text-base flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-primary" /> Cost Breakdown
+              </h3>
+              <p className="text-[10px] text-muted-foreground mt-0.5">All costs that make up the total selling price</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">Parts & Materials</h4>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/30">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                      <span className="text-sm font-semibold text-blue-900 dark:text-blue-300">Parts + Tax + Markup</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground font-medium">
+                        ({formatPercent(totalPrice > 0 ? (subtotal2 / totalPrice) * 100 : 0)})
+                      </span>
+                      <span className="font-mono text-sm font-medium text-blue-700 dark:text-blue-400">
+                        {formatCurrency(subtotal2)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="ml-5 space-y-0.5 pt-1 border-l-2 border-blue-100/50 dark:border-blue-900/30 pl-3">
+                    {[
+                      { label: "Parts Total", value: partsTotal },
+                      { label: `Sales Tax (${salesTaxPercent}%)`, value: salesTax },
+                      { label: `Markup (${materialMarkup}%)`, value: markupAmount },
+                    ].map((sub) => (
+                      <div key={sub.label} className="flex justify-between items-center py-0.5">
+                        <span className="text-xs text-muted-foreground">{sub.label}</span>
+                        <span className="text-xs font-mono text-muted-foreground">{formatCurrency(sub.value)}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
               {laborMode !== "percent" && (
-                <div className="space-y-1 pt-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      Labor ({laborHoursVal} hrs × {formatCurrency(laborRateVal)}/hr)
-                    </span>
-                    <span className="font-medium">{formatCurrency(directLaborCost)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Labor Burden ({burdenPercent}%)</span>
-                    <span className="font-medium">{formatCurrency(laborBurden)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-medium border-t border-dashed border-border pt-1">
-                    <span>Subtotal</span>
-                    <span>{formatCurrency(subtotal3)}</span>
+                <div className="space-y-1.5">
+                  <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">Labor</h4>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                        <span className="text-sm font-semibold text-emerald-900 dark:text-emerald-300">Burdened Labor</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground font-medium">
+                          ({formatPercent(totalPrice > 0 ? (burdenedLaborCost / totalPrice) * 100 : 0)})
+                        </span>
+                        <span className="font-mono text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                          {formatCurrency(burdenedLaborCost)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="ml-5 space-y-0.5 pt-1 border-l-2 border-emerald-100/50 dark:border-emerald-900/30 pl-3">
+                      {[
+                        { label: `Labor (${laborHoursVal} hrs × ${formatCurrency(laborRateVal)}/hr)`, value: directLaborCost },
+                        { label: `Labor Burden (${burdenPercent}%)`, value: laborBurden },
+                      ].map((sub) => (
+                        <div key={sub.label} className="flex justify-between items-center py-0.5">
+                          <span className="text-xs text-muted-foreground">{sub.label}</span>
+                          <span className="text-xs font-mono text-muted-foreground">{formatCurrency(sub.value)}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
 
-              <div className="space-y-1 pt-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {laborMode === "percent" ? `Commission incl. Labor (${commissionPercent}%)` : `Commission (${commissionPercent}%)`}
-                  </span>
-                  <span className="font-medium">{formatCurrency(directCommission)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Commission Burden ({burdenPercent}%)</span>
-                  <span className="font-medium">{formatCurrency(commissionBurden)}</span>
-                </div>
-                <div className="flex justify-between text-sm font-medium border-t border-dashed border-border pt-1">
-                  <span>Subtotal</span>
-                  <span>{formatCurrency(subtotal4)}</span>
-                </div>
-              </div>
-
-              <div className="space-y-1 pt-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Finance Fee ({financingFeePercent}%)</span>
-                  <span className="font-medium">{formatCurrency(financingFee)}</span>
-                </div>
-              </div>
-
-              <div className="space-y-1 pt-2 bg-muted/30 rounded-lg p-3 -mx-1">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">COGS (Parts + Labor + Commission)</span>
-                  <span className="font-medium">{formatCurrency(cogs)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total Burden</span>
-                  <span className="font-medium">{formatCurrency(laborBurden + commissionBurden)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Gross Profit</span>
-                  <span className={`font-medium ${marginHealth.textColor}`}>{formatCurrency(grossMargin)}</span>
+              <div className="space-y-1.5">
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">
+                  {laborMode === "percent" ? "Commission (incl. Labor)" : "Commission"}
+                </h4>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100/50 dark:border-amber-900/30">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                      <span className="text-sm font-semibold text-amber-900 dark:text-amber-300">Burdened Commission</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground font-medium">
+                        ({formatPercent(totalPrice > 0 ? (burdenedCommission / totalPrice) * 100 : 0)})
+                      </span>
+                      <span className="font-mono text-sm font-medium text-amber-700 dark:text-amber-400">
+                        {formatCurrency(burdenedCommission)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="ml-5 space-y-0.5 pt-1 border-l-2 border-amber-100/50 dark:border-amber-900/30 pl-3">
+                    {[
+                      { label: `Commission (${commissionPercent}%)`, value: directCommission },
+                      { label: `Commission Burden (${burdenPercent}%)`, value: commissionBurden },
+                    ].map((sub) => (
+                      <div key={sub.label} className="flex justify-between items-center py-0.5">
+                        <span className="text-xs text-muted-foreground">{sub.label}</span>
+                        <span className="text-xs font-mono text-muted-foreground">{formatCurrency(sub.value)}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex justify-between items-center pt-4 border-t-2 border-border">
-                <span className="text-lg font-bold">Total Price</span>
-                <span className="text-2xl font-bold text-primary">{formatCurrency(totalPrice)}</span>
+              <div className="space-y-1.5">
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">Other Costs</h4>
+                <div className="flex items-center justify-between p-2.5 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
+                    <span className="text-sm text-foreground">Finance Fee ({financingFeePercent}%)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground font-medium">
+                      ({formatPercent(totalPrice > 0 ? (financingFee / totalPrice) * 100 : 0)})
+                    </span>
+                    <span className="font-mono text-sm font-medium text-muted-foreground">
+                      {formatCurrency(financingFee)}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
