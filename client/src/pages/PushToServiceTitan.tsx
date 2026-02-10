@@ -162,6 +162,7 @@ export default function PushToServiceTitan() {
   const [repairFinancingFeePercent, setRepairFinancingFeePercent] = useState("4");
   const [repairHighestTechRate, setRepairHighestTechRate] = useState("");
   const [repairPsiMode, setRepairPsiMode] = useState(false);
+  const [repairCommissionMode, setRepairCommissionMode] = useState<"hourly" | "selling">("hourly");
 
   // Handle PSI mode toggle for New System Task
   const handleNewTaskPsiToggle = (enabled: boolean) => {
@@ -298,14 +299,32 @@ export default function PushToServiceTitan() {
     const subtotal3 = subtotal2 + burdenedLaborCost;
 
     // Step 4: Add Commission (with same burden rate)
-    const directCommission = subtotal3 * commissionRate;
-    const commissionBurden = directCommission * burdenRate;
-    const burdenedCommission = directCommission + commissionBurden;
-    const subtotal4 = subtotal3 + burdenedCommission;
+    let directCommission: number;
+    let commissionBurden: number;
+    let burdenedCommission: number;
+    let subtotal4: number;
+    let financingFee: number;
+    let totalBeforeRounding: number;
 
-    // Step 5: Add Financing Fee
-    const financingFee = subtotal4 * financingRate;
-    const totalBeforeRounding = subtotal4 + financingFee;
+    if (repairCommissionMode === "selling") {
+      const denominator = 1 - commissionRate * (1 + burdenRate) - financingRate;
+      const totalPriceCalc = denominator > 0 ? subtotal3 / denominator : subtotal3;
+
+      directCommission = totalPriceCalc * commissionRate;
+      commissionBurden = directCommission * burdenRate;
+      burdenedCommission = directCommission + commissionBurden;
+      financingFee = totalPriceCalc * financingRate;
+      subtotal4 = subtotal3 + burdenedCommission;
+      totalBeforeRounding = subtotal4 + financingFee;
+    } else {
+      directCommission = subtotal3 * commissionRate;
+      commissionBurden = directCommission * burdenRate;
+      burdenedCommission = directCommission + commissionBurden;
+      subtotal4 = subtotal3 + burdenedCommission;
+      financingFee = subtotal4 * financingRate;
+      totalBeforeRounding = subtotal4 + financingFee;
+    }
+
     const totalPrice = roundUp ? Math.ceil(totalBeforeRounding) : totalBeforeRounding;
 
     // COGS uses highest tech pay rate (burdened) for labor
@@ -338,7 +357,7 @@ export default function PushToServiceTitan() {
       grossMarginPercent,
       laborHours: laborHoursVal,
     };
-  }, [repairMaterialsCost, repairMaterialMarkup, repairLaborRate, repairLaborHours, repairBurdenPercent, repairSalesTaxPercent, repairCommissionPercent, repairFinancingFeePercent, repairHighestTechRate, roundUp]);
+  }, [repairMaterialsCost, repairMaterialMarkup, repairLaborRate, repairLaborHours, repairBurdenPercent, repairSalesTaxPercent, repairCommissionPercent, repairFinancingFeePercent, repairHighestTechRate, roundUp, repairCommissionMode]);
 
   const repairCalculatedPrice = repairCalculations.price;
 
@@ -2181,7 +2200,17 @@ export default function PushToServiceTitan() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="repairCommission">Commission %</Label>
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="repairCommission">Commission %</Label>
+                            <button
+                              type="button"
+                              onClick={() => setRepairCommissionMode(repairCommissionMode === "hourly" ? "selling" : "hourly")}
+                              className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground hover-elevate cursor-pointer"
+                              data-testid="button-repair-commission-mode"
+                            >
+                              {repairCommissionMode === "selling" ? "% of Job" : "% of Subtotal"}
+                            </button>
+                          </div>
                           <div className="relative">
                             <Input
                               id="repairCommission"
@@ -2246,7 +2275,12 @@ export default function PushToServiceTitan() {
                           <span className="font-medium">${repairCalculations.burdenedLaborCost.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Commission</span>
+                          <span className="text-muted-foreground">
+                            Commission
+                            {repairCommissionMode === "selling" && (
+                              <span className="ml-1 text-xs text-primary">(% of Job)</span>
+                            )}
+                          </span>
                           <span className="font-medium">${repairCalculations.burdenedCommission.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm">

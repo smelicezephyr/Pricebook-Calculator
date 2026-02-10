@@ -9,7 +9,6 @@ import { RefreshCw, Loader2 } from "lucide-react";
 export default function RepairCalculator() {
   const { settings, isLoading: settingsLoading } = useSettings();
 
-  // Input state
   const [partsCost, setPartsCost] = useState("");
   const [materialMarkup, setMaterialMarkup] = useState("200");
   const [laborRate, setLaborRate] = useState("175.00");
@@ -21,8 +20,8 @@ export default function RepairCalculator() {
   const [highestTechRate, setHighestTechRate] = useState("");
   const [roundUp, setRoundUp] = useState(false);
   const [psiMode, setPsiMode] = useState(false);
+  const [commissionMode, setCommissionMode] = useState<"hourly" | "selling">("hourly");
 
-  // Handle PSI mode toggle
   const handlePsiToggle = (enabled: boolean) => {
     setPsiMode(enabled);
     if (enabled) {
@@ -36,10 +35,8 @@ export default function RepairCalculator() {
     }
   };
 
-  // Generate markup options from 200% down to 10% in increments of 10
   const markupOptions = Array.from({ length: 20 }, (_, i) => 200 - i * 10);
 
-  // Initialize from settings
   useEffect(() => {
     if (settings) {
       setSalesTaxPercent(settings.salesTaxPercent || "6.35");
@@ -50,7 +47,6 @@ export default function RepairCalculator() {
     }
   }, [settings]);
 
-  // Calculated values - rates
   const partsTotal = parseFloat(partsCost) || 0;
   const markupRate = (parseFloat(materialMarkup) || 200) / 100;
   const laborRateVal = parseFloat(laborRate) || 0;
@@ -60,32 +56,45 @@ export default function RepairCalculator() {
   const commissionRate = (parseFloat(commissionPercent) || 0) / 100;
   const financingRate = (parseFloat(financingFeePercent) || 0) / 100;
 
-  // Step 1: Parts + Tax
   const salesTax = partsTotal * taxRate;
   const subtotal1 = partsTotal + salesTax;
 
-  // Step 2: Apply markup (ADDED on top, not replacing)
   const markupAmount = subtotal1 * markupRate;
   const subtotal2 = subtotal1 + markupAmount;
 
-  // Step 3: Add Labor (with burden)
   const directLaborCost = laborRateVal * laborHoursVal;
   const laborBurden = directLaborCost * burdenRate;
   const burdenedLaborCost = directLaborCost + laborBurden;
   const subtotal3 = subtotal2 + burdenedLaborCost;
 
-  // Step 4: Add Commission (with same burden rate)
-  const directCommission = subtotal3 * commissionRate;
-  const commissionBurden = directCommission * burdenRate;
-  const burdenedCommission = directCommission + commissionBurden;
-  const subtotal4 = subtotal3 + burdenedCommission;
+  let directCommission: number;
+  let commissionBurden: number;
+  let burdenedCommission: number;
+  let subtotal4: number;
+  let financingFee: number;
+  let totalBeforeRounding: number;
 
-  // Step 5: Add Financing Fee
-  const financingFee = subtotal4 * financingRate;
-  const totalBeforeRounding = subtotal4 + financingFee;
+  if (commissionMode === "selling") {
+    const denominator = 1 - commissionRate * (1 + burdenRate) - financingRate;
+    const totalPrice = denominator > 0 ? subtotal3 / denominator : subtotal3;
+
+    directCommission = totalPrice * commissionRate;
+    commissionBurden = directCommission * burdenRate;
+    burdenedCommission = directCommission + commissionBurden;
+    financingFee = totalPrice * financingRate;
+    subtotal4 = subtotal3 + burdenedCommission;
+    totalBeforeRounding = subtotal4 + financingFee;
+  } else {
+    directCommission = subtotal3 * commissionRate;
+    commissionBurden = directCommission * burdenRate;
+    burdenedCommission = directCommission + commissionBurden;
+    subtotal4 = subtotal3 + burdenedCommission;
+    financingFee = subtotal4 * financingRate;
+    totalBeforeRounding = subtotal4 + financingFee;
+  }
+
   const totalPrice = roundUp ? Math.ceil(totalBeforeRounding) : totalBeforeRounding;
 
-  // Margin calculation - COGS uses highest tech pay rate (burdened) for labor
   const highestTechRateVal = parseFloat(highestTechRate) || 0;
   const techLaborCost = highestTechRateVal * laborHoursVal;
   const burdenedTechLabor = techLaborCost * (1 + burdenRate);
@@ -93,7 +102,6 @@ export default function RepairCalculator() {
   const grossMargin = totalPrice - cogs;
   const grossMarginPercent = totalPrice > 0 ? (grossMargin / totalPrice) * 100 : 0;
 
-  // Margin health calculation
   const getMarginHealth = () => {
     if (grossMarginPercent >= 50) {
       return { status: 'strong', label: 'Strong', color: 'bg-emerald-500', textColor: 'text-emerald-600' };
@@ -110,6 +118,7 @@ export default function RepairCalculator() {
     setMaterialMarkup("200");
     setLaborHours("");
     setPsiMode(false);
+    setCommissionMode("hourly");
     setSalesTaxPercent(settings?.salesTaxPercent || "6.35");
     setCommissionPercent(settings?.commissionPercent || "10.00");
     setLaborRate(settings?.laborHourlyRate || "175.00");
@@ -132,7 +141,6 @@ export default function RepairCalculator() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground">Repair Calculator</h1>
@@ -159,9 +167,7 @@ export default function RepairCalculator() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Input Column */}
         <div className="lg:col-span-3 space-y-2">
-          {/* Parts Section */}
           <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
             <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
               <span className="w-5 h-5 rounded bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">1</span>
@@ -206,7 +212,6 @@ export default function RepairCalculator() {
             </div>
           </div>
 
-          {/* Labor Section */}
           <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
             <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
               <span className="w-5 h-5 rounded bg-blue-500/10 text-blue-600 flex items-center justify-center text-[10px] font-bold">2</span>
@@ -241,7 +246,6 @@ export default function RepairCalculator() {
             </div>
           </div>
 
-          {/* Fees Section */}
           <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
             <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
               <span className="w-5 h-5 rounded bg-amber-500/10 text-amber-600 flex items-center justify-center text-[10px] font-bold">3</span>
@@ -258,14 +262,29 @@ export default function RepairCalculator() {
                 data-testid="input-burden"
               />
 
-              <InputMoney
-                label="Commission %"
-                type="percent"
-                placeholder="10.00"
-                value={commissionPercent}
-                onChange={(e) => setCommissionPercent(e.target.value)}
-                data-testid="input-commission"
-              />
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Commission %
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => setCommissionMode(commissionMode === "hourly" ? "selling" : "hourly")}
+                    className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground hover-elevate cursor-pointer"
+                    data-testid="button-commission-mode"
+                  >
+                    {commissionMode === "selling" ? "% of Job" : "% of Subtotal"}
+                  </button>
+                </div>
+                <InputMoney
+                  label=""
+                  type="percent"
+                  placeholder="10.00"
+                  value={commissionPercent}
+                  onChange={(e) => setCommissionPercent(e.target.value)}
+                  data-testid="input-commission"
+                />
+              </div>
 
               <InputMoney
                 label="Financing Fee %"
@@ -291,11 +310,8 @@ export default function RepairCalculator() {
           </div>
         </div>
 
-        {/* Results Column */}
         <div className="lg:col-span-9 space-y-4">
-          {/* Primary Results */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Total Price Card */}
             <div className="bg-card rounded-lg p-4 shadow-sm border border-border">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -313,7 +329,6 @@ export default function RepairCalculator() {
               )}
             </div>
 
-            {/* Gross Margin Card */}
             <div className="bg-card rounded-lg p-4 shadow-sm border border-border">
               <div className="flex items-center gap-2 mb-2">
                 <div className={`w-8 h-8 rounded-full ${marginHealth.color}/10 flex items-center justify-center`}>
@@ -333,12 +348,10 @@ export default function RepairCalculator() {
             </div>
           </div>
 
-          {/* Price Breakdown */}
           <div className="bg-card rounded-lg p-4 shadow-sm border border-border">
             <h3 className="font-display font-semibold text-sm mb-4 pb-2 border-b border-border">Price Breakdown</h3>
             
             <div className="space-y-3">
-              {/* Parts + Tax */}
               <div className="space-y-1">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Parts Total</span>
@@ -354,7 +367,6 @@ export default function RepairCalculator() {
                 </div>
               </div>
 
-              {/* Markup */}
               <div className="space-y-1 pt-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{materialMarkup}% Markup</span>
@@ -366,7 +378,6 @@ export default function RepairCalculator() {
                 </div>
               </div>
 
-              {/* Labor */}
               <div className="space-y-1 pt-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Labor ({laborHoursVal} hrs × {formatCurrency(laborRateVal)}/hr)</span>
@@ -382,10 +393,14 @@ export default function RepairCalculator() {
                 </div>
               </div>
 
-              {/* Commission */}
               <div className="space-y-1 pt-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Commission ({commissionPercent}%)</span>
+                  <span className="text-muted-foreground">
+                    Commission ({commissionPercent}%)
+                    {commissionMode === "selling" && (
+                      <span className="ml-1 text-xs text-primary">(% of Job)</span>
+                    )}
+                  </span>
                   <span className="font-medium">{formatCurrency(directCommission)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -398,7 +413,6 @@ export default function RepairCalculator() {
                 </div>
               </div>
 
-              {/* Financing */}
               <div className="space-y-1 pt-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Financing Fee ({financingFeePercent}%)</span>
@@ -406,7 +420,6 @@ export default function RepairCalculator() {
                 </div>
               </div>
 
-              {/* COGS & Burden Summary */}
               <div className="space-y-1 pt-2 bg-muted/30 rounded-lg p-3 -mx-1">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">COGS (Parts + Direct Labor)</span>
@@ -422,7 +435,6 @@ export default function RepairCalculator() {
                 </div>
               </div>
 
-              {/* Final Total */}
               <div className="flex justify-between items-center pt-4 border-t-2 border-border">
                 <span className="text-lg font-bold">Total Price</span>
                 <span className="text-2xl font-bold text-primary">{formatCurrency(totalPrice)}</span>
