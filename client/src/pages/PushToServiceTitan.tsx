@@ -2245,7 +2245,6 @@ export default function PushToServiceTitan() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="repairFinancing">Finance Fee %</Label>
-                          <p className="text-xs text-muted-foreground">Financing fee and/or credit card processing fee</p>
                           <div className="relative">
                             <Input
                               id="repairFinancing"
@@ -2260,6 +2259,7 @@ export default function PushToServiceTitan() {
                             />
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
                           </div>
+                          <p className="text-xs text-muted-foreground">Financing fee and/or credit card processing fee</p>
                         </div>
                       </div>
 

@@ -303,17 +303,15 @@ export default function RepairCalculator() {
                 data-testid="input-commission"
               />
 
-              <div>
-                <InputMoney
-                  label="Finance Fee %"
-                  type="percent"
-                  placeholder="6.00"
-                  value={financingFeePercent}
-                  onChange={(e) => setFinancingFeePercent(e.target.value)}
-                  data-testid="input-financing-fee"
-                />
-                <p className="text-xs text-muted-foreground mt-1">Financing fee and/or credit card processing fee</p>
-              </div>
+              <InputMoney
+                label="Finance Fee %"
+                type="percent"
+                placeholder="6.00"
+                value={financingFeePercent}
+                onChange={(e) => setFinancingFeePercent(e.target.value)}
+                data-testid="input-financing-fee"
+              />
+              <p className="text-xs text-muted-foreground -mt-1 col-span-full">Financing fee and/or credit card processing fee</p>
 
               <div className="flex items-center justify-between pt-2">
                 <Label htmlFor="roundUp" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-pointer">
