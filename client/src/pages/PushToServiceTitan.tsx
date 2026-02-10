@@ -2138,7 +2138,7 @@ export default function PushToServiceTitan() {
 
                       {/* Labor Row */}
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-end gap-2">
                           <Label htmlFor="repairLaborMode" className="text-sm font-medium cursor-pointer">
                             Labor % of Job
                           </Label>
@@ -2264,7 +2264,7 @@ export default function PushToServiceTitan() {
                       </div>
 
                       {/* Round Up Toggle */}
-                      <div className="flex items-center justify-between pt-1">
+                      <div className="flex items-center justify-end gap-2 pt-1">
                         <Label htmlFor="repairRoundUp" className="text-sm font-medium cursor-pointer">Round Up</Label>
                         <Switch
                           id="repairRoundUp"
