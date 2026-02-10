@@ -2140,17 +2140,17 @@ export default function PushToServiceTitan() {
                       </div>
 
                       {/* Labor Row */}
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <Label>Labor</Label>
-                          <button
-                            type="button"
-                            onClick={() => setRepairLaborMode(repairLaborMode === "dollars" ? "percent" : "dollars")}
-                            className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground hover-elevate cursor-pointer"
-                            data-testid="button-repair-labor-mode"
-                          >
-                            {repairLaborMode === "percent" ? "% of Job" : "$ + Hours"}
-                          </button>
+                          <Label htmlFor="repairLaborMode" className="text-sm font-medium cursor-pointer">
+                            Labor % of Job
+                          </Label>
+                          <Switch
+                            id="repairLaborMode"
+                            checked={repairLaborMode === "percent"}
+                            onCheckedChange={(checked) => setRepairLaborMode(checked ? "percent" : "dollars")}
+                            data-testid="switch-repair-labor-mode"
+                          />
                         </div>
                         {repairLaborMode === "percent" ? (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2173,58 +2173,59 @@ export default function PushToServiceTitan() {
                             </div>
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="repairLaborRate">Labor Rate (per hour)</Label>
-                              <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                          <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="repairLaborRate">Labor Rate (per hour)</Label>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                                  <Input
+                                    id="repairLaborRate"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={repairLaborRate}
+                                    onChange={(e) => setRepairLaborRate(e.target.value)}
+                                    className="pl-7"
+                                    data-testid="input-repair-labor-rate"
+                                  />
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="repairLaborHours">Labor Hours</Label>
                                 <Input
-                                  id="repairLaborRate"
+                                  id="repairLaborHours"
                                   type="number"
-                                  step="0.01"
+                                  step="0.25"
                                   min="0"
-                                  value={repairLaborRate}
-                                  onChange={(e) => setRepairLaborRate(e.target.value)}
-                                  className="pl-7"
-                                  data-testid="input-repair-labor-rate"
+                                  value={repairLaborHours}
+                                  onChange={(e) => setRepairLaborHours(e.target.value)}
+                                  data-testid="input-repair-labor-hours"
                                 />
                               </div>
                             </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="repairLaborHours">Labor Hours</Label>
-                              <Input
-                                id="repairLaborHours"
-                                type="number"
-                                step="0.25"
-                                min="0"
-                                value={repairLaborHours}
-                                onChange={(e) => setRepairLaborHours(e.target.value)}
-                                data-testid="input-repair-labor-hours"
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
 
-                      {/* Highest Tech Pay Rate */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="repairHighestTechRate">Highest Tech Pay Rate</Label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                            <Input
-                              id="repairHighestTechRate"
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={repairHighestTechRate}
-                              onChange={(e) => setRepairHighestTechRate(e.target.value)}
-                              className="pl-7"
-                              data-testid="input-repair-highest-tech-rate"
-                            />
-                          </div>
-                          <p className="text-xs text-muted-foreground">Used for gross margin calculation only</p>
-                        </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="repairHighestTechRate">Highest Tech Pay Rate</Label>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                                  <Input
+                                    id="repairHighestTechRate"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={repairHighestTechRate}
+                                    onChange={(e) => setRepairHighestTechRate(e.target.value)}
+                                    className="pl-7"
+                                    data-testid="input-repair-highest-tech-rate"
+                                  />
+                                </div>
+                                <p className="text-xs text-muted-foreground">Used for gross margin calculation only</p>
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
 
                       {/* Fees Row */}

@@ -233,17 +233,21 @@ export default function RepairCalculator() {
             <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
               <span className="w-5 h-5 rounded bg-blue-500/10 text-blue-600 flex items-center justify-center text-[10px] font-bold">2</span>
               <h2 className="font-display font-semibold text-sm">Labor</h2>
-              <button
-                type="button"
-                onClick={() => setLaborMode(laborMode === "dollars" ? "percent" : "dollars")}
-                className="ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground hover-elevate cursor-pointer"
-                data-testid="button-labor-mode"
-              >
-                {laborMode === "percent" ? "% of Job" : "$ + Hours"}
-              </button>
             </div>
 
             <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="laborMode" className="text-sm font-medium cursor-pointer">
+                  % of Job
+                </Label>
+                <Switch
+                  id="laborMode"
+                  checked={laborMode === "percent"}
+                  onCheckedChange={(checked) => setLaborMode(checked ? "percent" : "dollars")}
+                  data-testid="switch-labor-mode"
+                />
+              </div>
+
               {laborMode === "percent" ? (
                 <InputMoney
                   label="Labor %"
@@ -271,16 +275,16 @@ export default function RepairCalculator() {
                     onChange={(e) => setLaborHours(e.target.value)}
                     data-testid="input-labor-hours"
                   />
+
+                  <InputMoney
+                    label="Highest Tech Pay Rate"
+                    placeholder="0.00"
+                    value={highestTechRate}
+                    onChange={(e) => setHighestTechRate(e.target.value)}
+                    data-testid="input-highest-tech-rate"
+                  />
                 </>
               )}
-
-              <InputMoney
-                label="Highest Tech Pay Rate"
-                placeholder="0.00"
-                value={highestTechRate}
-                onChange={(e) => setHighestTechRate(e.target.value)}
-                data-testid="input-highest-tech-rate"
-              />
             </div>
           </div>
 
