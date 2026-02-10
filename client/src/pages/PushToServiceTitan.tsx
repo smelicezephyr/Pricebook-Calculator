@@ -2216,6 +2216,17 @@ export default function PushToServiceTitan() {
                         </div>
                       </div>
 
+                      {/* Round Up Toggle */}
+                      <div className="flex items-center justify-between pt-1">
+                        <Label htmlFor="repairRoundUp" className="text-sm font-medium cursor-pointer">Round Up</Label>
+                        <Switch
+                          id="repairRoundUp"
+                          checked={roundUp}
+                          onCheckedChange={setRoundUp}
+                          data-testid="switch-repair-round-up"
+                        />
+                      </div>
+
                       {/* Price Breakdown */}
                       <div className="bg-background rounded-lg p-4 space-y-3">
                         <div className="flex justify-between text-sm">
