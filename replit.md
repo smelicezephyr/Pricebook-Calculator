@@ -162,12 +162,13 @@ shared/           # Shared code between client/server
 
 ### Commission & Labor Mode Changes (February 2026)
 - **Commission is always "% of Job"**: Commission is calculated as a percentage of the total selling price (backed into the total), no toggle needed
-- **Labor mode toggle** added to both Repair Calculator and Push to ServiceTitan repair tab:
-  - **$ + Hours** (default): Labor Rate × Labor Hours (traditional flat rate)
-  - **% of Job**: Single "Labor %" input; labor is calculated as a percentage of total selling price
-- When labor is "% of Job": `T = subtotal2 / (1 - laborRate*(1+burdenRate) - commissionRate*(1+burdenRate) - financingRate)`
+- **Labor mode toggle** (Switch component) added to both Repair Calculator and Push to ServiceTitan repair tab:
+  - **$ + Hours** (default): Labor Rate × Labor Hours (traditional flat rate), plus commission as separate % of job
+  - **% of Job**: Labor becomes commission — no separate labor inputs; the Commission % field covers both labor and commission combined
+- When labor is "% of Job": Labor cost is $0, commission handles everything: `T = subtotal2 / (1 - commissionRate*(1+burdenRate) - financingRate)`
 - When labor is "$ + Hours": `T = subtotal3 / (1 - commissionRate*(1+burdenRate) - financingRate)`
-- Both modes back commission and financing into the total price
+- Price breakdown hides Labor line in "% of Job" mode and relabels Commission as "Commission incl. Labor"
+- Highest Tech Pay Rate and COGS tech labor are zeroed in "% of Job" mode (no hours to calculate)
 
 ### Per-Device Settings Cache (February 2026)
 - Settings are saved to browser localStorage (`pricebookcalc_settings` key) when user saves

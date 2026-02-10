@@ -21,7 +21,6 @@ export default function RepairCalculator() {
   const [roundUp, setRoundUp] = useState(false);
   const [psiMode, setPsiMode] = useState(false);
   const [laborMode, setLaborMode] = useState<"dollars" | "percent">("dollars");
-  const [laborPercent, setLaborPercent] = useState("10.00");
 
   const handlePsiToggle = (enabled: boolean) => {
     setPsiMode(enabled);
@@ -52,7 +51,6 @@ export default function RepairCalculator() {
   const markupRate = (parseFloat(materialMarkup) || 200) / 100;
   const laborRateVal = parseFloat(laborRate) || 0;
   const laborHoursVal = parseFloat(laborHours) || 0;
-  const laborPercentVal = (parseFloat(laborPercent) || 0) / 100;
   const burdenRate = (parseFloat(burdenPercent) || 0) / 100;
   const taxRate = (parseFloat(salesTaxPercent) || 0) / 100;
   const commissionRate = (parseFloat(commissionPercent) || 0) / 100;
@@ -76,13 +74,13 @@ export default function RepairCalculator() {
   let totalBeforeRounding: number;
 
   if (laborMode === "percent") {
-    const denominator = 1 - laborPercentVal * (1 + burdenRate) - commissionRate * (1 + burdenRate) - financingRate;
-    const totalPriceCalc = denominator > 0 ? subtotal2 / denominator : subtotal2;
+    directLaborCost = 0;
+    laborBurden = 0;
+    burdenedLaborCost = 0;
+    subtotal3 = subtotal2;
 
-    directLaborCost = totalPriceCalc * laborPercentVal;
-    laborBurden = directLaborCost * burdenRate;
-    burdenedLaborCost = directLaborCost + laborBurden;
-    subtotal3 = subtotal2 + burdenedLaborCost;
+    const denominator = 1 - commissionRate * (1 + burdenRate) - financingRate;
+    const totalPriceCalc = denominator > 0 ? subtotal3 / denominator : subtotal3;
 
     directCommission = totalPriceCalc * commissionRate;
     commissionBurden = directCommission * burdenRate;
@@ -111,7 +109,7 @@ export default function RepairCalculator() {
 
   const highestTechRateVal = parseFloat(highestTechRate) || 0;
   const techLaborCost = laborMode === "percent"
-    ? highestTechRateVal * 1
+    ? 0
     : highestTechRateVal * laborHoursVal;
   const burdenedTechLabor = techLaborCost * (1 + burdenRate);
   const cogs = partsTotal + burdenedTechLabor;
@@ -135,7 +133,6 @@ export default function RepairCalculator() {
     setLaborHours("");
     setPsiMode(false);
     setLaborMode("dollars");
-    setLaborPercent("10.00");
     setSalesTaxPercent(settings?.salesTaxPercent || "6.35");
     setCommissionPercent(settings?.commissionPercent || "10.00");
     setLaborRate(settings?.laborHourlyRate || "175.00");
@@ -249,14 +246,7 @@ export default function RepairCalculator() {
               </div>
 
               {laborMode === "percent" ? (
-                <InputMoney
-                  label="Labor %"
-                  type="percent"
-                  placeholder="10.00"
-                  value={laborPercent}
-                  onChange={(e) => setLaborPercent(e.target.value)}
-                  data-testid="input-labor-percent"
-                />
+                <p className="text-xs text-muted-foreground">Labor is included in Commission % below</p>
               ) : (
                 <>
                   <InputMoney
@@ -405,28 +395,30 @@ export default function RepairCalculator() {
                 </div>
               </div>
 
-              <div className="space-y-1 pt-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {laborMode === "percent"
-                      ? `Labor (${laborPercent}% of Job)`
-                      : `Labor (${laborHoursVal} hrs × ${formatCurrency(laborRateVal)}/hr)`}
-                  </span>
-                  <span className="font-medium">{formatCurrency(directLaborCost)}</span>
+              {laborMode !== "percent" && (
+                <div className="space-y-1 pt-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      Labor ({laborHoursVal} hrs × {formatCurrency(laborRateVal)}/hr)
+                    </span>
+                    <span className="font-medium">{formatCurrency(directLaborCost)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Labor Burden ({burdenPercent}%)</span>
+                    <span className="font-medium">{formatCurrency(laborBurden)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-medium border-t border-dashed border-border pt-1">
+                    <span>Subtotal</span>
+                    <span>{formatCurrency(subtotal3)}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Labor Burden ({burdenPercent}%)</span>
-                  <span className="font-medium">{formatCurrency(laborBurden)}</span>
-                </div>
-                <div className="flex justify-between text-sm font-medium border-t border-dashed border-border pt-1">
-                  <span>Subtotal</span>
-                  <span>{formatCurrency(subtotal3)}</span>
-                </div>
-              </div>
+              )}
 
               <div className="space-y-1 pt-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Commission ({commissionPercent}%)</span>
+                  <span className="text-muted-foreground">
+                    {laborMode === "percent" ? `Commission incl. Labor (${commissionPercent}%)` : `Commission (${commissionPercent}%)`}
+                  </span>
                   <span className="font-medium">{formatCurrency(directCommission)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
