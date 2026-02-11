@@ -283,7 +283,7 @@ export default function PushHistoryPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <CardTitle className="text-lg flex items-center gap-2">
                 <HistoryIcon className="w-5 h-5" />
@@ -295,7 +295,7 @@ export default function PushHistoryPage() {
             </div>
             <div className="flex gap-2">
               <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
-                <SelectTrigger className="w-[200px]" data-testid="select-filter-tenant">
+                <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-filter-tenant">
                   <SelectValue placeholder="Filter by tenant" />
                 </SelectTrigger>
                 <SelectContent>
@@ -341,11 +341,11 @@ export default function PushHistoryPage() {
                     className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                     data-testid={`push-history-item-${item.id}`}
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           {getStatusBadge(item.status)}
-                          <span className="font-medium">{getTenantName(item.tenantId)}</span>
+                          <span className="font-medium truncate">{getTenantName(item.tenantId)}</span>
                           <span className="text-sm text-muted-foreground">
                             {categoryIds.length} categories
                           </span>
@@ -440,14 +440,14 @@ export default function PushHistoryPage() {
                         )}
                       </div>
 
-                      <div className="flex flex-col gap-2">
+                      <div className="flex sm:flex-col flex-row flex-wrap gap-2 shrink-0">
                         {item.status === 'in_progress' && (
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => cancelMutation.mutate(item.tenantId)}
                             disabled={cancelMutation.isPending}
-                            className="gap-1 text-orange-600 border-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950"
+                            className="gap-1 text-orange-600 border-orange-300"
                             data-testid={`button-cancel-${item.id}`}
                           >
                             <StopCircle className="w-4 h-4" />
@@ -476,7 +476,7 @@ export default function PushHistoryPage() {
                           size="icon"
                           onClick={() => deleteMutation.mutate(item.id)}
                           disabled={deleteMutation.isPending}
-                          className="text-muted-foreground hover:text-destructive"
+                          className="text-muted-foreground"
                           data-testid={`button-delete-${item.id}`}
                         >
                           <Trash2 className="w-4 h-4" />
