@@ -24,6 +24,12 @@ export async function registerRoutes(
     console.error("[Startup] Failed to cleanup stale pushes:", err);
   }
   
+  const BUILD_ID = Date.now().toString();
+
+  app.get("/api/version", (_req, res) => {
+    res.json({ buildId: BUILD_ID });
+  });
+
   // Health check endpoint for deployment
   app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok" });

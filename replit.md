@@ -176,3 +176,11 @@ shared/           # Shared code between client/server
 - On load, localStorage values override database defaults
 - Settings are also saved to the database as a shared fallback
 - If no local settings exist, database settings are used as defaults
+
+### Version Check Banner (February 2026)
+- Server generates a unique build ID (timestamp) at startup
+- `/api/version` endpoint returns the current build ID
+- Frontend polls `/api/version` every 30 seconds
+- When a new build ID is detected (after republish), a sticky banner appears on all pages
+- Banner prompts users to click "Refresh Now" to load the latest version
+- Component: `client/src/components/VersionCheck.tsx`

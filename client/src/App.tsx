@@ -8,6 +8,7 @@ import { CalculatorProvider } from "@/contexts/CalculatorContext";
 import { ServiceTitanAuthProvider } from "@/contexts/ServiceTitanAuthContext";
 import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 import { PasswordGate } from "@/components/PasswordGate";
+import { VersionCheck } from "@/components/VersionCheck";
 import NotFound from "@/pages/not-found";
 import Calculator from "@/pages/Calculator";
 import RepairCalculator from "@/pages/RepairCalculator";
@@ -79,6 +80,7 @@ function App() {
         <ServiceTitanAuthProvider>
           <AdminAuthProvider>
             <CalculatorProvider>
+              <VersionCheck />
               <Toaster />
               <Router />
             </CalculatorProvider>
