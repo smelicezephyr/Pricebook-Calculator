@@ -76,12 +76,15 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
     let servicesWithMaterials = 0;
     let servicesWithEquipment = 0;
 
+    const selectedCategorySet = new Set(categoryIds);
+    const seenServiceIds = new Set<number>();
+
     for (let i = 0; i < categoryIds.length; i++) {
       const categoryId = categoryIds[i];
       try {
         console.log(`[Push] Fetching services for category ${categoryId}...`);
         const services = await stApi.getServices(categoryId);
-        console.log(`[Push] Category ${categoryId}: found ${services.length} services`);
+        console.log(`[Push] Category ${categoryId}: found ${services.length} services (before filtering)`);
         
         // Debug: Log first 3 services to see all available fields
         if (i === 0 && services.length > 0) {
@@ -91,8 +94,20 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
           }
         }
 
+        let addedCount = 0;
         for (const service of services) {
+          // Only include services whose categoryId exactly matches one of the selected categories
+          // ServiceTitan API returns services from child categories too, so we filter them out
+          if (service.categoryId && !selectedCategorySet.has(service.categoryId)) {
+            continue;
+          }
+          // Deduplicate: skip services we've already added from another category query
+          if (seenServiceIds.has(service.id)) {
+            continue;
+          }
+          seenServiceIds.add(service.id);
           allServices.push(service);
+          addedCount++;
           if (service.serviceMaterials && service.serviceMaterials.length > 0) {
             servicesWithMaterials++;
           }
@@ -101,6 +116,7 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
           }
         }
 
+        console.log(`[Push] Category ${categoryId}: ${addedCount} services matched (filtered from ${services.length})`);
         emitProgress(tenantId, 'services', `Loaded ${allServices.length} services from ${i + 1}/${categoryIds.length} categories`, i + 1, categoryIds.length);
       } catch (err: any) {
         console.log(`[Push] Failed to fetch services for category ${categoryId}: ${err.message}`);
