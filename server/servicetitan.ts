@@ -239,13 +239,22 @@ export class ServiceTitanAPI {
   }
 
   async getServices(categoryId?: number): Promise<PricebookService[]> {
-    // Request embedded materials and equipment data
-    let url = `/pricebook/v2/tenant/${this.tenant.tenantId}/services?pageSize=500&expand=materials,equipment`;
-    if (categoryId) {
-      url += `&categoryId=${categoryId}`;
+    const allServices: PricebookService[] = [];
+    let page = 1;
+    let hasMore = true;
+    
+    while (hasMore) {
+      let url = `/pricebook/v2/tenant/${this.tenant.tenantId}/services?pageSize=500&page=${page}&expand=materials,equipment`;
+      if (categoryId) {
+        url += `&categoryId=${categoryId}`;
+      }
+      const response = await this.request<{ data: PricebookService[]; hasMore: boolean }>(url);
+      allServices.push(...response.data);
+      hasMore = response.hasMore;
+      page++;
     }
-    const response = await this.request<{ data: PricebookService[] }>(url);
-    return response.data;
+    
+    return allServices;
   }
 
   async getServiceById(serviceId: number): Promise<any> {

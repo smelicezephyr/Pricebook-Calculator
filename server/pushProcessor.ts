@@ -79,32 +79,74 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
     const selectedCategorySet = new Set(categoryIds);
     const seenServiceIds = new Set<number>();
 
-    for (let i = 0; i < categoryIds.length; i++) {
-      const categoryId = categoryIds[i];
+    // Fetch the category tree to understand parent-child relationships
+    // This lets us skip parent categories when their children are also selected,
+    // since the ServiceTitan API's categoryId filter is hierarchical (includes children)
+    let allCategoriesMap = new Map<number, { id: number; parentId?: number | null }>();
+    try {
+      const allCats = await stApi.getCategories();
+      for (const cat of allCats) {
+        allCategoriesMap.set(cat.id, { id: cat.id, parentId: cat.parentId });
+      }
+    } catch (err: any) {
+      console.log(`[Push] Warning: Could not fetch category tree: ${err.message}`);
+    }
+
+    // Determine which categories to actually query:
+    // Skip a selected category if ANY of its children are also selected,
+    // because querying the parent would return those children's services too
+    const categoriesToQuery: number[] = [];
+    for (const catId of categoryIds) {
+      // Check if any other selected category is a child of this one
+      const hasSelectedChild = categoryIds.some(otherId => {
+        if (otherId === catId) return false;
+        // Walk up from otherId to see if it's a descendant of catId
+        let current = allCategoriesMap.get(otherId);
+        while (current && current.parentId) {
+          if (current.parentId === catId) return true;
+          current = allCategoriesMap.get(current.parentId);
+        }
+        return false;
+      });
+      if (!hasSelectedChild) {
+        categoriesToQuery.push(catId);
+      } else {
+        console.log(`[Push] Skipping parent category ${catId} (has selected children)`);
+      }
+    }
+
+    console.log(`[Push] Will query ${categoriesToQuery.length} leaf categories (from ${categoryIds.length} selected)`);
+
+    for (let i = 0; i < categoriesToQuery.length; i++) {
+      const categoryId = categoriesToQuery[i];
       try {
         console.log(`[Push] Fetching services for category ${categoryId}...`);
         const services = await stApi.getServices(categoryId);
-        console.log(`[Push] Category ${categoryId}: found ${services.length} services (before filtering)`);
+        console.log(`[Push] Category ${categoryId}: found ${services.length} services`);
         
-        // Debug: Log first 3 services to see all available fields
+        // Debug: Log first service to see category fields
         if (i === 0 && services.length > 0) {
-          console.log(`[DEBUG] Sample service object keys:`, Object.keys(services[0]));
-          for (let j = 0; j < Math.min(3, services.length); j++) {
-            console.log(`[DEBUG] Service ${j + 1} sample:`, JSON.stringify(services[j], null, 2));
-          }
+          const s = services[0];
+          console.log(`[DEBUG] Sample service: id=${s.id}, categoryId=${s.categoryId}, categories=${JSON.stringify(s.categories)}`);
         }
 
         let addedCount = 0;
         for (const service of services) {
-          // Only include services whose categoryId exactly matches one of the selected categories
-          // ServiceTitan API returns services from child categories too, so we filter them out
-          if (service.categoryId && !selectedCategorySet.has(service.categoryId)) {
-            continue;
-          }
           // Deduplicate: skip services we've already added from another category query
           if (seenServiceIds.has(service.id)) {
             continue;
           }
+
+          // Determine the service's actual category
+          const serviceCatId = service.categoryId 
+            || (service.categories && service.categories.length > 0 ? service.categories[0].id : null);
+
+          // Only include services whose category exactly matches one of the selected categories
+          // This prevents including services from unselected child/parent categories
+          if (serviceCatId && !selectedCategorySet.has(serviceCatId)) {
+            continue;
+          }
+
           seenServiceIds.add(service.id);
           allServices.push(service);
           addedCount++;
@@ -117,7 +159,7 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
         }
 
         console.log(`[Push] Category ${categoryId}: ${addedCount} services matched (filtered from ${services.length})`);
-        emitProgress(tenantId, 'services', `Loaded ${allServices.length} services from ${i + 1}/${categoryIds.length} categories`, i + 1, categoryIds.length);
+        emitProgress(tenantId, 'services', `Loaded ${allServices.length} services from ${i + 1}/${categoriesToQuery.length} categories`, i + 1, categoriesToQuery.length);
       } catch (err: any) {
         console.log(`[Push] Failed to fetch services for category ${categoryId}: ${err.message}`);
         results.errors.push(`Failed to fetch category ${categoryId}: ${err.message}`);
