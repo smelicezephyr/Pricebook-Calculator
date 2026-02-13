@@ -47,6 +47,8 @@ export default function ReverseCalculator() {
   const [permit, setPermit] = useState("");
   const [discount, setDiscount] = useState("");
   const [discountMode, setDiscountMode] = useState<"dollar" | "percent">("dollar");
+  const [oemRebate, setOemRebate] = useState("");
+  const [utilityRebate, setUtilityRebate] = useState("");
 
   const [repairSellingPrice, setRepairSellingPrice] = useState("");
   const [repairPartsCost, setRepairPartsCost] = useState("");
@@ -85,7 +87,7 @@ export default function ReverseCalculator() {
   const permitVal = parseFloat(permit) || 0;
 
   const [systemResults, setSystemResults] = useState({
-    breakdown: { materials: 0, equipment: 0, tax: 0, commission: 0, financing: 0, laborCost: 0, subcontractor: 0, crane: 0, permit: 0 },
+    breakdown: { materials: 0, equipment: 0, tax: 0, commission: 0, financing: 0, laborCost: 0, subcontractor: 0, crane: 0, permit: 0, oemRebate: 0, utilityRebate: 0 },
     metrics: { grossMarginPercent: 0, grossMarginAmount: 0, mePercent: 0, estimatedLabor: 0 }
   });
 
@@ -122,15 +124,19 @@ export default function ReverseCalculator() {
 
     const estimatedLabor = laborCost + commissionCost + tax + financingCost;
     const totalAllCogs = totalMe + commissionCost + financingCost + laborCost + totalOtherCogs;
-    const grossMarginAmount = price - totalAllCogs;
-    const grossMarginPercent = price > 0 ? (grossMarginAmount / price) * 100 : 0;
-    const mePercent = price > 0 ? (totalMe / price) * 100 : 0;
+    const oemRebateVal = parseFloat(oemRebate) || 0;
+    const utilityRebateVal = parseFloat(utilityRebate) || 0;
+    const totalRebates = oemRebateVal + utilityRebateVal;
+    const effectiveRevenue = price + totalRebates;
+    const grossMarginAmount = effectiveRevenue - totalAllCogs;
+    const grossMarginPercent = effectiveRevenue > 0 ? (grossMarginAmount / effectiveRevenue) * 100 : 0;
+    const mePercent = effectiveRevenue > 0 ? (totalMe / effectiveRevenue) * 100 : 0;
 
     setSystemResults({
-      breakdown: { materials: matVal, equipment: equipVal, tax, commission: commissionCost, financing: financingCost, laborCost, subcontractor: subVal, crane: craneVal, permit: permitVal },
+      breakdown: { materials: matVal, equipment: equipVal, tax, commission: commissionCost, financing: financingCost, laborCost, subcontractor: subVal, crane: craneVal, permit: permitVal, oemRebate: oemRebateVal, utilityRebate: utilityRebateVal },
       metrics: { grossMarginPercent, grossMarginAmount, mePercent, estimatedLabor }
     });
-  }, [priceVal, matVal, equipVal, hoursVal, laborPercent, discount, discountMode, subVal, craneVal, permitVal, settings]);
+  }, [priceVal, matVal, equipVal, hoursVal, laborPercent, discount, discountMode, subVal, craneVal, permitVal, oemRebate, utilityRebate, settings]);
 
   const repairPriceVal = parseFloat(repairSellingPrice) || 0;
   const repairPartsTotal = parseFloat(repairPartsCost) || 0;
@@ -217,6 +223,8 @@ export default function ReverseCalculator() {
     setPermit("");
     setDiscount("");
     setDiscountMode("dollar");
+    setOemRebate("");
+    setUtilityRebate("");
   };
 
   const resetRepairInputs = () => {
@@ -267,6 +275,8 @@ export default function ReverseCalculator() {
     return Math.max(0, priceVal - discountDollarVal);
   })() : repairPriceVal;
 
+  const systemEffectiveRevenue = currentPrice + (systemResults.breakdown.oemRebate || 0) + (systemResults.breakdown.utilityRebate || 0);
+
   const hasSystemCalcData = !!(calcState.materials || calcState.equipment || calcState.laborHours || calcState.laborPercent);
   const hasRepairCalcData = !!(repairState.partsCost || repairState.laborHours);
 
@@ -274,11 +284,13 @@ export default function ReverseCalculator() {
   const systemDirectLabor = systemResults.breakdown.laborCost + systemResults.breakdown.commission;
   const systemOtherCogs = systemResults.breakdown.financing + systemResults.breakdown.subcontractor + systemResults.breakdown.crane + systemResults.breakdown.permit;
 
+  const systemTotalRebates = systemResults.breakdown.oemRebate + systemResults.breakdown.utilityRebate;
+
   const systemChartData = [
-    { name: 'Gross Margin', value: systemResults.metrics.grossMarginAmount, color: '#f59e0b', percent: currentPrice > 0 ? (systemResults.metrics.grossMarginAmount / currentPrice) * 100 : 0 },
-    { name: 'M&E', value: systemMAndECost, color: '#3b82f6', percent: currentPrice > 0 ? (systemMAndECost / currentPrice) * 100 : 0 },
-    { name: 'Direct Labor', value: systemDirectLabor, color: '#10b981', percent: currentPrice > 0 ? (systemDirectLabor / currentPrice) * 100 : 0 },
-    { name: 'Other COGS', value: systemOtherCogs, color: '#8b5cf6', percent: currentPrice > 0 ? (systemOtherCogs / currentPrice) * 100 : 0 },
+    { name: 'Gross Margin', value: systemResults.metrics.grossMarginAmount, color: '#f59e0b', percent: systemEffectiveRevenue > 0 ? (systemResults.metrics.grossMarginAmount / systemEffectiveRevenue) * 100 : 0 },
+    { name: 'M&E', value: systemMAndECost, color: '#3b82f6', percent: systemEffectiveRevenue > 0 ? (systemMAndECost / systemEffectiveRevenue) * 100 : 0 },
+    { name: 'Direct Labor', value: systemDirectLabor, color: '#10b981', percent: systemEffectiveRevenue > 0 ? (systemDirectLabor / systemEffectiveRevenue) * 100 : 0 },
+    { name: 'Other COGS', value: systemOtherCogs, color: '#8b5cf6', percent: systemEffectiveRevenue > 0 ? (systemOtherCogs / systemEffectiveRevenue) * 100 : 0 },
   ].filter(d => d.value > 0);
 
   const repairChartData = [
@@ -436,6 +448,18 @@ export default function ReverseCalculator() {
                       </div>
                     </div>
                   )}
+                </div>
+              </div>
+
+              <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
+                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+                  <span className="w-5 h-5 rounded bg-green-500/10 text-green-600 flex items-center justify-center text-[10px] font-bold">6</span>
+                  <h2 className="font-display font-semibold text-sm">Rebates</h2>
+                </div>
+                <div className="space-y-2">
+                  <InputMoney label="OEM Rebate" placeholder="0.00" value={oemRebate} onChange={(e) => setOemRebate(e.target.value)} data-testid="input-reverse-oem-rebate" />
+                  <InputMoney label="Utility Rebate" placeholder="0.00" value={utilityRebate} onChange={(e) => setUtilityRebate(e.target.value)} data-testid="input-reverse-utility-rebate" />
+                  <p className="text-xs text-muted-foreground -mt-1">Rebates are added back to revenue for margin calculation</p>
                 </div>
               </div>
             </>
@@ -603,7 +627,7 @@ export default function ReverseCalculator() {
                               <span className="text-sm font-semibold text-blue-900 dark:text-blue-300">Total M&E</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-muted-foreground font-medium">({formatPercent(currentPrice > 0 ? (systemMAndECost / currentPrice) * 100 : 0)})</span>
+                              <span className="text-[10px] text-muted-foreground font-medium">({formatPercent(systemEffectiveRevenue > 0 ? (systemMAndECost / systemEffectiveRevenue) * 100 : 0)})</span>
                               <span className="font-mono text-sm font-medium text-blue-700 dark:text-blue-400">{formatCurrency(systemMAndECost)}</span>
                             </div>
                           </div>
@@ -634,7 +658,7 @@ export default function ReverseCalculator() {
                                 <span className={`text-sm ${item.highlight ? 'font-semibold text-emerald-900 dark:text-emerald-300' : 'text-foreground'}`}>{item.label}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span className="text-[10px] text-muted-foreground font-medium">({formatPercent(currentPrice > 0 ? (item.value / currentPrice) * 100 : 0)})</span>
+                                <span className="text-[10px] text-muted-foreground font-medium">({formatPercent(systemEffectiveRevenue > 0 ? (item.value / systemEffectiveRevenue) * 100 : 0)})</span>
                                 <span className={`font-mono text-sm font-medium ${item.highlight ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'}`}>{formatCurrency(item.value)}</span>
                               </div>
                             </div>
@@ -656,13 +680,33 @@ export default function ReverseCalculator() {
                                 <span className="text-sm text-foreground">{item.label}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span className="text-[10px] text-muted-foreground font-medium">({formatPercent(currentPrice > 0 ? ((item.value || 0) / currentPrice) * 100 : 0)})</span>
+                                <span className="text-[10px] text-muted-foreground font-medium">({formatPercent(systemEffectiveRevenue > 0 ? ((item.value || 0) / systemEffectiveRevenue) * 100 : 0)})</span>
                                 <span className="font-mono text-sm font-medium text-muted-foreground">{formatCurrency(item.value || 0)}</span>
                               </div>
                             </div>
                           ))}
                         </div>
                       </div>
+
+                      {systemTotalRebates > 0 && (
+                        <div className="space-y-1.5">
+                          <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">Rebates (Added Back to Revenue)</h4>
+                          <div className="space-y-1">
+                            {[
+                              { label: "OEM Rebate", value: systemResults.breakdown.oemRebate, color: "bg-green-500" },
+                              { label: "Utility Rebate", value: systemResults.breakdown.utilityRebate, color: "bg-teal-500" },
+                            ].filter(item => item.value > 0).map((item) => (
+                              <div key={item.label} className="flex items-center justify-between p-2.5 rounded-lg bg-green-50/50 dark:bg-green-950/20 border border-green-100/50 dark:border-green-900/30">
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-2.5 h-2.5 rounded-full ${item.color}`} />
+                                  <span className="text-sm font-semibold text-green-900 dark:text-green-300">{item.label}</span>
+                                </div>
+                                <span className="font-mono text-sm font-medium text-green-700 dark:text-green-400" data-testid={`text-reverse-${item.label.toLowerCase().replace(' ', '-')}`}>+{formatCurrency(item.value)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
