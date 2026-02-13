@@ -51,7 +51,6 @@ export default function ReverseCalculator() {
   const [repairSellingPrice, setRepairSellingPrice] = useState("");
   const [repairPartsCost, setRepairPartsCost] = useState("");
   const [repairMaterialMarkup, setRepairMaterialMarkup] = useState("200");
-  const [repairLaborRate, setRepairLaborRate] = useState("175.00");
   const [repairLaborHours, setRepairLaborHours] = useState("");
   const [repairBurdenPercent, setRepairBurdenPercent] = useState("20.00");
   const [repairSalesTaxPercent, setRepairSalesTaxPercent] = useState("6.35");
@@ -69,7 +68,6 @@ export default function ReverseCalculator() {
       }
       setRepairSalesTaxPercent(settings.salesTaxPercent || "6.35");
       setRepairCommissionPercent(settings.commissionPercent || "10.00");
-      setRepairLaborRate(settings.laborHourlyRate || "175.00");
       setRepairBurdenPercent(settings.laborBurdenPercent || "20.00");
       setRepairFinancingFeePercent(settings.financingFeePercent || "4.00");
       setHasInitialized(true);
@@ -137,7 +135,7 @@ export default function ReverseCalculator() {
   const repairPriceVal = parseFloat(repairSellingPrice) || 0;
   const repairPartsTotal = parseFloat(repairPartsCost) || 0;
   const repairMarkupRate = (parseFloat(repairMaterialMarkup) || 200) / 100;
-  const repairLaborRateVal = parseFloat(repairLaborRate) || 0;
+  const repairHighestTechRateVal = parseFloat(repairHighestTechRate) || 0;
   const repairLaborHoursVal = parseFloat(repairLaborHours) || 0;
   const repairBurdenRate = (parseFloat(repairBurdenPercent) || 0) / 100;
   const repairTaxRate = (parseFloat(repairSalesTaxPercent) || 0) / 100;
@@ -166,7 +164,7 @@ export default function ReverseCalculator() {
     repairBurdenedCommission = repairDirectCommission + repairCommissionBurden;
     repairFinancingFee = repairPriceVal * repairFinancingRate;
   } else {
-    repairDirectLaborCost = repairLaborRateVal * repairLaborHoursVal;
+    repairDirectLaborCost = repairHighestTechRateVal * repairLaborHoursVal;
     repairLaborBurden = repairDirectLaborCost * repairBurdenRate;
     repairBurdenedLaborCost = repairDirectLaborCost + repairLaborBurden;
     repairDirectCommission = repairPriceVal * repairCommissionRate;
@@ -175,7 +173,6 @@ export default function ReverseCalculator() {
     repairFinancingFee = repairPriceVal * repairFinancingRate;
   }
 
-  const repairHighestTechRateVal = parseFloat(repairHighestTechRate) || 0;
   const repairTechLaborCost = repairLaborMode === "percent" ? 0 : repairHighestTechRateVal * repairLaborHoursVal;
   const repairBurdenedTechLabor = repairTechLaborCost * (1 + repairBurdenRate);
   const repairCogs = repairPartsTotal + repairBurdenedTechLabor + repairBurdenedCommission;
@@ -199,7 +196,6 @@ export default function ReverseCalculator() {
   const handleCopyFromRepair = () => {
     setRepairPartsCost(repairState.partsCost || "");
     setRepairMaterialMarkup(repairState.materialMarkup || "200");
-    setRepairLaborRate(repairState.laborRate || "175.00");
     setRepairLaborHours(repairState.laborHours || "");
     setRepairBurdenPercent(repairState.burdenPercent || "20.00");
     setRepairSalesTaxPercent(repairState.salesTaxPercent || "6.35");
@@ -231,7 +227,6 @@ export default function ReverseCalculator() {
     setRepairLaborMode("dollars");
     setRepairSalesTaxPercent(settings?.salesTaxPercent || "6.35");
     setRepairCommissionPercent(settings?.commissionPercent || "10.00");
-    setRepairLaborRate(settings?.laborHourlyRate || "175.00");
     setRepairBurdenPercent(settings?.laborBurdenPercent || "20.00");
     setRepairFinancingFeePercent(settings?.financingFeePercent || "4.00");
     setRepairHighestTechRate("");
@@ -485,9 +480,8 @@ export default function ReverseCalculator() {
                     <p className="text-xs text-muted-foreground">Labor is included in Commission % below</p>
                   ) : (
                     <>
-                      <InputMoney label="Labor Rate" placeholder="125.00" value={repairLaborRate} onChange={(e) => setRepairLaborRate(e.target.value)} data-testid="input-reverse-labor-rate" />
+                      <InputMoney label="Actual/Highest Tech Pay Rate" placeholder="0.00" value={repairHighestTechRate} onChange={(e) => setRepairHighestTechRate(e.target.value)} data-testid="input-reverse-highest-tech-rate" />
                       <InputMoney label="Labor Hours" type="number" placeholder="1" value={repairLaborHours} onChange={(e) => setRepairLaborHours(e.target.value)} data-testid="input-reverse-repair-labor-hours" />
-                      <InputMoney label="Highest Tech Pay Rate" placeholder="0.00" value={repairHighestTechRate} onChange={(e) => setRepairHighestTechRate(e.target.value)} data-testid="input-reverse-highest-tech-rate" />
                     </>
                   )}
                 </div>
@@ -770,7 +764,7 @@ export default function ReverseCalculator() {
                             </div>
                             <div className="ml-5 space-y-0.5 pt-1 border-l-2 border-emerald-100/50 dark:border-emerald-900/30 pl-3">
                               {[
-                                { label: `Labor (${repairLaborHoursVal} hrs x ${formatCurrency(repairLaborRateVal)}/hr)`, value: repairDirectLaborCost },
+                                { label: `Labor (${repairLaborHoursVal} hrs x ${formatCurrency(repairHighestTechRateVal)}/hr)`, value: repairDirectLaborCost },
                                 { label: `Labor Burden (${repairBurdenPercent}%)`, value: repairLaborBurden },
                               ].map((sub) => (
                                 <div key={sub.label} className="flex justify-between items-center py-0.5">
