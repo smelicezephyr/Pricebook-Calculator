@@ -326,7 +326,7 @@ export default function ReverseCalculator() {
               Copy from System Calculator
             </Button>
           )}
-          {mode === "repair" && hasRepairCalcData && (
+          {mode === "repair" && (
             <Button variant="outline" onClick={handleCopyFromRepair} className="gap-2" data-testid="button-copy-from-repair">
               <Copy size={16} />
               Copy from Repair Calculator
@@ -548,8 +548,8 @@ export default function ReverseCalculator() {
                         <span className="font-medium" data-testid="text-reverse-me-percent">{formatPercent(systemResults.metrics.mePercent)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Est. Labor Field</span>
-                        <span className="font-medium text-emerald-600" data-testid="text-reverse-est-labor">{formatCurrency(systemResults.metrics.estimatedLabor)}</span>
+                        <span className="text-muted-foreground">Direct Labor</span>
+                        <span className="font-medium text-emerald-600" data-testid="text-reverse-direct-labor">{formatCurrency(systemDirectLabor)}</span>
                       </div>
                     </div>
                   )}
