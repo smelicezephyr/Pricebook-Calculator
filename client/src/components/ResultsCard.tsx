@@ -11,6 +11,8 @@ interface ResultsCardProps {
   roundUp?: boolean;
   onRoundUpChange?: (value: boolean) => void;
   grossMarginMinPercent?: number;
+  oemRebate?: number;
+  utilityRebate?: number;
   breakdown: {
     materials: number;
     equipment: number;
@@ -35,7 +37,7 @@ const formatCurrency = (val: number) =>
 const formatPercent = (val: number) => 
   `${val.toFixed(2)}%`;
 
-export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTaxRate, discount = 0, roundUp = false, onRoundUpChange, grossMarginMinPercent = 52 }: ResultsCardProps) {
+export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTaxRate, discount = 0, roundUp = false, onRoundUpChange, grossMarginMinPercent = 52, oemRebate = 0, utilityRebate = 0 }: ResultsCardProps) {
   // price is already rounded if roundUp is enabled (handled in Calculator)
   const totalOtherCogs = (breakdown.financing || 0) + (breakdown.subcontractor || 0) + (breakdown.crane || 0) + (breakdown.permit || 0);
   const mAndECost = (breakdown.materials || 0) + (breakdown.equipment || 0) + (breakdown.tax || 0);
@@ -280,6 +282,28 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
                 ))}
               </div>
             </div>
+
+            {(oemRebate > 0 || utilityRebate > 0) && (
+              <div className="space-y-1.5">
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">Rebates (Added to Revenue)</h4>
+                <div className="space-y-1">
+                  {[
+                    { label: "OEM Rebate", value: oemRebate, color: "bg-teal-500" },
+                    { label: "Utility Rebate", value: utilityRebate, color: "bg-sky-500" },
+                  ].filter(item => item.value > 0).map((item) => (
+                    <div key={item.label} className="flex items-center justify-between p-2.5 rounded-lg bg-teal-50/50 dark:bg-teal-950/20 border border-teal-100/50 dark:border-teal-900/30">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2.5 h-2.5 rounded-full ${item.color}`} />
+                        <span className="text-sm font-medium text-teal-900 dark:text-teal-300">{item.label}</span>
+                      </div>
+                      <span className="font-mono text-sm font-medium text-teal-700 dark:text-teal-400">
+                        +{formatCurrency(item.value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

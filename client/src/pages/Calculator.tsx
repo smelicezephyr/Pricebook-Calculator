@@ -21,9 +21,8 @@ export default function Calculator() {
   const [hasInitialized, setHasInitialized] = useState(false);
 
   // Destructure calculator state for easier access
-  const { materials, equipment, laborHours, laborPercent, targetMe, discount, discountMode, subcontractor, crane, permit, roundUp } = calcState;
+  const { materials, equipment, laborHours, laborPercent, targetMe, discount, discountMode, subcontractor, crane, permit, roundUp, oemRebate, utilityRebate } = calcState;
 
-  // Helper to update individual fields
   const setMaterials = (v: string) => setCalcState({ materials: v });
   const setEquipment = (v: string) => setCalcState({ equipment: v });
   const setLaborHours = (v: string) => setCalcState({ laborHours: v });
@@ -35,6 +34,8 @@ export default function Calculator() {
   const setCrane = (v: string) => setCalcState({ crane: v });
   const setPermit = (v: string) => setCalcState({ permit: v });
   const setRoundUp = (v: boolean) => setCalcState({ roundUp: v });
+  const setOemRebate = (v: string) => setCalcState({ oemRebate: v });
+  const setUtilityRebate = (v: string) => setCalcState({ utilityRebate: v });
 
   // Initialize defaults from settings only once on first load (not on every settings change)
   useEffect(() => {
@@ -143,8 +144,11 @@ export default function Calculator() {
     // 8. Gross Margin - use displayPrice (rounded or not) for final metrics
     const displayPrice = roundUp ? Math.ceil(price) : price;
     const totalAllCogs = totalMe + commissionCost + financingCost + laborCost + totalOtherCogs;
-    const grossMarginAmount = displayPrice - totalAllCogs;
-    const grossMarginPercent = displayPrice > 0 ? (grossMarginAmount / displayPrice) * 100 : 0;
+    const oemRebateVal = parseFloat(oemRebate) || 0;
+    const utilityRebateVal = parseFloat(utilityRebate) || 0;
+    const effectiveRevenue = displayPrice + oemRebateVal + utilityRebateVal;
+    const grossMarginAmount = effectiveRevenue - totalAllCogs;
+    const grossMarginPercent = effectiveRevenue > 0 ? (grossMarginAmount / effectiveRevenue) * 100 : 0;
     const mePercent = displayPrice > 0 ? (totalMe / displayPrice) * 100 : 0;
 
     setResults({
@@ -168,7 +172,7 @@ export default function Calculator() {
       }
     });
 
-  }, [matVal, equipVal, hoursVal, laborPercent, discount, discountMode, targetMe, subVal, craneVal, permitVal, settings, roundUp]);
+  }, [matVal, equipVal, hoursVal, laborPercent, discount, discountMode, targetMe, subVal, craneVal, permitVal, settings, roundUp, oemRebate, utilityRebate]);
 
   const downloadImage = async () => {
     if (resultsRef.current === null) return;
@@ -541,6 +545,29 @@ export default function Calculator() {
           </div>
         </div>
 
+        {/* Rebates Section */}
+        <div className="lg:col-span-6">
+          <div className="bg-card rounded-lg border p-3">
+            <div className="space-y-3">
+              <h2 className="font-display font-semibold text-sm">Rebates</h2>
+              <InputMoney
+                label="OEM Rebate"
+                placeholder="0.00"
+                value={oemRebate}
+                onChange={(e) => setOemRebate(e.target.value)}
+                data-testid="input-oem-rebate"
+              />
+              <InputMoney
+                label="Utility Rebate"
+                placeholder="0.00"
+                value={utilityRebate}
+                onChange={(e) => setUtilityRebate(e.target.value)}
+                data-testid="input-utility-rebate"
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Results Column */}
         <div className="lg:col-span-9" ref={resultsRef}>
           <div className="space-y-3 bg-background p-2 rounded-lg">
@@ -554,6 +581,8 @@ export default function Calculator() {
               roundUp={roundUp}
               onRoundUpChange={setRoundUp}
               grossMarginMinPercent={parseFloat(settings.grossMarginMinPercent || "45")}
+              oemRebate={parseFloat(oemRebate) || 0}
+              utilityRebate={parseFloat(utilityRebate) || 0}
             />
           </div>
         </div>

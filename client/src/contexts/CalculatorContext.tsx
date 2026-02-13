@@ -12,6 +12,8 @@ interface CalculatorState {
   crane: string;
   permit: string;
   roundUp: boolean;
+  oemRebate: string;
+  utilityRebate: string;
 }
 
 interface RepairCalculatorState {
@@ -47,6 +49,8 @@ const defaultState: CalculatorState = {
   crane: "",
   permit: "",
   roundUp: false,
+  oemRebate: "",
+  utilityRebate: "",
 };
 
 const defaultRepairState: RepairCalculatorState = {

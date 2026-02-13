@@ -196,6 +196,8 @@ export default function ReverseCalculator() {
     setPermit(calcState.permit || "");
     setDiscount(calcState.discount || "");
     setDiscountMode(calcState.discountMode || "dollar");
+    setOemRebate(calcState.oemRebate || "");
+    setUtilityRebate(calcState.utilityRebate || "");
     toast({ title: "Copied from System Calculator", description: "Materials, equipment, labor, and other costs have been imported." });
   };
 
