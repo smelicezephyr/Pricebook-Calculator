@@ -315,7 +315,7 @@ export default function ReverseCalculator() {
         </div>
 
         <div className="flex gap-2 flex-wrap">
-          {mode === "system" && hasSystemCalcData && (
+          {mode === "system" && (
             <Button variant="outline" onClick={handleCopyFromSystem} className="gap-2" data-testid="button-copy-from-system">
               <Copy size={16} />
               Copy from System Calculator
