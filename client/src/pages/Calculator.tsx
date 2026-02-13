@@ -543,13 +543,14 @@ export default function Calculator() {
               )}
             </div>
           </div>
-        </div>
 
-        {/* Rebates Section */}
-        <div className="lg:col-span-6">
-          <div className="bg-card rounded-lg border p-3">
-            <div className="space-y-3">
+          {/* Rebates Section */}
+          <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
+            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+              <span className="w-5 h-5 rounded bg-teal-500/10 text-teal-600 flex items-center justify-center text-[10px] font-bold">5</span>
               <h2 className="font-display font-semibold text-sm">Rebates</h2>
+            </div>
+            <div className="space-y-2">
               <InputMoney
                 label="OEM Rebate"
                 placeholder="0.00"
