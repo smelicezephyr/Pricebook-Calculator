@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSettings } from "@/hooks/use-settings";
+import { useCalculatorState } from "@/contexts/CalculatorContext";
 import { InputMoney } from "@/components/InputMoney";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -8,6 +9,7 @@ import { RefreshCw, Loader2, DollarSign, TrendingUp } from "lucide-react";
 
 export default function RepairCalculator() {
   const { settings, isLoading: settingsLoading } = useSettings();
+  const { setRepairState } = useCalculatorState();
 
   const [partsCost, setPartsCost] = useState("");
   const [materialMarkup, setMaterialMarkup] = useState("200");
@@ -46,6 +48,21 @@ export default function RepairCalculator() {
       setFinancingFeePercent(settings.financingFeePercent || "4.00");
     }
   }, [settings]);
+
+  useEffect(() => {
+    setRepairState({
+      partsCost,
+      materialMarkup,
+      laborRate,
+      laborHours,
+      burdenPercent,
+      salesTaxPercent,
+      commissionPercent,
+      financingFeePercent,
+      highestTechRate,
+      laborMode,
+    });
+  }, [partsCost, materialMarkup, laborRate, laborHours, burdenPercent, salesTaxPercent, commissionPercent, financingFeePercent, highestTechRate, laborMode, setRepairState]);
 
   const partsTotal = parseFloat(partsCost) || 0;
   const markupRate = (parseFloat(materialMarkup) || 200) / 100;
