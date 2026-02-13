@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTenants, useServiceTitan } from "@/hooks/use-tenants";
 import { useSettings } from "@/hooks/use-settings";
@@ -13,7 +13,6 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign, ArrowUp, Plus, ImagePlus, Search, Check, ChevronsUpDown, Wrench } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -22,49 +21,7 @@ import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-interface PushProgress {
-  stage: 'connected' | 'materials' | 'equipment' | 'services' | 'updating' | 'complete' | 'error' | 'cancelled' | 'queued';
-  message: string;
-  current: number;
-  total: number;
-  percent: number;
-  startedAt?: number;  // Unix timestamp when push started
-  phaseStartedAt?: number;  // Unix timestamp when current phase started
-}
 
-function formatETA(seconds: number): string {
-  if (seconds < 60) {
-    return `${Math.ceil(seconds)}s`;
-  } else if (seconds < 3600) {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.ceil(seconds % 60);
-    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
-  } else {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.ceil((seconds % 3600) / 60);
-    return `${hrs}h ${mins}m`;
-  }
-}
-
-function calculateETA(progress: PushProgress): string | null {
-  // Only calculate ETA for updating phase with meaningful progress
-  if (progress.stage !== 'updating' || !progress.phaseStartedAt || progress.current < 2 || progress.total === 0) {
-    return null;
-  }
-  
-  const elapsed = (Date.now() - progress.phaseStartedAt) / 1000;
-  const rate = progress.current / elapsed;
-  
-  if (rate <= 0) return null;
-  
-  const remaining = progress.total - progress.current;
-  const etaSeconds = remaining / rate;
-  
-  if (etaSeconds < 1) return 'Almost done...';
-  if (etaSeconds > 7200) return null; // Don't show if more than 2 hours
-  
-  return `~${formatETA(etaSeconds)} remaining`;
-}
 
 interface Category {
   id: number;
@@ -87,8 +44,6 @@ export default function PushToServiceTitan() {
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
-  const [pushProgress, setPushProgress] = useState<PushProgress | null>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
 
   // Local pricing settings (initialized from global settings)
   const [targetMePercent, setTargetMePercent] = useState<string>("23.00");
@@ -379,6 +334,7 @@ export default function PushToServiceTitan() {
     setConnectionStatus('testing');
     setCategories([]);
     setSelectedCategories(new Set());
+    setPushSubmitted(false);
     setNewTaskCategoryId(null);
     setNewTaskGlAccount("Revenue");
     setRepairCategoryId(null);
@@ -810,40 +766,14 @@ export default function PushToServiceTitan() {
     setSelectedCategories(new Set());
   };
 
+  const [pushSubmitted, setPushSubmitted] = useState(false);
+  const [pushStatusMessage, setPushStatusMessage] = useState("");
+
   const handlePush = async () => {
     if (!selectedTenantId || selectedCategories.size === 0) return;
     
     setIsPushing(true);
-    setPushProgress({ stage: 'connected', message: 'Starting push...', current: 0, total: 0, percent: 0 });
-    
-    // Close any existing event source
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-    }
-    
-    // Set up SSE connection for progress updates
-    const eventSource = new EventSource(`/api/servicetitan/${selectedTenantId}/push/progress`);
-    eventSourceRef.current = eventSource;
-    
-    eventSource.onmessage = (event) => {
-      try {
-        const progress = JSON.parse(event.data) as PushProgress;
-        setPushProgress(progress);
-        
-        // Close EventSource when complete, error, or cancelled
-        if (progress.stage === 'complete' || progress.stage === 'error' || progress.stage === 'cancelled') {
-          eventSource.close();
-          eventSourceRef.current = null;
-        }
-      } catch (err) {
-        console.error('Failed to parse progress event:', err);
-      }
-    };
-    
-    eventSource.onerror = () => {
-      eventSource.close();
-      eventSourceRef.current = null;
-    };
+    setPushSubmitted(false);
     
     try {
       const response = await fetch(`/api/servicetitan/${selectedTenantId}/push`, {
@@ -865,31 +795,7 @@ export default function PushToServiceTitan() {
         }),
       });
       
-      // Handle 202 Accepted (queued)
-      if (response.status === 202) {
-        const data = await response.json();
-        
-        toast({
-          title: "Push Queued",
-          description: `Your push is queued at position ${data.queuePosition}. It will auto-start when a slot opens.`,
-        });
-        
-        setPushProgress({ 
-          stage: 'queued', 
-          message: `Queued at position ${data.queuePosition}. ${data.activeCount}/${data.maxConcurrent} pushes active. Will auto-start.`, 
-          current: 0, 
-          total: 0, 
-          percent: 0 
-        });
-        
-        setIsPushing(false);
-        eventSource.close();
-        eventSourceRef.current = null;
-        return;
-      }
-      
-      if (!response.ok) {
-        // Try to parse JSON error, but handle non-JSON responses (e.g., HTML error pages)
+      if (!response.ok && response.status !== 202) {
         let errorMessage = "Push failed";
         try {
           const contentType = response.headers.get("content-type");
@@ -905,31 +811,21 @@ export default function PushToServiceTitan() {
         throw new Error(errorMessage);
       }
       
-      // Also handle non-JSON success responses (shouldn't happen but defensive)
-      let results;
-      try {
-        results = await response.json();
-      } catch {
-        throw new Error("Invalid response from server");
-      }
+      const data = await response.json();
+      const isQueued = response.status === 202;
       
-      // Backend now handles history updates, just show toast
-      if (results.cancelled) {
-        toast({
-          title: "Push Cancelled",
-          description: `Cancelled after updating ${results.updated} services. You can revert from History.`,
-        });
-      } else if (results.errors && results.errors.length > 0) {
-        toast({
-          title: "Push Completed with Warnings",
-          description: `Updated ${results.updated} of ${results.processed} services. ${results.errors.length} errors occurred.`,
-        });
-      } else {
-        toast({
-          title: "Push Complete",
-          description: `Successfully updated ${results.updated} of ${results.processed} services (${results.skipped || 0} skipped).`,
-        });
-      }
+      setPushSubmitted(true);
+      setPushStatusMessage(
+        isQueued 
+          ? `Your push is queued at position ${data.queuePosition}. Track its progress on the Push History page.`
+          : "Your push is now processing in the background. Track its progress on the Push History page."
+      );
+      toast({
+        title: isQueued ? "Push Queued" : "Push Submitted",
+        description: isQueued 
+          ? `Your push is queued at position ${data.queuePosition}. Go to Push History to track progress.`
+          : "Your push is now processing. Go to Push History to track progress.",
+      });
     } catch (err: any) {
       toast({
         title: "Push Failed",
@@ -938,21 +834,8 @@ export default function PushToServiceTitan() {
       });
     } finally {
       setIsPushing(false);
-      // Clear progress after a delay so user can see final status
-      setTimeout(() => {
-        setPushProgress(null);
-      }, 5000);
     }
   };
-  
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
-    };
-  }, []);
 
   const parentCategories = categories.filter(c => !c.parentId && c.active);
 
@@ -1465,50 +1348,23 @@ export default function PushToServiceTitan() {
                     />
                   </div>
                   
-                  {/* Progress Bar - shown during push */}
-                  {(isPushing || pushProgress) && pushProgress?.stage !== 'connected' && (
-                    <div className="space-y-3 p-4 bg-muted/30 rounded-lg border" data-testid="push-progress">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {pushProgress?.stage === 'complete' ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          ) : pushProgress?.stage === 'error' ? (
-                            <XCircle className="w-4 h-4 text-destructive" />
-                          ) : (
-                            <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                          )}
-                          <span className="text-sm font-medium">
-                            {pushProgress?.stage === 'materials' && 'Loading Materials'}
-                            {pushProgress?.stage === 'equipment' && 'Loading Equipment'}
-                            {pushProgress?.stage === 'services' && 'Counting Services'}
-                            {pushProgress?.stage === 'updating' && 'Updating Services'}
-                            {pushProgress?.stage === 'complete' && 'Push Complete'}
-                            {pushProgress?.stage === 'error' && 'Push Failed'}
-                          </span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {pushProgress?.stage === 'updating' && pushProgress.total > 0
-                            ? `${pushProgress.current} / ${pushProgress.total}`
-                            : pushProgress?.percent !== undefined 
-                              ? `${Math.round(pushProgress.percent)}%`
-                              : ''
-                          }
-                        </span>
+                  {pushSubmitted && (
+                    <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-200 dark:border-emerald-800" data-testid="push-submitted-banner">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Push Submitted</span>
                       </div>
-                      <Progress 
-                        value={pushProgress?.percent ?? 0} 
-                        className="h-2"
-                        data-testid="progress-bar"
-                      />
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs text-muted-foreground">{pushProgress?.message}</p>
-                        {pushProgress && calculateETA(pushProgress) && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1" data-testid="text-eta">
-                            <Clock size={12} />
-                            {calculateETA(pushProgress)}
-                          </p>
-                        )}
-                      </div>
+                      <p className="text-sm text-emerald-700 dark:text-emerald-300 mb-3">
+                        {pushStatusMessage}
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLocation("/push-history")}
+                        data-testid="button-go-to-push-history"
+                      >
+                        Go to Push History
+                      </Button>
                     </div>
                   )}
                   

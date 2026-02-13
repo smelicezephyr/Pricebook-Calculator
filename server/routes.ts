@@ -1120,24 +1120,29 @@ export async function registerRoutes(
     
     pushQueue.startPush(tenantId, historyId);
     
-    try {
-      const results = await processPush({
-        tenantId,
-        historyId,
-        categoryIds,
-        targetMePercent,
-        roundUp: shouldRoundUp,
-        salesTaxPercent,
-        laborMode,
-        laborPercent,
-        laborHourlyRate,
-        laborBurdenPercent,
-        commissionPercent,
-        commissionBurdenPercent,
-        financingFeePercent,
-      }, tenant);
-      
-      // Update history with results
+    // Respond immediately — push runs in the background
+    res.json({ 
+      message: "Push started",
+      historyId,
+      queued: false,
+    });
+    
+    // Process push in background (no await — fire and forget)
+    processPush({
+      tenantId,
+      historyId,
+      categoryIds,
+      targetMePercent,
+      roundUp: shouldRoundUp,
+      salesTaxPercent,
+      laborMode,
+      laborPercent,
+      laborHourlyRate,
+      laborBurdenPercent,
+      commissionPercent,
+      commissionBurdenPercent,
+      financingFeePercent,
+    }, tenant).then(async (results) => {
       let finalStatus: 'completed' | 'cancelled' = 'completed';
       if (results.cancelled) {
         finalStatus = 'cancelled';
@@ -1155,14 +1160,8 @@ export async function registerRoutes(
       });
       
       pushQueue.completePush(tenantId);
-      
-      res.json({ 
-        ...results, 
-        historyId,
-        skipped: results.skipped,
-      });
-    } catch (err: any) {
-      // Update history with failure
+      console.log(`[Push] Background push for tenant ${tenantId} (history ${historyId}) completed: ${results.updated} updated, ${results.skipped} skipped, ${results.errors.length} errors`);
+    }).catch(async (err: any) => {
       await storage.updatePushHistory(historyId, {
         status: 'failed',
         completedAt: new Date(),
@@ -1172,8 +1171,8 @@ export async function registerRoutes(
       
       pushQueue.completePush(tenantId);
       emitProgress(tenantId, 'error', `Push failed: ${err.message}`, 0, 0);
-      res.status(500).json({ message: err.message });
-    }
+      console.error(`[Push] Background push for tenant ${tenantId} (history ${historyId}) failed:`, err.message);
+    });
   });
 
   // Push History API endpoints
