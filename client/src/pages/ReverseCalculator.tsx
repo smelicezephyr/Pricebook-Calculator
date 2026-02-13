@@ -370,35 +370,35 @@ export default function ReverseCalculator() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-3 space-y-2">
+        <div className="lg:col-span-3 space-y-1.5">
           {mode === "system" ? (
             <>
-              <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+              <div className="bg-card rounded-lg p-2.5 shadow-sm border border-border">
+                <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-border">
                   <span className="w-5 h-5 rounded bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">1</span>
                   <h2 className="font-display font-semibold text-sm">Selling Price</h2>
                 </div>
                 <InputMoney label="Final Selling Price" placeholder="0.00" value={sellingPrice} onChange={(e) => setSellingPrice(e.target.value)} data-testid="input-selling-price" />
               </div>
 
-              <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+              <div className="bg-card rounded-lg p-2.5 shadow-sm border border-border">
+                <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-border">
                   <span className="w-5 h-5 rounded bg-blue-500/10 text-blue-600 flex items-center justify-center text-[10px] font-bold">2</span>
                   <h2 className="font-display font-semibold text-sm">Job Costs</h2>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <InputMoney label="Materials Cost" placeholder="0.00" value={materials} onChange={(e) => setMaterials(e.target.value)} data-testid="input-reverse-materials" />
                   <InputMoney label="Equipment Cost" placeholder="0.00" value={equipment} onChange={(e) => setEquipment(e.target.value)} data-testid="input-reverse-equipment" />
                 </div>
               </div>
 
-              <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+              <div className="bg-card rounded-lg p-2.5 shadow-sm border border-border">
+                <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-border">
                   <span className="w-5 h-5 rounded bg-emerald-500/10 text-emerald-600 flex items-center justify-center text-[10px] font-bold">3</span>
                   <h2 className="font-display font-semibold text-sm">Labor</h2>
                 </div>
                 {(settings.laborMode || 'percent') === 'hours' ? (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <InputMoney label="Labor Hours" type="number" placeholder="10" value={laborHours} onChange={(e) => setLaborHours(e.target.value)} data-testid="input-reverse-labor-hours" />
                     <p className="text-xs text-muted-foreground">Using rate of ${parseFloat(settings.laborHourlyRate).toFixed(2)}/hr</p>
                   </div>
@@ -415,27 +415,27 @@ export default function ReverseCalculator() {
                 )}
               </div>
 
-              <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+              <div className="bg-card rounded-lg p-2.5 shadow-sm border border-border">
+                <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-border">
                   <span className="w-5 h-5 rounded bg-amber-500/10 text-amber-600 flex items-center justify-center text-[10px] font-bold">4</span>
                   <h2 className="font-display font-semibold text-sm">Other COGS</h2>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <InputMoney label="Subcontractor" placeholder="0.00" value={subcontractor} onChange={(e) => setSubcontractor(e.target.value)} data-testid="input-reverse-subcontractor" />
                   <InputMoney label="Crane" placeholder="0.00" value={crane} onChange={(e) => setCrane(e.target.value)} data-testid="input-reverse-crane" />
                   <InputMoney label="Permit" placeholder="0.00" value={permit} onChange={(e) => setPermit(e.target.value)} data-testid="input-reverse-permit" />
                 </div>
               </div>
 
-              <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+              <div className="bg-card rounded-lg p-2.5 shadow-sm border border-border">
+                <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-border">
                   <span className="w-5 h-5 rounded bg-red-500/10 text-red-600 flex items-center justify-center text-[10px] font-bold">5</span>
                   <h2 className="font-display font-semibold text-sm">Discounts</h2>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <div className="flex gap-1 p-1 bg-muted rounded-lg">
-                    <button type="button" onClick={() => setDiscountMode("dollar")} data-testid="button-reverse-discount-dollar" className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${discountMode === "dollar" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>$ Dollar</button>
-                    <button type="button" onClick={() => setDiscountMode("percent")} data-testid="button-reverse-discount-percent" className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${discountMode === "percent" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>% of Total</button>
+                    <button type="button" onClick={() => setDiscountMode("dollar")} data-testid="button-reverse-discount-dollar" className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-all ${discountMode === "dollar" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>$ Dollar</button>
+                    <button type="button" onClick={() => setDiscountMode("percent")} data-testid="button-reverse-discount-percent" className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-all ${discountMode === "percent" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>% of Total</button>
                   </div>
                   {discountMode === "dollar" ? (
                     <InputMoney label="Discount Amount" placeholder="0.00" value={discount} onChange={(e) => setDiscount(e.target.value)} data-testid="input-reverse-discount-dollar" />
@@ -451,15 +451,15 @@ export default function ReverseCalculator() {
                 </div>
               </div>
 
-              <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+              <div className="bg-card rounded-lg p-2.5 shadow-sm border border-border">
+                <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-border">
                   <span className="w-5 h-5 rounded bg-green-500/10 text-green-600 flex items-center justify-center text-[10px] font-bold">6</span>
                   <h2 className="font-display font-semibold text-sm">Rebates</h2>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <InputMoney label="OEM Rebate" placeholder="0.00" value={oemRebate} onChange={(e) => setOemRebate(e.target.value)} data-testid="input-reverse-oem-rebate" />
                   <InputMoney label="Utility Rebate" placeholder="0.00" value={utilityRebate} onChange={(e) => setUtilityRebate(e.target.value)} data-testid="input-reverse-utility-rebate" />
-                  <p className="text-xs text-muted-foreground -mt-1">Rebates are added back to revenue for margin calculation</p>
+                  <p className="text-xs text-muted-foreground -mt-0.5">Added back to revenue for margin calculation</p>
                 </div>
               </div>
             </>
