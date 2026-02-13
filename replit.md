@@ -177,6 +177,15 @@ shared/           # Shared code between client/server
 - Settings are also saved to the database as a shared fallback
 - If no local settings exist, database settings are used as defaults
 
+### Reverse Calculator (February 2026)
+- Added Reverse Calculator page (`/reverse`) for working backwards from a known selling price
+- Inputs: Selling Price, Materials, Equipment, Labor (hours or %), Subcontractor, Crane, Permit, Discount
+- Outputs: GM% with color-coded health indicator (green/amber/red), cost breakdown, pie chart distribution
+- "Copy from System Calculator" button imports materials, equipment, labor, and other costs from the System Calculator's current state
+- Uses same calculation logic as System Calculator but with price as input instead of output
+- Same settings integration (sales tax, commission, financing, labor burden from global settings)
+- Navigation: ArrowLeftRight icon between Repair Calculator and ServiceTitan section
+
 ### Version Check Banner (February 2026)
 - Server generates a unique build ID (timestamp) at startup
 - `/api/version` endpoint returns the current build ID

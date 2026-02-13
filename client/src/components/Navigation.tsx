@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Lock, Clock, Wrench, Shield, Key, Trash2, Loader2, Hash, MapPin } from "lucide-react";
+import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Lock, Clock, Wrench, Shield, Key, Trash2, Loader2, Hash, MapPin, ArrowLeftRight } from "lucide-react";
 import { useState } from "react";
 import clsx from "clsx";
 import { useServiceTitanAuth } from "@/contexts/ServiceTitanAuthContext";
@@ -233,6 +233,21 @@ export function Navigation() {
               >
                 <Wrench size={20} className={location === "/repair" ? "stroke-[2.5px]" : "stroke-2"} />
                 Repair Calculator
+              </div>
+            </Link>
+
+            {/* Reverse Calculator link */}
+            <Link href="/reverse">
+              <div className={clsx(
+                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer font-medium",
+                location === "/reverse" 
+                  ? "bg-primary/10 text-primary shadow-sm" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+              onClick={() => setIsOpen(false)}
+              >
+                <ArrowLeftRight size={20} className={location === "/reverse" ? "stroke-[2.5px]" : "stroke-2"} />
+                Reverse Calculator
               </div>
             </Link>
 

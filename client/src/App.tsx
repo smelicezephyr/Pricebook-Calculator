@@ -12,6 +12,7 @@ import { VersionCheck } from "@/components/VersionCheck";
 import NotFound from "@/pages/not-found";
 import Calculator from "@/pages/Calculator";
 import RepairCalculator from "@/pages/RepairCalculator";
+import ReverseCalculator from "@/pages/ReverseCalculator";
 import Settings from "@/pages/Settings";
 import History from "@/pages/History";
 import Tenants from "@/pages/Tenants";
@@ -59,6 +60,7 @@ function Router() {
       <main className="flex-1 w-full p-4 md:p-8 lg:p-12 overflow-y-auto h-screen">
         <Switch>
           <Route path="/" component={Calculator} />
+          <Route path="/reverse" component={ReverseCalculator} />
           <Route path="/repair" component={RepairCalculator} />
           <Route path="/push" component={ProtectedPush} />
           <Route path="/push-history" component={ProtectedPushHistory} />
