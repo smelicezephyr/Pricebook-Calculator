@@ -14,10 +14,25 @@ interface CalculatorState {
   roundUp: boolean;
 }
 
+interface RepairCalculatorState {
+  partsCost: string;
+  materialMarkup: string;
+  laborRate: string;
+  laborHours: string;
+  burdenPercent: string;
+  salesTaxPercent: string;
+  commissionPercent: string;
+  financingFeePercent: string;
+  highestTechRate: string;
+  laborMode: "dollars" | "percent";
+}
+
 interface CalculatorContextType {
   state: CalculatorState;
   setState: (state: Partial<CalculatorState>) => void;
   resetState: (defaults: { targetMe: string; laborPercent: string }) => void;
+  repairState: RepairCalculatorState;
+  setRepairState: (state: Partial<RepairCalculatorState>) => void;
 }
 
 const defaultState: CalculatorState = {
@@ -34,10 +49,24 @@ const defaultState: CalculatorState = {
   roundUp: false,
 };
 
+const defaultRepairState: RepairCalculatorState = {
+  partsCost: "",
+  materialMarkup: "200",
+  laborRate: "175.00",
+  laborHours: "",
+  burdenPercent: "20.00",
+  salesTaxPercent: "6.35",
+  commissionPercent: "10.00",
+  financingFeePercent: "4.00",
+  highestTechRate: "",
+  laborMode: "dollars",
+};
+
 const CalculatorContext = createContext<CalculatorContextType | null>(null);
 
 export function CalculatorProvider({ children }: { children: ReactNode }) {
   const [state, setStateInternal] = useState<CalculatorState>(defaultState);
+  const [repairState, setRepairStateInternal] = useState<RepairCalculatorState>(defaultRepairState);
 
   const setState = (newState: Partial<CalculatorState>) => {
     setStateInternal(prev => ({ ...prev, ...newState }));
@@ -51,8 +80,12 @@ export function CalculatorProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const setRepairState = (newState: Partial<RepairCalculatorState>) => {
+    setRepairStateInternal(prev => ({ ...prev, ...newState }));
+  };
+
   return (
-    <CalculatorContext.Provider value={{ state, setState, resetState }}>
+    <CalculatorContext.Provider value={{ state, setState, resetState, repairState, setRepairState }}>
       {children}
     </CalculatorContext.Provider>
   );
