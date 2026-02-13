@@ -544,8 +544,8 @@ export default function ReverseCalculator() {
                   {mode === "system" && (
                     <div className="mt-3 space-y-1">
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">M&E %</span>
-                        <span className="font-medium" data-testid="text-reverse-me-percent">{formatPercent(systemResults.metrics.mePercent)}</span>
+                        <span className="text-muted-foreground">M&E $</span>
+                        <span className="font-medium" data-testid="text-reverse-me-dollar">{formatCurrency(systemMAndECost)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Direct Labor</span>
@@ -556,8 +556,8 @@ export default function ReverseCalculator() {
                   {mode === "repair" && (
                     <div className="mt-3 space-y-1">
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">COGS</span>
-                        <span className="font-medium" data-testid="text-reverse-cogs">{formatCurrency(repairCogs)}</span>
+                        <span className="text-muted-foreground">M&E $</span>
+                        <span className="font-medium" data-testid="text-reverse-me-dollar-repair">{formatCurrency(repairMaterialsCost)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Total Costs</span>
