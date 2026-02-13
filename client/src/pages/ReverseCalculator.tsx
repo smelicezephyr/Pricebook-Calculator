@@ -5,8 +5,6 @@ import { InputMoney } from "@/components/InputMoney";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Label as UILabel } from "@/components/ui/label";
 import { RefreshCw, Loader2, Copy, DollarSign, TrendingUp } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { useToast } from "@/hooks/use-toast";
@@ -32,7 +30,7 @@ export default function ReverseCalculator() {
   const [permit, setPermit] = useState("");
   const [discount, setDiscount] = useState("");
   const [discountMode, setDiscountMode] = useState<"dollar" | "percent">("dollar");
-  const [roundUp, setRoundUp] = useState(false);
+
   const [hasInitialized, setHasInitialized] = useState(false);
 
   useEffect(() => {
@@ -87,7 +85,7 @@ export default function ReverseCalculator() {
       : discountInput;
 
     const price = Math.max(0, priceVal - discountVal);
-    const displayPrice = roundUp ? Math.ceil(price) : price;
+    const displayPrice = price;
 
     const commissionRate = parseFloat(settings.commissionPercent) / 100;
     const commissionBurdenRate = parseFloat(settings.commissionBurdenPercent) / 100;
@@ -134,7 +132,7 @@ export default function ReverseCalculator() {
         estimatedLabor,
       }
     });
-  }, [priceVal, matVal, equipVal, hoursVal, laborPercent, discount, discountMode, subVal, craneVal, permitVal, settings, roundUp]);
+  }, [priceVal, matVal, equipVal, hoursVal, laborPercent, discount, discountMode, subVal, craneVal, permitVal, settings]);
 
   const handleCopyFromSystem = () => {
     setMaterials(calcState.materials || "");
@@ -163,7 +161,6 @@ export default function ReverseCalculator() {
     setPermit("");
     setDiscount("");
     setDiscountMode("dollar");
-    setRoundUp(false);
   };
 
   if (settingsLoading) {
@@ -198,7 +195,7 @@ export default function ReverseCalculator() {
     ? priceVal * discountInput / 100
     : discountInput;
   const effectivePrice = Math.max(0, priceVal - discountDollarVal);
-  const displayPrice = roundUp ? Math.ceil(effectivePrice) : effectivePrice;
+  const displayPrice = effectivePrice;
   const mAndECost = (results.breakdown.materials || 0) + (results.breakdown.equipment || 0) + (results.breakdown.tax || 0);
   const directLaborCost = (results.breakdown.laborCost || 0) + (results.breakdown.commission || 0);
   const totalOtherCogs = (results.breakdown.financing || 0) + (results.breakdown.subcontractor || 0) + (results.breakdown.crane || 0) + (results.breakdown.permit || 0);
@@ -471,20 +468,6 @@ export default function ReverseCalculator() {
                   <p className="text-lg font-semibold text-muted-foreground mt-1" data-testid="text-reverse-gm-amount">
                     {formatCurrency(results.metrics.grossMarginAmount)}
                   </p>
-                  <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border">
-                    <Switch
-                      id="reverse-round-up-toggle"
-                      checked={roundUp}
-                      onCheckedChange={setRoundUp}
-                      data-testid="switch-reverse-round-up"
-                    />
-                    <UILabel
-                      htmlFor="reverse-round-up-toggle"
-                      className="text-sm text-muted-foreground cursor-pointer"
-                    >
-                      Round up to whole dollar
-                    </UILabel>
-                  </div>
                 </div>
               </div>
 
