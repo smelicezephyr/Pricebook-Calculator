@@ -379,7 +379,7 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
       return results;
     }
 
-    const CONCURRENCY = 20;
+    const CONCURRENCY = 50;
     let completedUpdates = 0;
 
     emitProgress(tenantId, 'updating', `Updating ${pendingUpdates.length} services (${CONCURRENCY} at a time)...`, 0, pendingUpdates.length);
