@@ -672,7 +672,7 @@ Tokens cached in-memory for 15 minutes per tenant
 **Files**: `client/src/pages/PushToServiceTitan.tsx`, `server/pushProcessor.ts`, `server/routes.ts`
 **Route**: `/push` (password-protected)
 
-The "Update Pricebook" tab on the Push to ServiceTitan page lets users push calculated M&E pricing to existing services in ServiceTitan.
+The "Update Pricebook" tab on the Push to ServiceTitan page lets users push calculated M&E pricing to existing services in ServiceTitan. The page also includes a collapsible **Tax Regions** management section (between tenant selection and the tabs) for inline add/edit/delete of tax regions without navigating away.
 
 ### How It Works
 
@@ -805,13 +805,20 @@ PSI Mode is a quick-preset toggle that applies a specific set of values for PSI 
 
 ---
 
-## 16. Location-Based Sales Tax
+## 16. Location-Based Sales Tax (Tax Regions)
 
-**Files**: `client/src/pages/Locations.tsx`, `server/routes.ts`, `server/storage.ts`, `shared/schema.ts`
-**Route**: `/locations` (password-protected)
+**Files**: `client/src/pages/Locations.tsx`, `client/src/pages/PushToServiceTitan.tsx`, `server/routes.ts`, `server/storage.ts`, `shared/schema.ts`
+**Route**: `/locations` (password-protected admin page), also accessible inline on `/push`
 
 ### Purpose
-A reference library that maps location names to their local sales tax percentages. Tenants can be assigned a location, and when that tenant is selected on the Push to ServiceTitan page, the repair tab automatically pulls the tax rate from that location.
+A reference library that maps location names (tax regions) to their local sales tax percentages. Tenants can be assigned a location, and when that tenant is selected on the Push to ServiceTitan page, the tax rate auto-populates into **all three tabs** (Update Pricebook, New System Task, New Repair Task).
+
+### Managing Tax Regions
+Tax regions can be managed in two places:
+1. **Admin Locations page** (`/locations`) — full-page CRUD management
+2. **Push to ServiceTitan page** (`/push`) — collapsible inline "Tax Regions" section between tenant selection and the main tabs, allowing add/edit/delete without navigating away
+
+Both interfaces share the same `/api/locations` endpoints and data.
 
 ### Seeded Locations
 | Location | Sales Tax |
@@ -826,15 +833,15 @@ A reference library that maps location names to their local sales tax percentage
 ### How Tax Auto-Populates
 1. User selects a tenant on the Push to ServiceTitan page
 2. If that tenant has an assigned `locationId`, the location's `salesTaxPercent` is fetched
-3. The Repair tab's sales tax field is auto-populated with that value
+3. The tax rate is set on **both** `salesTaxPercent` (used by Update and New System tabs) and `repairSalesTaxPercent` (used by New Repair tab)
 4. If PSI mode is toggled off, the location-based tax is restored
-5. Fallback: 6.35% if no location is assigned
+5. Fallback: global settings value, or 6.35% if no location is assigned
 
 ### API Endpoints
 - `GET /api/locations` — List all locations
 - `POST /api/locations` — Create location
 - `PUT /api/locations/:id` — Update location
-- `DELETE /api/locations/:id` — Delete location
+- `DELETE /api/locations/:id` — Delete location (also clears `locationId` on any associated tenants)
 
 ---
 
