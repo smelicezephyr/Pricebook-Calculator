@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTenants, useServiceTitan } from "@/hooks/use-tenants";
 import { useSettings } from "@/hooks/use-settings";
 import type { Location } from "@shared/schema";
@@ -11,15 +11,17 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign, ArrowUp, Plus, ImagePlus, Search, Check, ChevronsUpDown, Wrench } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign, ArrowUp, Plus, ImagePlus, Search, Check, ChevronsUpDown, Wrench, MapPin, Edit, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 
 
 
@@ -36,7 +38,88 @@ export default function PushToServiceTitan() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { data: locationsList = [] } = useQuery<Location[]>({ queryKey: ['/api/locations'] });
-  
+
+  const [taxRegionsOpen, setTaxRegionsOpen] = useState(false);
+  const [taxRegionDialogOpen, setTaxRegionDialogOpen] = useState(false);
+  const [editingRegion, setEditingRegion] = useState<Location | null>(null);
+  const [regionName, setRegionName] = useState("");
+  const [regionTax, setRegionTax] = useState("");
+
+  const createRegionMutation = useMutation({
+    mutationFn: async (data: { name: string; salesTaxPercent: string }) => {
+      const res = await apiRequest("POST", "/api/locations", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
+      setTaxRegionDialogOpen(false);
+      toast({ title: "Tax region added" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const updateRegionMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: { name: string; salesTaxPercent: string } }) => {
+      const res = await apiRequest("PUT", `/api/locations/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
+      setTaxRegionDialogOpen(false);
+      toast({ title: "Tax region updated" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteRegionMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/locations/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
+      toast({ title: "Tax region deleted" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const openCreateRegion = () => {
+    setEditingRegion(null);
+    setRegionName("");
+    setRegionTax("");
+    setTaxRegionDialogOpen(true);
+  };
+
+  const openEditRegion = (loc: Location) => {
+    setEditingRegion(loc);
+    setRegionName(loc.name);
+    setRegionTax(loc.salesTaxPercent);
+    setTaxRegionDialogOpen(true);
+  };
+
+  const handleRegionSubmit = () => {
+    if (!regionName.trim()) {
+      toast({ title: "Error", description: "Region name is required", variant: "destructive" });
+      return;
+    }
+    const taxVal = parseFloat(regionTax);
+    if (isNaN(taxVal) || taxVal < 0) {
+      toast({ title: "Error", description: "Sales tax must be a valid number", variant: "destructive" });
+      return;
+    }
+    const data = { name: regionName.trim(), salesTaxPercent: taxVal.toFixed(2) };
+    if (editingRegion) {
+      updateRegionMutation.mutate({ id: editingRegion.id, data });
+    } else {
+      createRegionMutation.mutate(data);
+    }
+  };
+
   const [selectedTenantId, setSelectedTenantId] = useState<number | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle');
   const [categories, setCategories] = useState<Category[]>([]);
@@ -344,8 +427,11 @@ export default function PushToServiceTitan() {
     const fallbackTax = settings?.salesTaxPercent || "6.35";
     if (selectedTenant?.locationId) {
       const loc = locationsList.find(l => l.id === selectedTenant.locationId);
-      setRepairSalesTaxPercent(loc ? loc.salesTaxPercent.toString() : fallbackTax);
+      const taxRate = loc ? loc.salesTaxPercent.toString() : fallbackTax;
+      setSalesTaxPercent(taxRate);
+      setRepairSalesTaxPercent(taxRate);
     } else {
+      setSalesTaxPercent(fallbackTax);
       setRepairSalesTaxPercent(fallbackTax);
     }
 
@@ -924,6 +1010,103 @@ export default function PushToServiceTitan() {
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="cursor-pointer py-3" onClick={() => setTaxRegionsOpen(!taxRegionsOpen)}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MapPin size={18} className="text-muted-foreground" />
+                  <CardTitle className="text-base">Tax Regions</CardTitle>
+                  <Badge variant="secondary" className="text-xs">{locationsList.length}</Badge>
+                </div>
+                {taxRegionsOpen ? <ChevronDown size={16} className="text-muted-foreground" /> : <ChevronRight size={16} className="text-muted-foreground" />}
+              </div>
+            </CardHeader>
+            {taxRegionsOpen && (
+              <CardContent className="pt-0 space-y-3">
+                {locationsList.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">No tax regions configured yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {locationsList.map((loc) => (
+                      <div key={loc.id} className="flex items-center justify-between rounded-md border px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <MapPin size={14} className="text-muted-foreground" />
+                          <span className="text-sm font-medium" data-testid={`text-region-name-${loc.id}`}>{loc.name}</span>
+                          <Badge variant="outline" className="text-xs" data-testid={`text-region-tax-${loc.id}`}>{loc.salesTaxPercent}%</Badge>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditRegion(loc)} data-testid={`button-edit-region-${loc.id}`}>
+                            <Edit size={14} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => deleteRegionMutation.mutate(loc.id)}
+                            disabled={deleteRegionMutation.isPending}
+                            data-testid={`button-delete-region-${loc.id}`}
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <Button variant="outline" size="sm" onClick={openCreateRegion} className="gap-1" data-testid="button-add-region">
+                  <Plus size={14} />
+                  Add Region
+                </Button>
+              </CardContent>
+            )}
+          </Card>
+
+          <Dialog open={taxRegionDialogOpen} onOpenChange={setTaxRegionDialogOpen}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle>{editingRegion ? "Edit Tax Region" : "Add Tax Region"}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label htmlFor="regionName">Region Name</Label>
+                  <Input
+                    id="regionName"
+                    value={regionName}
+                    onChange={(e) => setRegionName(e.target.value)}
+                    placeholder="e.g., Gaithersburg, MD"
+                    data-testid="input-region-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="regionTax">Sales Tax %</Label>
+                  <Input
+                    id="regionTax"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={regionTax}
+                    onChange={(e) => setRegionTax(e.target.value)}
+                    placeholder="e.g., 6.35"
+                    data-testid="input-region-tax"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setTaxRegionDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleRegionSubmit}
+                  disabled={createRegionMutation.isPending || updateRegionMutation.isPending}
+                  data-testid="button-submit-region"
+                >
+                  {(createRegionMutation.isPending || updateRegionMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {editingRegion ? "Update" : "Add"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {connectionStatus === 'connected' && (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

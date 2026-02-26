@@ -186,6 +186,12 @@ shared/           # Shared code between client/server
 - Same settings integration (sales tax, commission, financing, labor burden from global settings)
 - Navigation: ArrowLeftRight icon between Repair Calculator and ServiceTitan section
 
+### Tax Regions in Push to ServiceTitan (February 2026)
+- Added collapsible Tax Regions management section directly in Push to ServiceTitan page
+- Users can add, edit, and delete tax regions without navigating away from the push page
+- Reuses existing `/api/locations` endpoints (shared with admin Locations page)
+- Fixed bug: selecting a tenant now auto-populates sales tax rate into all three tabs (Update, New System, New Repair) from the tenant's assigned location — previously only Repair tab was updated
+
 ### Version Check Banner (February 2026)
 - Server generates a unique build ID (timestamp) at startup
 - `/api/version` endpoint returns the current build ID
