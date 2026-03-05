@@ -2,6 +2,8 @@ import { Link, useLocation } from "wouter";
 import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Lock, Clock, Wrench, Shield, Key, Trash2, Loader2, Hash, MapPin, ArrowLeftRight } from "lucide-react";
 import { useState } from "react";
 import clsx from "clsx";
+import horizontalLogo from "@assets/Logo_-_Horizontal_1772750848213.png";
+import stackedLogo from "@assets/Logo_-_Stacked_1772750848213.png";
 import { useServiceTitanAuth } from "@/contexts/ServiceTitanAuthContext";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { Button } from "@/components/ui/button";
@@ -182,7 +184,7 @@ export function Navigation() {
     <>
       {/* Mobile Header */}
       <div className="lg:hidden flex items-center justify-between p-4 bg-card border-b border-border sticky top-0 z-50">
-        <h1 className="font-display font-bold text-xl text-primary">PricebookCalc</h1>
+        <img src={stackedLogo} alt="PricebookCalc" className="h-10 w-auto" />
         <button 
           onClick={() => setIsOpen(!isOpen)}
           className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
@@ -199,10 +201,7 @@ export function Navigation() {
       )}>
         <div className="h-full flex flex-col p-6 pt-4 lg:pt-6">
           <div className="hidden lg:block mb-8">
-            <h1 className="font-display font-bold text-2xl text-primary flex items-center gap-2">
-              <Calculator className="w-8 h-8" />
-              PricebookCalc
-            </h1>
+            <img src={horizontalLogo} alt="PricebookCalc" className="h-12 w-auto" />
           </div>
 
           <div className="space-y-2 flex-1">
