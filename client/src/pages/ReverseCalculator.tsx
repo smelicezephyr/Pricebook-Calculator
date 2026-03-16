@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RefreshCw, Loader2, Copy, DollarSign, TrendingUp } from "lucide-react";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 
 const REVERSE_MODE_KEY = "pricebookcalc_reverse_mode";
@@ -184,6 +184,41 @@ export default function ReverseCalculator() {
   const repairGrossMargin = repairPriceVal - repairCogs;
   const repairGrossMarginPercent = repairPriceVal > 0 ? (repairGrossMargin / repairPriceVal) * 100 : 0;
   const repairMePercent = repairPriceVal > 0 ? (repairSubtotal1 / repairPriceVal) * 100 : 0;
+
+  // Forward-calculated price: what the Repair Calculator would compute from these same inputs
+  const repairFwdDenominator = 1 - repairCommissionRate * (1 + repairBurdenRate) - repairFinancingRate;
+  const repairFwdSubtotal3 = repairMaterialsCost + repairBurdenedLaborCost;
+  const repairCalculatedPrice = repairFwdDenominator > 0 ? repairFwdSubtotal3 / repairFwdDenominator : repairFwdSubtotal3;
+
+  // Stacked bar segments for the comparison chart
+  const calcCommission = repairCalculatedPrice * repairCommissionRate * (1 + repairBurdenRate);
+  const calcFinancing = repairCalculatedPrice * repairFinancingRate;
+  const calcMargin = repairCalculatedPrice - repairMaterialsCost - repairBurdenedLaborCost - calcCommission - calcFinancing;
+
+  const enteredCommission = repairBurdenedCommission;
+  const enteredFinancing = repairFinancingFee;
+  const enteredMargin = repairPriceVal - repairMaterialsCost - repairBurdenedLaborCost - enteredCommission - enteredFinancing;
+
+  const priceComparisonData = [
+    {
+      name: "Calculated",
+      total: repairCalculatedPrice,
+      "Parts & Materials": repairMaterialsCost,
+      "Labor": repairBurdenedLaborCost,
+      "Commission": calcCommission,
+      "Financing": calcFinancing,
+      "Margin": calcMargin,
+    },
+    {
+      name: "Selling Price",
+      total: repairPriceVal,
+      "Parts & Materials": repairMaterialsCost,
+      "Labor": repairBurdenedLaborCost,
+      "Commission": enteredCommission,
+      "Financing": enteredFinancing,
+      "Margin": enteredMargin,
+    },
+  ];
 
   const handleCopyFromSystem = () => {
     setMaterials(calcState.materials || "");
@@ -864,26 +899,63 @@ export default function ReverseCalculator() {
                     </div>
                   </div>
 
-                  <div className="bg-card rounded-xl border border-border p-4 shadow-sm flex flex-col items-center justify-start">
-                    <h3 className="font-display font-bold text-base mb-2 text-center w-full">Distribution</h3>
-                    <div className="w-full h-[180px] flex items-center justify-center">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
-                          <Pie data={chartData} cx="50%" cy="50%" innerRadius={35} outerRadius={60} paddingAngle={3} dataKey="value" label={renderCustomLabel} labelLine={false}>
-                            {chartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} stroke="none" />))}
-                          </Pie>
-                          <Tooltip formatter={(value: number, name: string, props: any) => [`${formatCurrency(value)} (${props.payload.percent.toFixed(2)}%)`, name]} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', zIndex: 1000 }} wrapperStyle={{ zIndex: 1000 }} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex flex-wrap justify-center gap-2 text-[10px] mt-2">
-                      {chartData.map(d => (
-                        <div key={d.name} className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }} />
-                          <span className="text-muted-foreground font-medium">{d.name}: {d.percent.toFixed(1)}%</span>
+                  <div className="bg-card rounded-xl border border-border p-4 shadow-sm flex flex-col">
+                    <h3 className="font-display font-bold text-base mb-1">Price Comparison</h3>
+                    <p className="text-[10px] text-muted-foreground mb-3">Calculated formula price vs your selling price</p>
+                    {repairPriceVal > 0 && repairCalculatedPrice > 0 ? (
+                      <>
+                        <div className="flex justify-between text-[10px] mb-2 px-1">
+                          <span className="text-muted-foreground">
+                            Calculated: <span className="font-bold text-foreground">{formatCurrency(repairCalculatedPrice)}</span>
+                          </span>
+                          <span className={`font-bold ${repairPriceVal >= repairCalculatedPrice ? "text-green-600" : "text-red-500"}`}>
+                            {repairPriceVal >= repairCalculatedPrice ? "+" : ""}{formatCurrency(repairPriceVal - repairCalculatedPrice)}
+                          </span>
                         </div>
-                      ))}
-                    </div>
+                        <div className="w-full h-[220px]">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={priceComparisonData} margin={{ top: 24, right: 8, bottom: 4, left: 8 }} barCategoryGap="35%">
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                              <XAxis dataKey="name" tick={{ fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} />
+                              <YAxis tickFormatter={(v) => `$${Math.round(v)}`} tick={{ fontSize: 9 }} width={52} axisLine={false} tickLine={false} />
+                              <Tooltip
+                                formatter={(value: number, name: string) => [formatCurrency(value), name]}
+                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '11px' }}
+                                cursor={{ fill: 'hsl(var(--muted)/0.3)' }}
+                              />
+                              <Bar dataKey="Parts & Materials" stackId="price" fill="#3b82f6" />
+                              <Bar dataKey="Labor" stackId="price" fill="#10b981" />
+                              <Bar dataKey="Commission" stackId="price" fill="#f59e0b" />
+                              <Bar dataKey="Financing" stackId="price" fill="#8b5cf6" />
+                              <Bar dataKey="Margin" stackId="price" radius={[4, 4, 0, 0]}>
+                                {priceComparisonData.map((entry, index) => (
+                                  <Cell key={`margin-${index}`} fill={entry["Margin"] >= 0 ? "#22c55e" : "#ef4444"} />
+                                ))}
+                                <LabelList dataKey="total" position="top" formatter={(v: number) => formatCurrency(v)} style={{ fontSize: '10px', fontWeight: 700, fill: 'hsl(var(--foreground))' }} />
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-[9px] mt-2">
+                          {[
+                            { name: "Parts & Materials", color: "#3b82f6" },
+                            { name: "Labor", color: "#10b981" },
+                            { name: "Commission", color: "#f59e0b" },
+                            { name: "Financing", color: "#8b5cf6" },
+                            { name: "Margin", color: "#22c55e" },
+                          ].map(d => (
+                            <div key={d.name} className="flex items-center gap-1">
+                              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
+                              <span className="text-muted-foreground font-medium">{d.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm py-8">
+                        Enter a selling price and parts cost to see comparison
+                      </div>
+                    )}
                   </div>
                 </div>
               </>
