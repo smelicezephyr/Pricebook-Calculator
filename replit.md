@@ -199,3 +199,15 @@ shared/           # Shared code between client/server
 - When a new build ID is detected (after republish), a sticky banner appears on all pages
 - Banner prompts users to click "Refresh Now" to load the latest version
 - Component: `client/src/components/VersionCheck.tsx`
+
+### Reverse Calculator Repair Mode Fixes (March 2026)
+- **COGS redefined**: COGS = Parts + Tax + burdened direct labor only (no markup, no commission)
+- **M&E %** summary card now shows `(Parts + Tax) / Selling Price × 100` — markup excluded to reflect true materials cost ratio
+- **Total Costs** = COGS + Financing Fee only (commission excluded from total cost line)
+- **Price Comparison chart**: Replaced Distribution pie chart with two stacked bar chart (Calculated vs Selling); both bars share the same 6 segments — Parts+Tax (gray), Markup (blue), Labor (green), Commission (amber), Financing (violet), Margin (green/red)
+- **No floating tooltip**: Chart tooltip removed; a static 3-column comparison table (Segment | Calculated | Selling) renders below the chart with a delta callout showing ±$ vs formula price
+
+### InputMoney Default Placeholder (March 2026)
+- `client/src/components/InputMoney.tsx` now defaults `placeholder` to `"0"` when no explicit placeholder prop is passed
+- All currency and percent input fields across every page show a light-gray "0" hint when empty, rather than appearing blank or displaying an actual zero value
+- Individual call sites can still override with their own placeholder (e.g., `placeholder="6.35"` for a pre-seeded tax hint)

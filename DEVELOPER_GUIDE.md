@@ -431,25 +431,59 @@ Mirrors the Repair Calculator's inputs but adds a Selling Price input. Shows GM%
 
 **Key difference from Repair Calculator**: Uses user-entered selling price directly to compute commission/financing amounts, rather than deriving the price from costs. In Repair Calculator, the price is solved algebraically; in Reverse Repair mode, the price is given and used directly.
 
-**Calculation (lines 141–187)**:
+**Calculation**:
 ```
-repairSalesTax = partsCost × taxRate
-repairMaterialsCost = (partsCost + salesTax) + (partsCost + salesTax) × markupRate
-
-If laborMode is "percent":
-  laborCost = $0
-  commission = sellingPrice × commissionRate (+ burden)
-  financing = sellingPrice × financingRate
+salesTax = partsCost × taxRate
+subtotal1 = partsCost + salesTax            ← "Parts + Tax"
+markupAmount = subtotal1 × markupRate
+materialsCost = subtotal1 + markupAmount    ← "Parts + Tax + Markup"
 
 If laborMode is "dollars":
-  laborCost = highestTechRate × laborHours (+ burden)
-  commission = sellingPrice × commissionRate (+ burden)
-  financing = sellingPrice × financingRate
+  directLaborCost = highestTechRate × laborHours
+  burdenedLaborCost = directLaborCost × (1 + burdenRate)
+If laborMode is "percent":
+  directLaborCost = 0
+  burdenedLaborCost = 0
 
-COGS = partsCost + burdenedTechLabor + burdenedCommission
+commission = sellingPrice × commissionRate × (1 + burdenRate)
+financing  = sellingPrice × financingRate
+
+COGS = subtotal1 + burdenedLaborCost        ← Parts + Tax + direct labor (no markup, no commission)
+totalCosts = COGS + financing
 grossMargin = sellingPrice - COGS
 grossMarginPercent = sellingPrice > 0 ? (grossMargin / sellingPrice) × 100 : 0
+mePercent = sellingPrice > 0 ? (subtotal1 / sellingPrice) × 100 : 0
 ```
+
+**Summary card values (repair mode)**:
+- **M&E %** = `subtotal1 / sellingPrice × 100` — percentage of (Parts + Tax) vs selling price. Markup is deliberately excluded so it reflects the true materials cost ratio.
+- **Total Costs** = `COGS + financingFee` (not commission, not markup)
+
+### Price Comparison Chart (Repair Mode)
+
+Replaces the Distribution pie chart. Shows two stacked vertical bars: **Calculated** (what the forward Repair Calculator formula would produce from the same inputs) and **Selling** (the user-entered price). Both bars share identical stacked segments so the visual difference is immediately clear.
+
+**Forward "Calculated Price" formula**:
+```
+denominator = 1 - commissionRate × (1 + burdenRate) - financingRate
+subtotal3 = materialsCost + burdenedLaborCost
+calculatedPrice = subtotal3 / denominator
+```
+
+**Stacked bar segments (same keys for both bars)**:
+
+| Segment | Color | Value — Calculated bar | Value — Selling bar |
+|---|---|---|---|
+| Parts + Tax | Gray | `subtotal1` | `subtotal1` (identical) |
+| Markup | Blue | `markupAmount` | `markupAmount` (identical) |
+| Labor | Green | `burdenedLaborCost` | `burdenedLaborCost` (identical) |
+| Commission | Amber | `calculatedPrice × commissionRate × (1+burden)` | `sellingPrice × commissionRate × (1+burden)` |
+| Financing | Violet | `calculatedPrice × financingRate` | `sellingPrice × financingRate` |
+| Margin | Green/Red | `~0` (by formula construction) | `sellingPrice − all above` |
+
+The Margin segment is green when ≥ 0 and red when negative (selling below cost). A `LabelList` renders the total price above each bar.
+
+**No floating tooltip** — instead a static 3-column comparison table (Segment | Calculated | Selling) sits below the chart, plus a delta callout (`+$X above / −$X below formula price`).
 
 ### "Copy from" Buttons
 - **System mode**: "Copy from System Calculator" — copies materials, equipment, labor, discount, rebates from the System Calculator's current state via `CalculatorContext.state`
@@ -1000,6 +1034,10 @@ QueryClientProvider
 **File**: `client/src/components/InputMoney.tsx`
 
 Reusable input with dollar sign prefix, consistent styling, and label. Used across all calculators for currency/numeric inputs.
+
+- Accepts `type` prop: `"currency"` ($ prefix), `"percent"` (% prefix), or `"number"` (# prefix)
+- Defaults `placeholder` to `"0"` when no explicit placeholder is passed — all numeric fields across every page show a light-gray "0" hint when empty rather than appearing blank or hard-coding an actual zero value
+- Spreads all standard HTML input attributes; individual call sites can override `placeholder` with their own value (e.g., `placeholder="6.35"` for a pre-seeded tax rate hint)
 
 ### TanStack Query Usage
 - Queries use default `queryFn` (no need to define fetch logic)
