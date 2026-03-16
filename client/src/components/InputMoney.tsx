@@ -10,7 +10,7 @@ interface InputMoneyProps extends React.InputHTMLAttributes<HTMLInputElement> {
   className?: string;
 }
 
-export function InputMoney({ label, type = "currency", error, className, ...props }: InputMoneyProps) {
+export function InputMoney({ label, type = "currency", error, className, placeholder, ...props }: InputMoneyProps) {
   return (
     <div className={clsx("space-y-1", className)}>
       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -26,6 +26,7 @@ export function InputMoney({ label, type = "currency", error, className, ...prop
           {...props}
           type="number"
           step={type === "number" ? "1" : "0.01"}
+          placeholder={placeholder ?? "0"}
           className={clsx(
             "pl-8 h-9 text-sm font-medium bg-background border-border shadow-sm transition-all focus:ring-primary/20",
             error && "border-destructive focus:ring-destructive/20"

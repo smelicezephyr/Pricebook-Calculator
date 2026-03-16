@@ -193,26 +193,36 @@ export default function ReverseCalculator() {
   // Stacked bar segments for the comparison chart
   const calcCommission = repairCalculatedPrice * repairCommissionRate * (1 + repairBurdenRate);
   const calcFinancing = repairCalculatedPrice * repairFinancingRate;
-  const calcMargin = repairCalculatedPrice - repairMaterialsCost - repairBurdenedLaborCost - calcCommission - calcFinancing;
+  const calcMargin = repairCalculatedPrice - repairSubtotal1 - repairMarkupAmount - repairBurdenedLaborCost - calcCommission - calcFinancing;
 
   const enteredCommission = repairBurdenedCommission;
   const enteredFinancing = repairFinancingFee;
-  const enteredMargin = repairPriceVal - repairMaterialsCost - repairBurdenedLaborCost - enteredCommission - enteredFinancing;
+  const enteredMargin = repairPriceVal - repairSubtotal1 - repairMarkupAmount - repairBurdenedLaborCost - enteredCommission - enteredFinancing;
+
+  const COMPARISON_SEGMENTS = [
+    { key: "Parts + Tax", color: "#6b7280" },
+    { key: "Markup",      color: "#3b82f6" },
+    { key: "Labor",       color: "#10b981" },
+    { key: "Commission",  color: "#f59e0b" },
+    { key: "Financing",   color: "#8b5cf6" },
+  ] as const;
 
   const priceComparisonData = [
     {
       name: "Calculated",
       total: repairCalculatedPrice,
-      "Parts & Materials": repairMaterialsCost,
+      "Parts + Tax": repairSubtotal1,
+      "Markup": repairMarkupAmount,
       "Labor": repairBurdenedLaborCost,
       "Commission": calcCommission,
       "Financing": calcFinancing,
       "Margin": calcMargin,
     },
     {
-      name: "Selling Price",
+      name: "Selling",
       total: repairPriceVal,
-      "Parts & Materials": repairMaterialsCost,
+      "Parts + Tax": repairSubtotal1,
+      "Markup": repairMarkupAmount,
       "Labor": repairBurdenedLaborCost,
       "Commission": enteredCommission,
       "Financing": enteredFinancing,
@@ -901,54 +911,69 @@ export default function ReverseCalculator() {
 
                   <div className="bg-card rounded-xl border border-border p-4 shadow-sm flex flex-col">
                     <h3 className="font-display font-bold text-base mb-1">Price Comparison</h3>
-                    <p className="text-[10px] text-muted-foreground mb-3">Calculated formula price vs your selling price</p>
+                    <p className="text-[10px] text-muted-foreground mb-3">Formula price vs your selling price</p>
                     {repairPriceVal > 0 && repairCalculatedPrice > 0 ? (
                       <>
-                        <div className="flex justify-between text-[10px] mb-2 px-1">
-                          <span className="text-muted-foreground">
-                            Calculated: <span className="font-bold text-foreground">{formatCurrency(repairCalculatedPrice)}</span>
-                          </span>
-                          <span className={`font-bold ${repairPriceVal >= repairCalculatedPrice ? "text-green-600" : "text-red-500"}`}>
-                            {repairPriceVal >= repairCalculatedPrice ? "+" : ""}{formatCurrency(repairPriceVal - repairCalculatedPrice)}
-                          </span>
-                        </div>
-                        <div className="w-full h-[220px]">
+                        {/* Stacked bar chart — no floating tooltip */}
+                        <div className="w-full h-[200px]">
                           <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={priceComparisonData} margin={{ top: 24, right: 8, bottom: 4, left: 8 }} barCategoryGap="35%">
+                            <BarChart data={priceComparisonData} margin={{ top: 22, right: 6, bottom: 4, left: 6 }} barCategoryGap="35%" barGap={4}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                               <XAxis dataKey="name" tick={{ fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} />
-                              <YAxis tickFormatter={(v) => `$${Math.round(v)}`} tick={{ fontSize: 9 }} width={52} axisLine={false} tickLine={false} />
-                              <Tooltip
-                                formatter={(value: number, name: string) => [formatCurrency(value), name]}
-                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '11px' }}
-                                cursor={{ fill: 'hsl(var(--muted)/0.3)' }}
-                              />
-                              <Bar dataKey="Parts & Materials" stackId="price" fill="#3b82f6" />
-                              <Bar dataKey="Labor" stackId="price" fill="#10b981" />
-                              <Bar dataKey="Commission" stackId="price" fill="#f59e0b" />
-                              <Bar dataKey="Financing" stackId="price" fill="#8b5cf6" />
+                              <YAxis tickFormatter={(v) => `$${Math.round(v)}`} tick={{ fontSize: 9 }} width={50} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
+                              {COMPARISON_SEGMENTS.map(seg => (
+                                <Bar key={seg.key} dataKey={seg.key} stackId="price" fill={seg.color} />
+                              ))}
                               <Bar dataKey="Margin" stackId="price" radius={[4, 4, 0, 0]}>
-                                {priceComparisonData.map((entry, index) => (
-                                  <Cell key={`margin-${index}`} fill={entry["Margin"] >= 0 ? "#22c55e" : "#ef4444"} />
+                                {priceComparisonData.map((entry, i) => (
+                                  <Cell key={`m-${i}`} fill={entry["Margin"] >= 0 ? "#22c55e" : "#ef4444"} />
                                 ))}
                                 <LabelList dataKey="total" position="top" formatter={(v: number) => formatCurrency(v)} style={{ fontSize: '10px', fontWeight: 700, fill: 'hsl(var(--foreground))' }} />
                               </Bar>
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
-                        <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-[9px] mt-2">
+
+                        {/* Static comparison table — replaces tooltip */}
+                        <div className="mt-3 border border-border rounded-lg overflow-hidden text-[10px]">
+                          <div className="grid grid-cols-3 bg-muted/60 px-2 py-1 font-bold text-muted-foreground uppercase tracking-wide">
+                            <span>Segment</span>
+                            <span className="text-right">Calculated</span>
+                            <span className="text-right">Selling</span>
+                          </div>
                           {[
-                            { name: "Parts & Materials", color: "#3b82f6" },
-                            { name: "Labor", color: "#10b981" },
-                            { name: "Commission", color: "#f59e0b" },
-                            { name: "Financing", color: "#8b5cf6" },
-                            { name: "Margin", color: "#22c55e" },
-                          ].map(d => (
-                            <div key={d.name} className="flex items-center gap-1">
-                              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
-                              <span className="text-muted-foreground font-medium">{d.name}</span>
+                            { label: "Parts + Tax", calc: repairSubtotal1, sold: repairSubtotal1, color: "#6b7280" },
+                            { label: "Markup", calc: repairMarkupAmount, sold: repairMarkupAmount, color: "#3b82f6" },
+                            ...(repairBurdenedLaborCost > 0 ? [{ label: "Labor", calc: repairBurdenedLaborCost, sold: repairBurdenedLaborCost, color: "#10b981" }] : []),
+                            { label: "Commission", calc: calcCommission, sold: enteredCommission, color: "#f59e0b" },
+                            { label: "Financing", calc: calcFinancing, sold: enteredFinancing, color: "#8b5cf6" },
+                            { label: "Margin", calc: calcMargin, sold: enteredMargin, color: enteredMargin >= 0 ? "#22c55e" : "#ef4444" },
+                          ].map(row => (
+                            <div key={row.label} className="grid grid-cols-3 px-2 py-1 border-t border-border/50 hover:bg-muted/30 transition-colors">
+                              <span className="flex items-center gap-1.5 font-medium text-foreground">
+                                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: row.color }} />
+                                {row.label}
+                              </span>
+                              <span className="text-right font-mono text-muted-foreground">{formatCurrency(row.calc)}</span>
+                              <span className={`text-right font-mono ${row.label === "Margin" ? (row.sold >= 0 ? "text-green-600 font-bold" : "text-red-500 font-bold") : "text-muted-foreground"}`}>
+                                {formatCurrency(row.sold)}
+                              </span>
                             </div>
                           ))}
+                          <div className="grid grid-cols-3 px-2 py-1.5 border-t-2 border-border bg-muted/30 font-bold">
+                            <span className="text-foreground uppercase tracking-wide text-[9px]">Total</span>
+                            <span className="text-right font-mono text-foreground">{formatCurrency(repairCalculatedPrice)}</span>
+                            <span className={`text-right font-mono ${repairPriceVal >= repairCalculatedPrice ? "text-green-600" : "text-red-500"}`}>
+                              {formatCurrency(repairPriceVal)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Delta callout */}
+                        <div className={`mt-2 text-center text-[10px] font-bold px-2 py-1 rounded ${repairPriceVal >= repairCalculatedPrice ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400" : "bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400"}`}>
+                          {repairPriceVal >= repairCalculatedPrice
+                            ? `+${formatCurrency(repairPriceVal - repairCalculatedPrice)} above formula price`
+                            : `${formatCurrency(repairPriceVal - repairCalculatedPrice)} below formula price`}
                         </div>
                       </>
                     ) : (
