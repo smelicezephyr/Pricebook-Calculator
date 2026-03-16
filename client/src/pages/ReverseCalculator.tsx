@@ -179,12 +179,11 @@ export default function ReverseCalculator() {
     repairFinancingFee = repairPriceVal * repairFinancingRate;
   }
 
-  const repairTechLaborCost = repairLaborMode === "percent" ? 0 : repairHighestTechRateVal * repairLaborHoursVal;
-  const repairBurdenedTechLabor = repairTechLaborCost * (1 + repairBurdenRate);
-  const repairCogs = repairPartsTotal + repairBurdenedTechLabor + repairBurdenedCommission;
-  const repairTotalCosts = repairMaterialsCost + repairBurdenedLaborCost + repairBurdenedCommission + repairFinancingFee;
+  const repairCogs = repairSubtotal1 + repairBurdenedLaborCost;
+  const repairTotalCosts = repairCogs + repairFinancingFee;
   const repairGrossMargin = repairPriceVal - repairCogs;
   const repairGrossMarginPercent = repairPriceVal > 0 ? (repairGrossMargin / repairPriceVal) * 100 : 0;
+  const repairMePercent = repairPriceVal > 0 ? (repairSubtotal1 / repairPriceVal) * 100 : 0;
 
   const handleCopyFromSystem = () => {
     setMaterials(calcState.materials || "");
@@ -576,8 +575,8 @@ export default function ReverseCalculator() {
                   {mode === "repair" && (
                     <div className="mt-3 space-y-1">
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">M&E $</span>
-                        <span className="font-medium" data-testid="text-reverse-me-dollar-repair">{formatCurrency(repairMaterialsCost)}</span>
+                        <span className="text-muted-foreground">M&E %</span>
+                        <span className="font-medium" data-testid="text-reverse-me-percent-repair">{formatPercent(repairMePercent)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Total Costs</span>
