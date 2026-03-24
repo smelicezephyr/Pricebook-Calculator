@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Clock, CheckCircle2, XCircle, AlertCircle, Trash2, ArrowLeft, History as HistoryIcon, RefreshCw, RotateCcw, StopCircle, Ban } from "lucide-react";
+import { Loader2, Clock, CheckCircle2, XCircle, AlertCircle, Trash2, ArrowLeft, History as HistoryIcon, RefreshCw, RotateCcw, RotateCw, StopCircle, Ban } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -201,6 +201,34 @@ export default function PushHistoryPage() {
         title: "Error", 
         description: error.message || "Failed to revert push.", 
         variant: "destructive" 
+      });
+    },
+  });
+
+  const retryMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest('POST', `/api/push-history/${id}/retry`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/push-history');
+        }
+      });
+      toast({
+        title: "Push Retried",
+        description: data.queued
+          ? "Push queued — it will start automatically when a slot opens."
+          : "Push started with the same settings.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to retry push.",
+        variant: "destructive",
       });
     },
   });
@@ -452,6 +480,25 @@ export default function PushHistoryPage() {
                           >
                             <StopCircle className="w-4 h-4" />
                             Cancel
+                          </Button>
+                        )}
+                        {(item.status === 'failed' ||
+                          item.status === 'cancelled' ||
+                          (item.status === 'completed' && (item.errorCount ?? 0) > 0)) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => retryMutation.mutate(item.id)}
+                            disabled={retryMutation.isPending}
+                            className="gap-1 text-blue-600 border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                            data-testid={`button-retry-${item.id}`}
+                          >
+                            {retryMutation.isPending ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <RotateCw className="w-4 h-4" />
+                            )}
+                            Retry
                           </Button>
                         )}
                         {(item.status === 'completed' || item.status === 'cancelled') && item.originalValues && (

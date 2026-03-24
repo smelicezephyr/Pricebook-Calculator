@@ -1342,5 +1342,120 @@ export async function registerRoutes(
     }
   });
 
+  // Retry a previous push with identical settings — creates a new history record
+  app.post("/api/push-history/:id/retry", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID" });
+      }
+
+      const historyItem = await storage.getPushHistoryItem(id);
+      if (!historyItem) {
+        return res.status(404).json({ message: "Push history item not found" });
+      }
+
+      const tenant = await storage.getTenant(historyItem.tenantId);
+      if (!tenant) {
+        return res.status(404).json({ message: "Tenant not found" });
+      }
+
+      const tenantId = historyItem.tenantId;
+
+      if (pushQueue.isActive(tenantId)) {
+        return res.status(429).json({ message: "This tenant already has an active push in progress." });
+      }
+
+      // Re-parse all settings from the stored history record
+      const categoryIds: number[] = JSON.parse(historyItem.categoryIds);
+      const targetMePercent = parseFloat(historyItem.targetMePercent);
+      const salesTaxPercent = parseFloat(historyItem.salesTaxPercent);
+      const laborMode = historyItem.laborMode;
+      const laborHourlyRate = parseFloat(historyItem.laborHourlyRate);
+      const laborHours = parseFloat(historyItem.laborHours ?? '8');
+      const laborPercent = parseFloat(historyItem.laborPercent);
+      const laborBurdenPercent = parseFloat(historyItem.laborBurdenPercent);
+      const commissionPercent = parseFloat(historyItem.commissionPercent);
+      const commissionBurdenPercent = parseFloat(historyItem.commissionBurdenPercent);
+      const financingFeePercent = parseFloat(historyItem.financingFeePercent);
+      const roundUp = historyItem.roundUp;
+
+      const historyBase = {
+        tenantId,
+        categoryIds: JSON.stringify(categoryIds),
+        targetMePercent: targetMePercent.toString(),
+        salesTaxPercent: salesTaxPercent.toString(),
+        laborMode,
+        laborHourlyRate: laborHourlyRate.toString(),
+        laborPercent: laborPercent.toString(),
+        laborBurdenPercent: laborBurdenPercent.toString(),
+        commissionPercent: commissionPercent.toString(),
+        commissionBurdenPercent: commissionBurdenPercent.toString(),
+        financingFeePercent: financingFeePercent.toString(),
+        roundUp,
+      };
+
+      let newHistoryId: number;
+      let queued = false;
+
+      if (!pushQueue.canStart()) {
+        const newHistory = await storage.createPushHistory({ ...historyBase, status: 'pending' });
+        newHistoryId = newHistory.id;
+        pushQueue.addToQueue(tenantId, newHistoryId);
+        queued = true;
+      } else {
+        const newHistory = await storage.createPushHistory({ ...historyBase, status: 'in_progress' });
+        newHistoryId = newHistory.id;
+        await storage.updatePushHistory(newHistoryId, { startedAt: new Date() });
+        pushQueue.startPush(tenantId, newHistoryId);
+
+        processPush({
+          tenantId,
+          historyId: newHistoryId,
+          categoryIds,
+          targetMePercent,
+          roundUp,
+          salesTaxPercent,
+          laborMode,
+          laborPercent,
+          laborHourlyRate,
+          laborBurdenPercent,
+          commissionPercent,
+          commissionBurdenPercent,
+          financingFeePercent,
+        }, tenant).then(async (results) => {
+          const finalStatus: 'completed' | 'cancelled' = results.cancelled ? 'cancelled' : 'completed';
+          await storage.updatePushHistory(newHistoryId, {
+            status: finalStatus,
+            completedAt: new Date(),
+            processedCount: results.processed,
+            updatedCount: results.updated,
+            skippedCount: results.skipped,
+            errorCount: results.errors.length,
+            errorMessages: results.errors.length > 0 ? JSON.stringify(results.errors) : null,
+            originalValues: results.originalValues,
+          });
+          pushQueue.completePush(tenantId);
+          console.log(`[Retry] Push for tenant ${tenantId} (history ${newHistoryId}) completed: ${results.updated} updated, ${results.errors.length} errors`);
+        }).catch(async (err: any) => {
+          await storage.updatePushHistory(newHistoryId, {
+            status: 'failed',
+            completedAt: new Date(),
+            errorMessages: JSON.stringify([err.message || 'Push failed']),
+            errorCount: 1,
+          });
+          pushQueue.completePush(tenantId);
+          emitProgress(tenantId, 'error', `Push failed: ${err.message}`, 0, 0);
+          console.error(`[Retry] Push for tenant ${tenantId} (history ${newHistoryId}) failed:`, err.message);
+        });
+      }
+
+      res.json({ historyId: newHistoryId, queued });
+    } catch (err: any) {
+      console.error(`[Retry] Error: ${err.message}`);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   return httpServer;
 }
