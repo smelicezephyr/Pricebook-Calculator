@@ -101,18 +101,31 @@ export async function withRetry<T>(
     } catch (error: any) {
       lastError = error;
       
-      const isRateLimited = 
-        error.status === 429 || 
-        error.message?.includes('429') ||
-        error.message?.toLowerCase().includes('rate limit') ||
-        error.message?.toLowerCase().includes('too many requests');
-      
-      if (!isRateLimited || attempt === maxRetries) {
+      const msg = (error.message ?? '').toLowerCase();
+
+      const isRateLimited =
+        error.status === 429 ||
+        msg.includes('429') ||
+        msg.includes('rate limit') ||
+        msg.includes('too many requests');
+
+      const isGatewayError =
+        error.status === 502 || error.status === 503 || error.status === 504 ||
+        msg.includes('(502)') || msg.includes('(503)') || msg.includes('(504)');
+
+      const isSnapshotIsolation =
+        msg.includes('snapshot isolation') ||
+        msg.includes('ddl statement');
+
+      const isTransient = isRateLimited || isGatewayError || isSnapshotIsolation;
+
+      if (!isTransient || attempt === maxRetries) {
         throw error;
       }
-      
-      const delay = baseDelayMs * Math.pow(2, attempt);
-      console.log(`[Retry] Rate limited (429). Attempt ${attempt + 1}/${maxRetries}. Waiting ${delay}ms...`);
+
+      const delay = (isGatewayError || isSnapshotIsolation ? 2000 : baseDelayMs) * Math.pow(2, attempt);
+      const reason = isRateLimited ? 'Rate limited (429)' : isGatewayError ? 'Gateway error (5xx)' : 'Snapshot isolation conflict';
+      console.log(`[Retry] ${reason}. Attempt ${attempt + 1}/${maxRetries}. Waiting ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
