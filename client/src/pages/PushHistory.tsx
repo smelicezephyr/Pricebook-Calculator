@@ -482,8 +482,10 @@ export default function PushHistoryPage() {
                             Cancel
                           </Button>
                         )}
-                        {(item.status === 'failed' ||
-                          ((item.status === 'completed' || item.status === 'reverted') && (item.errorCount ?? 0) > 0)) && (
+                        {(item.status === 'completed' ||
+                          item.status === 'failed' ||
+                          item.status === 'cancelled' ||
+                          item.status === 'reverted') && (
                           <Button
                             variant="outline"
                             size="sm"
