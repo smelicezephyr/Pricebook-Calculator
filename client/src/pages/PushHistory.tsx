@@ -62,6 +62,7 @@ export default function PushHistoryPage() {
   const { toast } = useToast();
   const [selectedTenantId, setSelectedTenantId] = useState<string>("all");
   const [liveProgress, setLiveProgress] = useState<Map<number, PushProgress>>(new Map());
+  const [expandedErrors, setExpandedErrors] = useState<Set<number>>(new Set());
   const eventSourcesRef = useRef<Map<number, EventSource>>(new Map());
 
   const historyUrl = selectedTenantId === "all" 
@@ -456,16 +457,31 @@ export default function PushHistoryPage() {
                           </div>
                         )}
 
-                        {errorMessages.length > 0 && (
-                          <div className="mt-2 p-2 bg-destructive/10 rounded text-xs text-destructive max-h-20 overflow-y-auto">
-                            {errorMessages.slice(0, 3).map((err: string, idx: number) => (
-                              <p key={idx}>{err}</p>
-                            ))}
-                            {errorMessages.length > 3 && (
-                              <p className="text-muted-foreground">...and {errorMessages.length - 3} more</p>
-                            )}
-                          </div>
-                        )}
+                        {errorMessages.length > 0 && (() => {
+                          const isExpanded = expandedErrors.has(item.id);
+                          const shown = isExpanded ? errorMessages : errorMessages.slice(0, 3);
+                          const hidden = errorMessages.length - 3;
+                          return (
+                            <div className="mt-2 p-2 bg-destructive/10 rounded text-xs text-destructive space-y-0.5">
+                              {shown.map((err: string, idx: number) => (
+                                <p key={idx} className="break-all">{err}</p>
+                              ))}
+                              {errorMessages.length > 3 && (
+                                <button
+                                  className="mt-1 text-muted-foreground hover:text-foreground underline underline-offset-2 cursor-pointer"
+                                  onClick={() => setExpandedErrors(prev => {
+                                    const next = new Set(prev);
+                                    isExpanded ? next.delete(item.id) : next.add(item.id);
+                                    return next;
+                                  })}
+                                  data-testid={`button-toggle-errors-${item.id}`}
+                                >
+                                  {isExpanded ? 'Show less' : `Show ${hidden} more`}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       <div className="flex sm:flex-col flex-row flex-wrap gap-2 shrink-0">
