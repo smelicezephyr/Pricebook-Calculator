@@ -123,14 +123,14 @@ export default function PushHistoryPage() {
           }
         };
         
+        // Don't close on error — the browser's built-in SSE auto-reconnect
+        // will re-open the connection after the retry delay set by the server.
+        // Closing here would permanently kill the EventSource.
         eventSource.onerror = () => {
-          eventSource.close();
-          currentSources.delete(tenantId);
-          setLiveProgress(prev => {
-            const next = new Map(prev);
-            next.delete(tenantId);
-            return next;
-          });
+          // Connection dropped (e.g. proxy timeout). The browser will
+          // automatically reconnect in ~3 seconds using the server's retry hint.
+          // We intentionally leave liveProgress intact so the last known
+          // progress stays on screen while reconnecting.
         };
         
         currentSources.set(tenantId, eventSource);

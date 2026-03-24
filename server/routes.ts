@@ -945,17 +945,34 @@ export async function registerRoutes(
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    // Tell the browser to wait 3 seconds before reconnecting after a drop
+    res.write('retry: 3000\n\n');
     res.flushHeaders();
 
-    // Send initial connection event
-    res.write(`data: ${JSON.stringify({ stage: 'connected', message: 'Connected to progress stream', current: 0, total: 0, percent: 0 })}\n\n`);
+    // Send current progress immediately so a reconnecting client is up to date
+    const currentProgress = pushProgressEmitter.getProgress(tenantId);
+    if (currentProgress) {
+      res.write(`data: ${JSON.stringify(currentProgress)}\n\n`);
+    } else {
+      res.write(`data: ${JSON.stringify({ stage: 'connected', message: 'Connected to progress stream', current: 0, total: 0, percent: 0 })}\n\n`);
+    }
 
     let listenerRemoved = false;
+
+    // Heartbeat comment every 25 seconds keeps the connection alive through proxies
+    const heartbeat = setInterval(() => {
+      try {
+        res.write(': ping\n\n');
+      } catch {
+        cleanup();
+      }
+    }, 25000);
     
     // Cleanup helper to ensure we only remove once
     const cleanup = () => {
       if (!listenerRemoved) {
         listenerRemoved = true;
+        clearInterval(heartbeat);
         pushProgressEmitter.off('progress', onProgress);
       }
     };
