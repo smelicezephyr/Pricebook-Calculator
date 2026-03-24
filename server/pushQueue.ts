@@ -109,26 +109,37 @@ export async function withRetry<T>(
         msg.includes('rate limit') ||
         msg.includes('too many requests');
 
+      // 500 included: Cloudflare returns 500 for its own infra failures (not just app errors)
       const isGatewayError =
-        error.status === 502 || error.status === 503 || error.status === 504 ||
-        msg.includes('(502)') || msg.includes('(503)') || msg.includes('(504)');
+        error.status === 500 || error.status === 502 || error.status === 503 || error.status === 504 ||
+        msg.includes('(500)') || msg.includes('(502)') || msg.includes('(503)') || msg.includes('(504)');
 
       const isSnapshotIsolation =
         msg.includes('snapshot isolation') ||
         msg.includes('ddl statement');
 
-      const isTransient = isRateLimited || isGatewayError || isSnapshotIsolation;
+      // Timeouts: fetch aborted after 30s, connection reset, or ECONNRESET
+      const isTimeout =
+        msg.includes('timeout after 30s') ||
+        msg.includes('network timeout') ||
+        msg.includes('econnreset') ||
+        error.name === 'AbortError';
+
+      const isTransient = isRateLimited || isGatewayError || isSnapshotIsolation || isTimeout;
 
       if (!isTransient || attempt === maxRetries) {
         throw error;
       }
 
-      const delay = (isGatewayError || isSnapshotIsolation ? 2000 : baseDelayMs) * Math.pow(2, attempt);
+      const delayBase = isTimeout ? 5000 : isGatewayError || isSnapshotIsolation ? 2000 : baseDelayMs;
+      const delay = delayBase * Math.pow(2, attempt);
       const statusCode = error.status ?? (msg.match(/\((\d{3})\)/)?.[1] ?? null);
       const reason = isRateLimited
         ? 'Rate limited (429)'
         : isGatewayError
         ? `Gateway error (${statusCode ?? '5xx'})`
+        : isTimeout
+        ? 'Request timeout'
         : 'Snapshot isolation conflict';
       console.log(`[Retry] ${reason}. Attempt ${attempt + 1}/${maxRetries}. Waiting ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
