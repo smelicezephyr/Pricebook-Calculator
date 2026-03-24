@@ -124,7 +124,12 @@ export async function withRetry<T>(
       }
 
       const delay = (isGatewayError || isSnapshotIsolation ? 2000 : baseDelayMs) * Math.pow(2, attempt);
-      const reason = isRateLimited ? 'Rate limited (429)' : isGatewayError ? 'Gateway error (5xx)' : 'Snapshot isolation conflict';
+      const statusCode = error.status ?? (msg.match(/\((\d{3})\)/)?.[1] ?? null);
+      const reason = isRateLimited
+        ? 'Rate limited (429)'
+        : isGatewayError
+        ? `Gateway error (${statusCode ?? '5xx'})`
+        : 'Snapshot isolation conflict';
       console.log(`[Retry] ${reason}. Attempt ${attempt + 1}/${maxRetries}. Waiting ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
