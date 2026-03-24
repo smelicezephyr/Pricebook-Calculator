@@ -740,12 +740,27 @@ The push processor intelligently handles parent-child category relationships:
 
 ### Progress Tracking
 Uses Server-Sent Events (SSE) via `server/pushProgress.ts`:
-- Client opens EventSource connection to `/api/servicetitan/:tenantId/push-progress`
-- Server emits progress events for phases: services, materials, equipment, updating, complete
-- Frontend displays real-time progress bars and status messages
+- Client opens `EventSource` connection to `/api/servicetitan/:tenantId/push/progress`
+- Server emits progress events for phases: `services` → `materials` → `equipment` → `updating` → `complete`
+- **Heartbeat**: Server writes a `: ping` comment every 25 seconds to prevent proxy idle-timeout disconnects
+- **Current state on connect**: On every (re)connect the server immediately sends the latest known progress for that tenant, so a reconnecting client is instantly up to date
+- **Reconnect**: The frontend's `onerror` handler does NOT close the EventSource — the browser's built-in SSE auto-reconnect (3-second delay, set via `retry:` field) handles drops transparently
 
 ### Revert
-Push history records store `originalValues` (JSON array of original prices). The revert endpoint restores these values.
+Push history records store `originalValues` (JSON array of original prices). The revert endpoint (`POST /api/push-history/:id/revert`) restores these values via the same `updateService` API call.
+
+### Retry
+Any push history record in a terminal state (`completed`, `failed`, `cancelled`, or `reverted`) can be retried.
+
+**Endpoint**: `POST /api/push-history/:id/retry`
+
+- Reads **all** stored settings from the original history record (categoryIds, targetMePercent, salesTaxPercent, laborMode, labor rates, commission, burden, financing, roundUp)
+- Creates a **new** history record (original is preserved unchanged)
+- Follows the same queue/concurrency path as a fresh push — returns `{ historyId, queued }` 
+- Frontend shows a blue **Retry** (↻) button on every finished record; spinner while pending
+
+### Push History Error Display
+Error messages in the history list are shown in full (`break-all` for long lines). When a record has more than 3 errors, a **"Show X more / Show less"** toggle expands or collapses the full list.
 
 ---
 
@@ -765,13 +780,16 @@ Push history records store `originalValues` (JSON array of original prices). The
 - `pushQueue` extends `EventEmitter` — emits 'ready' events to trigger dequeued pushes
 
 ### Exponential Backoff Retry
-The `withRetry` function handles ServiceTitan 429 (rate limit) errors:
-```
-For each retry attempt (max 3):
-  delay = baseDelay × 2^attempt
-  (1000ms, 2000ms, 4000ms)
-Only retries on 429/rate-limit errors; other errors thrown immediately
-```
+`withRetry` in `server/pushQueue.ts` retries transient ServiceTitan errors automatically (max 3 attempts):
+
+| Error category | Condition | Base delay |
+|---|---|---|
+| Rate limit | HTTP 429 / "rate limit" / "too many requests" | 1 s |
+| Gateway error | HTTP 500 / 502 / 503 / 504 (incl. Cloudflare 500) | 2 s |
+| Request timeout | "timeout after 30s" / AbortError / ECONNRESET | 5 s |
+| Snapshot isolation | "snapshot isolation" / "ddl statement" | 2 s |
+
+Each attempt waits `baseDelay × 2^attempt` before the next try. Any error not matching these categories is thrown immediately without retry.
 
 ### Queue Status API
 - `GET /api/servicetitan/push-queue/status` — Returns active and queued push info

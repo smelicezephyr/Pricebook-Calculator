@@ -306,8 +306,10 @@ newPrice      = totalMe / (targetMePercent / 100)
 **SSE progress flow** (via `/api/servicetitan/:tenantId/push/progress`):
 
 1. Client opens `EventSource` connection
-2. Server emits progress events for phases: `services` → `materials` → `equipment` → `updating` → `complete`
-3. Frontend displays real-time progress bars and status messages
+2. Server immediately sends the current known progress for that tenant (so reconnects are instantly up to date)
+3. Server emits progress events for phases: `services` → `materials` → `equipment` → `updating` → `complete`
+4. Server writes a `: ping` comment every 25 seconds as a keepalive to prevent proxy idle-timeout disconnects
+5. Frontend's `onerror` does NOT close the `EventSource` — the browser auto-reconnects after the `retry: 3000` hint set by the server
 
 **Queue / concurrency limits**:
 
@@ -318,16 +320,22 @@ newPrice      = totalMe / (targetMePercent / 100)
 | Effective max API requests/sec | 150 | 50 × 3 (batched; ServiceTitan rate limit is 60 req/sec, handled by retry/backoff) |
 | Queue behavior | FIFO | `pushQueue` extends `EventEmitter`, emits `ready` |
 
-**Exponential backoff retry** (for 429 rate-limit errors):
+**Exponential backoff retry** (`withRetry` in `pushQueue.ts`, max 3 attempts):
 
-```
-For each retry attempt (max 3):
-  delay = baseDelay × 2^attempt
-  (1000ms, 2000ms, 4000ms)
-Only retries on 429/rate-limit errors; other errors thrown immediately
-```
+| Error category | Condition | Base delay |
+|---|---|---|
+| Rate limit | HTTP 429 / "rate limit" / "too many requests" | 1 s |
+| Gateway error | HTTP 500/502/503/504 (incl. Cloudflare 500) | 2 s |
+| Request timeout | "timeout after 30s" / AbortError / ECONNRESET | 5 s |
+| Snapshot isolation | "snapshot isolation" / "ddl statement" | 2 s |
 
-**Revert mechanism**: Push history records store `originalValues` (JSON array of original prices). The revert endpoint restores these values via the same `updateService` API call.
+Each attempt waits `baseDelay × 2^attempt`. Non-transient errors throw immediately.
+
+**Revert mechanism**: `POST /api/push-history/:id/revert` — restores original prices from the `originalValues` JSON array stored on the history record.
+
+**Retry mechanism**: `POST /api/push-history/:id/retry` — re-runs the push with all settings read from the original history record. Creates a new history record; the original is unchanged. Available on any terminal-state record (`completed`, `failed`, `cancelled`, `reverted`). Returns `{ historyId, queued }`.
+
+**Error display**: Push history records with >3 error messages show a collapsible "Show X more / Show less" toggle; all messages are shown in full (`break-all`).
 
 ### Tab 2: New System Task
 
