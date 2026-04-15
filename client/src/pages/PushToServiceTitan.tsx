@@ -1258,7 +1258,7 @@ export default function PushToServiceTitan() {
                         data-testid="select-target-me-percent"
                         className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-medium ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {Array.from({ length: 21 }, (_, i) => (15 + i * 0.5).toFixed(1)).map((opt) => (
+                        {Array.from({ length: 31 }, (_, i) => (15 + i * 0.5).toFixed(1)).map((opt) => (
                           <option key={opt} value={opt}>
                             {opt}%
                           </option>
@@ -1619,8 +1619,8 @@ export default function PushToServiceTitan() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {Array.from({ length: 41 }, (_, i) => {
-                                const val = (10 + i * 0.5).toFixed(2);
+                              {Array.from({ length: 31 }, (_, i) => {
+                                const val = (15 + i * 0.5).toFixed(2);
                                 return <SelectItem key={val} value={val}>{val}%</SelectItem>;
                               })}
                             </SelectContent>

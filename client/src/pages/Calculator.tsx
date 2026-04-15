@@ -240,9 +240,9 @@ export default function Calculator() {
 
   if (!settings) return null;
 
-  // Generate target M&E options: 15% to 25% with 0.5% intervals
+  // Generate target M&E options: 15% to 30% with 0.5% intervals
   const targetMeOptions = [];
-  for (let i = 15; i <= 25; i += 0.5) {
+  for (let i = 15; i <= 30; i += 0.5) {
     targetMeOptions.push(i.toFixed(1));
   }
 
