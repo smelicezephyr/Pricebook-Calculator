@@ -1,5 +1,6 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
+import passport from "passport";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
@@ -35,13 +36,131 @@ export async function registerRoutes(
     res.status(200).json({ status: "ok" });
   });
 
-  // Settings Routes
-  app.get(api.settings.get.path, async (req, res) => {
+  // ── Auth Middleware ────────────────────────────────────────────────────────
+
+  function requireAuth(req: Request, res: Response, next: NextFunction) {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    next();
+  }
+
+  function requireAdmin(req: Request, res: Response, next: NextFunction) {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    if ((req.user as any).role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    next();
+  }
+
+  function requireUserOrAdmin(req: Request, res: Response, next: NextFunction) {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    const role = (req.user as any).role;
+    if (role === "everyone") {
+      return res.status(403).json({ message: "Access not granted. Ask an admin to assign you to a tenant." });
+    }
+    next();
+  }
+
+  async function canAccessTenant(req: Request, tenantId: number): Promise<boolean> {
+    const role = (req.user as any).role;
+    if (role === "admin") return true;
+    if (role !== "user") return false;
+    const allowedIds = await storage.getUserTenantIds((req.user as any).id);
+    return allowedIds.includes(tenantId);
+  }
+
+  // ── Google OAuth ────────────────────────────────────────────────────────────
+
+  app.get("/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+
+  app.get(
+    "/auth/google/callback",
+    passport.authenticate("google", { failureRedirect: "/login?error=auth_failed" }),
+    (_req, res) => { res.redirect("/"); }
+  );
+
+  app.post("/auth/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) return res.status(500).json({ message: "Logout failed" });
+      res.json({ success: true });
+    });
+  });
+
+  // Current user
+  app.get("/api/auth/me", (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+    res.json(req.user);
+  });
+
+  // ── Admin: User management ──────────────────────────────────────────────────
+
+  app.get("/api/admin/users", requireAdmin, async (_req, res) => {
+    const allUsers = await storage.listUsers();
+    res.json(allUsers);
+  });
+
+  app.patch("/api/admin/users/:id/role", requireAdmin, async (req, res) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid user ID" });
+    const { role } = req.body;
+    if (!["everyone", "user", "admin"].includes(role)) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+    const updated = await storage.updateUserRole(id, role as any);
+    res.json(updated);
+  });
+
+  app.get("/api/admin/users/:id/tenants", requireAdmin, async (req, res) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid user ID" });
+    const tenantIds = await storage.getUserTenantIds(id);
+    res.json(tenantIds);
+  });
+
+  app.put("/api/admin/users/:id/tenants", requireAdmin, async (req, res) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid user ID" });
+    const { tenantIds } = req.body;
+    if (!Array.isArray(tenantIds) || !tenantIds.every((t: any) => typeof t === "number")) {
+      return res.status(400).json({ message: "tenantIds must be an array of numbers" });
+    }
+    await storage.setUserTenantAccess(id, tenantIds);
+    res.json({ success: true });
+  });
+
+  app.delete("/api/admin/clear-history", requireAdmin, async (_req, res) => {
+    try {
+      await storage.clearAllQuotes();
+      res.json({ success: true });
+    } catch {
+      res.status(500).json({ success: false, error: "Failed to clear history" });
+    }
+  });
+
+  // My accessible tenant IDs (used by frontend to filter dropdowns)
+  app.get("/api/my/tenant-ids", requireUserOrAdmin, async (req, res) => {
+    const user = req.user as any;
+    if (user.role === "admin") {
+      const all = await storage.getTenants();
+      return res.json(all.map((t: any) => t.id));
+    }
+    const ids = await storage.getUserTenantIds(user.id);
+    res.json(ids);
+  });
+
+  // ── Settings Routes ─────────────────────────────────────────────────────────
+
+  app.get(api.settings.get.path, requireAuth, async (req, res) => {
     const settings = await storage.getSettings();
     res.json(settings);
   });
 
-  app.put(api.settings.update.path, async (req, res) => {
+  app.put(api.settings.update.path, requireAdmin, async (req, res) => {
     try {
       const input = api.settings.update.input.parse(req.body);
       const updated = await storage.updateSettings(input);
@@ -56,167 +175,14 @@ export async function registerRoutes(
     }
   });
 
-  // Admin Routes - IP-based authentication
-  // Store unlocked IPs with expiration (8 hours)
-  const unlockedIPs = new Map<string, number>(); // IP -> expiration timestamp
-  const AUTH_DURATION = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
+  // ── Quotes Routes ──────────────────────────────────────────────────────────
 
-  const getClientIP = (req: any): string => {
-    // Check for forwarded IP (behind proxy/load balancer)
-    const forwarded = req.headers['x-forwarded-for'];
-    if (forwarded) {
-      return (typeof forwarded === 'string' ? forwarded : forwarded[0]).split(',')[0].trim();
-    }
-    return req.ip || req.connection?.remoteAddress || 'unknown';
-  };
-
-  const isIPUnlocked = (ip: string): boolean => {
-    const expiration = unlockedIPs.get(ip);
-    if (!expiration) return false;
-    if (Date.now() > expiration) {
-      unlockedIPs.delete(ip);
-      return false;
-    }
-    return true;
-  };
-
-  // Check if current IP is authenticated
-  app.get("/api/admin/check-auth", (req, res) => {
-    const ip = getClientIP(req);
-    const unlocked = isIPUnlocked(ip);
-    res.json({ unlocked, ip });
-  });
-
-  app.post("/api/admin/verify-password", async (req, res) => {
-    try {
-      const { password } = req.body;
-      const settings = await storage.getSettings();
-      const valid = password === settings.serviceTitanPassword;
-      
-      if (valid) {
-        const ip = getClientIP(req);
-        unlockedIPs.set(ip, Date.now() + AUTH_DURATION);
-        console.log(`[Auth] IP ${ip} unlocked ServiceTitan section`);
-      }
-      
-      res.json({ valid });
-    } catch (err) {
-      res.status(500).json({ valid: false, error: "Failed to verify password" });
-    }
-  });
-
-  // Lock the current IP
-  app.post("/api/admin/lock", (req, res) => {
-    const ip = getClientIP(req);
-    unlockedIPs.delete(ip);
-    console.log(`[Auth] IP ${ip} locked ServiceTitan section`);
-    res.json({ success: true });
-  });
-
-  app.post("/api/admin/change-password", async (req, res) => {
-    try {
-      const { currentPassword, newPassword } = req.body;
-      const settings = await storage.getSettings();
-      
-      if (currentPassword !== settings.serviceTitanPassword) {
-        return res.json({ success: false, error: "Current password is incorrect" });
-      }
-      
-      if (!newPassword || newPassword.length < 4) {
-        return res.json({ success: false, error: "New password must be at least 4 characters" });
-      }
-      
-      await storage.updateSettings({ serviceTitanPassword: newPassword });
-      
-      // Clear all unlocked IPs when password changes
-      unlockedIPs.clear();
-      console.log("[Auth] Password changed, all IPs locked");
-      
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ success: false, error: "Failed to change password" });
-    }
-  });
-
-  app.delete("/api/admin/clear-history", async (req, res) => {
-    try {
-      await storage.clearAllQuotes();
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ success: false, error: "Failed to clear history" });
-    }
-  });
-
-  // Admin PIN Routes - IP-based authentication (separate from ServiceTitan password)
-  const unlockedAdminIPs = new Map<string, number>(); // IP -> expiration timestamp
-
-  app.get("/api/admin/check-pin-auth", (req, res) => {
-    const ip = getClientIP(req);
-    const expiration = unlockedAdminIPs.get(ip);
-    const unlocked = expiration ? Date.now() <= expiration : false;
-    if (!unlocked && expiration) {
-      unlockedAdminIPs.delete(ip);
-    }
-    res.json({ unlocked, ip });
-  });
-
-  app.post("/api/admin/verify-pin", async (req, res) => {
-    try {
-      const { pin } = req.body;
-      const settings = await storage.getSettings();
-      const valid = pin === settings.adminPin;
-      
-      if (valid) {
-        const ip = getClientIP(req);
-        unlockedAdminIPs.set(ip, Date.now() + AUTH_DURATION);
-        console.log(`[Auth] IP ${ip} unlocked Admin section`);
-      }
-      
-      res.json({ valid });
-    } catch (err) {
-      res.status(500).json({ valid: false, error: "Failed to verify PIN" });
-    }
-  });
-
-  app.post("/api/admin/lock-pin", (req, res) => {
-    const ip = getClientIP(req);
-    unlockedAdminIPs.delete(ip);
-    console.log(`[Auth] IP ${ip} locked Admin section`);
-    res.json({ success: true });
-  });
-
-  app.post("/api/admin/change-pin", async (req, res) => {
-    try {
-      const { currentPin, newPin } = req.body;
-      const settings = await storage.getSettings();
-      
-      if (currentPin !== settings.adminPin) {
-        return res.json({ success: false, error: "Current PIN is incorrect" });
-      }
-      
-      if (!newPin || newPin.length < 4) {
-        return res.json({ success: false, error: "New PIN must be at least 4 characters" });
-      }
-      
-      await storage.updateSettings({ adminPin: newPin });
-      
-      // Clear all unlocked admin IPs when PIN changes
-      unlockedAdminIPs.clear();
-      console.log("[Auth] Admin PIN changed, all IPs locked");
-      
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ success: false, error: "Failed to change PIN" });
-    }
-  });
-
-  // Quotes Routes
-  app.get(api.quotes.list.path, async (req, res) => {
+  app.get(api.quotes.list.path, requireAuth, async (req, res) => {
     const quotes = await storage.getQuotes();
     res.json(quotes);
   });
 
-  app.post(api.quotes.create.path, async (req, res) => {
+  app.post(api.quotes.create.path, requireAuth, async (req, res) => {
     try {
       const input = api.quotes.create.input.parse(req.body);
       const quote = await storage.createQuote(input);
@@ -231,7 +197,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.quotes.delete.path, async (req, res) => {
+  app.delete(api.quotes.delete.path, requireAuth, async (req, res) => {
     const id = Number(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid ID" });
@@ -255,12 +221,12 @@ export async function registerRoutes(
   });
 
   // Location Routes
-  app.get("/api/locations", async (_req, res) => {
+  app.get("/api/locations", requireUserOrAdmin, async (_req, res) => {
     const allLocations = await storage.getLocations();
     res.json(allLocations);
   });
 
-  app.post("/api/locations", async (req, res) => {
+  app.post("/api/locations", requireAdmin, async (req, res) => {
     try {
       const { name, salesTaxPercent } = req.body;
       if (!name || !name.trim()) {
@@ -280,7 +246,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/locations/:id", async (req, res) => {
+  app.put("/api/locations/:id", requireAdmin, async (req, res) => {
     const id = Number(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid ID" });
@@ -303,7 +269,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/locations/:id", async (req, res) => {
+  app.delete("/api/locations/:id", requireAdmin, async (req, res) => {
     const id = Number(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid ID" });
@@ -317,12 +283,12 @@ export async function registerRoutes(
   });
 
   // Tenant Routes
-  app.get(api.tenants.list.path, async (req, res) => {
+  app.get(api.tenants.list.path, requireUserOrAdmin, async (req, res) => {
     const tenants = await storage.getTenants();
     res.json(tenants.map(sanitizeTenant));
   });
 
-  app.get(api.tenants.get.path, async (req, res) => {
+  app.get(api.tenants.get.path, requireUserOrAdmin, async (req, res) => {
     const id = Number(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid ID" });
@@ -334,7 +300,7 @@ export async function registerRoutes(
     res.json(sanitizeTenant(tenant));
   });
 
-  app.post(api.tenants.create.path, async (req, res) => {
+  app.post(api.tenants.create.path, requireAdmin, async (req, res) => {
     try {
       const input = api.tenants.create.input.parse(req.body);
       const tenant = await storage.createTenant(input);
@@ -349,7 +315,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.tenants.update.path, async (req, res) => {
+  app.put(api.tenants.update.path, requireAdmin, async (req, res) => {
     const id = Number(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid ID" });
@@ -378,7 +344,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.tenants.delete.path, async (req, res) => {
+  app.delete(api.tenants.delete.path, requireAdmin, async (req, res) => {
     const id = Number(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid ID" });
@@ -388,7 +354,7 @@ export async function registerRoutes(
   });
 
   // Reorder tenants
-  app.post("/api/tenants/reorder", async (req, res) => {
+  app.post("/api/tenants/reorder", requireAdmin, async (req, res) => {
     try {
       const { orderedIds } = req.body;
       if (!Array.isArray(orderedIds) || !orderedIds.every(id => typeof id === 'number')) {
@@ -422,8 +388,8 @@ export async function registerRoutes(
     }
   });
 
-  // Get full tenant data (unmasked) for editing - only for password-protected section
-  app.get("/api/tenants/:id/full", async (req, res) => {
+  // Get full tenant data (unmasked) for editing
+  app.get("/api/tenants/:id/full", requireAdmin, async (req, res) => {
     const id = Number(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid ID" });
@@ -437,7 +403,7 @@ export async function registerRoutes(
   });
 
   // ServiceTitan API Routes
-  app.post("/api/servicetitan/:tenantId/test", async (req, res) => {
+  app.post("/api/servicetitan/:tenantId/test", requireUserOrAdmin, async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     if (isNaN(tenantId)) {
       return res.status(400).json({ success: false, message: "Invalid tenant ID" });
@@ -463,7 +429,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/servicetitan/:tenantId/categories", async (req, res) => {
+  app.get("/api/servicetitan/:tenantId/categories", requireUserOrAdmin, async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     if (isNaN(tenantId)) {
       return res.status(400).json({ message: "Invalid tenant ID" });
@@ -481,7 +447,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/servicetitan/:tenantId/services", async (req, res) => {
+  app.get("/api/servicetitan/:tenantId/services", requireUserOrAdmin, async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     const categoryId = req.query.categoryId ? Number(req.query.categoryId) : undefined;
     if (isNaN(tenantId)) {
@@ -500,7 +466,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/servicetitan/:tenantId/services/:serviceId", async (req, res) => {
+  app.patch("/api/servicetitan/:tenantId/services/:serviceId", requireUserOrAdmin, async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     const serviceId = Number(req.params.serviceId);
     if (isNaN(tenantId) || isNaN(serviceId)) {
@@ -519,7 +485,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/servicetitan/:tenantId/gl-accounts", async (req, res) => {
+  app.get("/api/servicetitan/:tenantId/gl-accounts", requireUserOrAdmin, async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     if (isNaN(tenantId)) {
       return res.status(400).json({ message: "Invalid tenant ID" });
@@ -539,7 +505,7 @@ export async function registerRoutes(
   });
   
   // Debug endpoint to get a single service with full details
-  app.get("/api/servicetitan/:tenantId/services/:serviceId/debug", async (req, res) => {
+  app.get("/api/servicetitan/:tenantId/services/:serviceId/debug", requireUserOrAdmin, async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     const serviceId = Number(req.params.serviceId);
     if (isNaN(tenantId) || isNaN(serviceId)) {
@@ -575,7 +541,7 @@ export async function registerRoutes(
     allowMembershipDiscounts: z.boolean().optional(),
   });
 
-  app.post("/api/servicetitan/:tenantId/services", async (req, res) => {
+  app.post("/api/servicetitan/:tenantId/services", requireUserOrAdmin, async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     if (isNaN(tenantId)) {
       return res.status(400).json({ message: "Invalid tenant ID" });
@@ -607,7 +573,7 @@ export async function registerRoutes(
     mimeType: z.string().regex(/^image\//, "Must be an image MIME type"),
   });
 
-  app.post("/api/servicetitan/:tenantId/services/:serviceId/image", async (req, res) => {
+  app.post("/api/servicetitan/:tenantId/services/:serviceId/image", requireUserOrAdmin, async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     const serviceId = Number(req.params.serviceId);
     if (isNaN(tenantId) || isNaN(serviceId)) {
@@ -636,7 +602,7 @@ export async function registerRoutes(
   });
 
   // Diagnostic endpoint: Get single service details to see raw API response
-  app.get("/api/servicetitan/:tenantId/service-debug/:serviceId", async (req, res) => {
+  app.get("/api/servicetitan/:tenantId/service-debug/:serviceId", requireUserOrAdmin, async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     const serviceId = Number(req.params.serviceId);
     if (isNaN(tenantId) || isNaN(serviceId)) {
@@ -658,7 +624,7 @@ export async function registerRoutes(
   });
 
   // Diagnostic endpoint: Get single material details to verify cost lookup
-  app.get("/api/servicetitan/:tenantId/material-debug/:materialId", async (req, res) => {
+  app.get("/api/servicetitan/:tenantId/material-debug/:materialId", requireUserOrAdmin, async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     const materialId = Number(req.params.materialId);
     if (isNaN(tenantId) || isNaN(materialId)) {
@@ -680,7 +646,7 @@ export async function registerRoutes(
   });
 
   // Diagnostic endpoint: Calculate what push would do for a specific service
-  app.get("/api/servicetitan/:tenantId/calculate-debug/:serviceId", async (req, res) => {
+  app.get("/api/servicetitan/:tenantId/calculate-debug/:serviceId", requireUserOrAdmin, async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     const serviceId = Number(req.params.serviceId);
     if (isNaN(tenantId) || isNaN(serviceId)) {
@@ -786,7 +752,7 @@ export async function registerRoutes(
   });
 
   // Test endpoint: Try different field names for updating estimated labor cost
-  app.post("/api/servicetitan/:tenantId/test-cost-update/:serviceId", async (req, res) => {
+  app.post("/api/servicetitan/:tenantId/test-cost-update/:serviceId", requireUserOrAdmin, async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     const serviceId = Number(req.params.serviceId);
     const testValue = req.body.testValue || 1000;
@@ -935,7 +901,7 @@ export async function registerRoutes(
   });
 
   // SSE endpoint for push progress updates
-  app.get("/api/servicetitan/:tenantId/push/progress", (req, res) => {
+  app.get("/api/servicetitan/:tenantId/push/progress", requireUserOrAdmin, (req, res) => {
     const tenantId = Number(req.params.tenantId);
     if (isNaN(tenantId)) {
       return res.status(400).json({ message: "Invalid tenant ID" });
@@ -1000,7 +966,7 @@ export async function registerRoutes(
   });
 
   // Get push queue status
-  app.get("/api/servicetitan/push-queue/status", async (req, res) => {
+  app.get("/api/servicetitan/push-queue/status", requireUserOrAdmin, async (req, res) => {
     const status = pushQueue.getStatus();
     res.json({
       activeCount: status.active.length,
@@ -1013,7 +979,7 @@ export async function registerRoutes(
   });
 
   // Push M&E calculations to ServiceTitan
-  app.post("/api/servicetitan/:tenantId/push", async (req, res) => {
+  app.post("/api/servicetitan/:tenantId/push", requireUserOrAdmin, async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     if (isNaN(tenantId)) {
       return res.status(400).json({ message: "Invalid tenant ID" });
@@ -1193,7 +1159,7 @@ export async function registerRoutes(
   });
 
   // Push History API endpoints
-  app.get("/api/push-history", async (req, res) => {
+  app.get("/api/push-history", requireUserOrAdmin, async (req, res) => {
     try {
       const tenantId = req.query.tenantId ? Number(req.query.tenantId) : undefined;
       const history = await storage.getPushHistory(tenantId);
@@ -1203,7 +1169,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/push-history/:id", async (req, res) => {
+  app.get("/api/push-history/:id", requireUserOrAdmin, async (req, res) => {
     try {
       const id = Number(req.params.id);
       if (isNaN(id)) {
@@ -1219,7 +1185,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/push-history", async (req, res) => {
+  app.post("/api/push-history", requireUserOrAdmin, async (req, res) => {
     try {
       const item = await storage.createPushHistory(req.body);
       res.status(201).json(item);
@@ -1228,7 +1194,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/push-history/:id", async (req, res) => {
+  app.patch("/api/push-history/:id", requireUserOrAdmin, async (req, res) => {
     try {
       const id = Number(req.params.id);
       if (isNaN(id)) {
@@ -1241,7 +1207,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/push-history/:id", async (req, res) => {
+  app.delete("/api/push-history/:id", requireUserOrAdmin, async (req, res) => {
     try {
       const id = Number(req.params.id);
       if (isNaN(id)) {
@@ -1255,7 +1221,7 @@ export async function registerRoutes(
   });
 
   // Get pending pushes for a tenant (queue)
-  app.get("/api/servicetitan/:tenantId/push-queue", async (req, res) => {
+  app.get("/api/servicetitan/:tenantId/push-queue", requireUserOrAdmin, async (req, res) => {
     try {
       const tenantId = Number(req.params.tenantId);
       if (isNaN(tenantId)) {
@@ -1269,7 +1235,7 @@ export async function registerRoutes(
   });
 
   // Cancel an in-progress push
-  app.post("/api/servicetitan/:tenantId/push/cancel", async (req, res) => {
+  app.post("/api/servicetitan/:tenantId/push/cancel", requireUserOrAdmin, async (req, res) => {
     try {
       const tenantId = Number(req.params.tenantId);
       if (isNaN(tenantId)) {
@@ -1287,7 +1253,7 @@ export async function registerRoutes(
   });
 
   // Revert a completed push using stored original values
-  app.post("/api/push-history/:id/revert", async (req, res) => {
+  app.post("/api/push-history/:id/revert", requireUserOrAdmin, async (req, res) => {
     try {
       const id = Number(req.params.id);
       if (isNaN(id)) {
@@ -1360,7 +1326,7 @@ export async function registerRoutes(
   });
 
   // Retry a previous push with identical settings — creates a new history record
-  app.post("/api/push-history/:id/retry", async (req, res) => {
+  app.post("/api/push-history/:id/retry", requireUserOrAdmin, async (req, res) => {
     try {
       const id = Number(req.params.id);
       if (isNaN(id)) {

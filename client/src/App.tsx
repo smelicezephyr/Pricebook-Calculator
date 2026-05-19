@@ -1,14 +1,14 @@
-import { Switch, Route } from "wouter";
+import type { ReactNode } from "react";
+import { Switch, Route, useLocation, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Navigation } from "@/components/Navigation";
 import { CalculatorProvider } from "@/contexts/CalculatorContext";
-import { ServiceTitanAuthProvider } from "@/contexts/ServiceTitanAuthContext";
-import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
-import { PasswordGate } from "@/components/PasswordGate";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { VersionCheck } from "@/components/VersionCheck";
+import { Loader2 } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import Calculator from "@/pages/Calculator";
 import RepairCalculator from "@/pages/RepairCalculator";
@@ -19,55 +19,66 @@ import Tenants from "@/pages/Tenants";
 import Locations from "@/pages/Locations";
 import PushToServiceTitan from "@/pages/PushToServiceTitan";
 import PushHistory from "@/pages/PushHistory";
+import AdminUsers from "@/pages/AdminUsers";
+import Login from "@/pages/Login";
 
-function ProtectedPush() {
-  return (
-    <PasswordGate>
-      <PushToServiceTitan />
-    </PasswordGate>
-  );
+function AuthGate({ children }: { children: ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const [location] = useLocation();
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user && location !== "/login") {
+    return <Redirect to="/login" />;
+  }
+
+  return <>{children}</>;
 }
 
-function ProtectedTenants() {
-  return (
-    <PasswordGate>
-      <Tenants />
-    </PasswordGate>
-  );
-}
+function AppRouter() {
+  const { isAdmin, isUserOrAdmin } = useAuth();
 
-function ProtectedLocations() {
-  return (
-    <PasswordGate>
-      <Locations />
-    </PasswordGate>
-  );
-}
-
-function ProtectedPushHistory() {
-  return (
-    <PasswordGate>
-      <PushHistory />
-    </PasswordGate>
-  );
-}
-
-function Router() {
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-background text-foreground font-body">
       <Navigation />
-      
       <main className="flex-1 w-full p-4 md:p-8 lg:p-12 overflow-y-auto h-screen">
         <Switch>
           <Route path="/" component={Calculator} />
           <Route path="/reverse" component={ReverseCalculator} />
           <Route path="/repair" component={RepairCalculator} />
-          <Route path="/push" component={ProtectedPush} />
-          <Route path="/push-history" component={ProtectedPushHistory} />
           <Route path="/history" component={History} />
-          <Route path="/tenants" component={ProtectedTenants} />
-          <Route path="/locations" component={ProtectedLocations} />
-          <Route path="/settings" component={Settings} />
+
+          {/* ServiceTitan — user or admin only */}
+          <Route path="/push">
+            {isUserOrAdmin ? <PushToServiceTitan /> : <NotFound />}
+          </Route>
+          <Route path="/push-history">
+            {isUserOrAdmin ? <PushHistory /> : <NotFound />}
+          </Route>
+
+          {/* Admin-only pages */}
+          <Route path="/tenants">
+            {isAdmin ? <Tenants /> : <NotFound />}
+          </Route>
+          <Route path="/locations">
+            {isAdmin ? <Locations /> : <NotFound />}
+          </Route>
+          <Route path="/settings">
+            {isAdmin ? <Settings /> : <NotFound />}
+          </Route>
+          <Route path="/admin/users">
+            {isAdmin ? <AdminUsers /> : <NotFound />}
+          </Route>
+
           <Route component={NotFound} />
         </Switch>
       </main>
@@ -75,19 +86,50 @@ function Router() {
   );
 }
 
+function Router() {
+  const { user, isLoading } = useAuth();
+  const [location] = useLocation();
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Switch>
+        <Route path="/login" component={Login} />
+        <Route>
+          <Redirect to="/login" />
+        </Route>
+      </Switch>
+    );
+  }
+
+  return (
+    <Switch>
+      <Route path="/login">
+        <Redirect to="/" />
+      </Route>
+      <Route component={AppRouter} />
+    </Switch>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <ServiceTitanAuthProvider>
-          <AdminAuthProvider>
-            <CalculatorProvider>
-              <VersionCheck />
-              <Toaster />
-              <Router />
-            </CalculatorProvider>
-          </AdminAuthProvider>
-        </ServiceTitanAuthProvider>
+        <AuthProvider>
+          <CalculatorProvider>
+            <VersionCheck />
+            <Toaster />
+            <Router />
+          </CalculatorProvider>
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

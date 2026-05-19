@@ -1,7 +1,12 @@
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import passport from "passport";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { pool } from "./db";
+import { configurePassport } from "./auth";
 
 const app = express();
 const httpServer = createServer(app);
@@ -21,6 +26,32 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+// Session store backed by PostgreSQL
+const PgSession = connectPgSimple(session);
+app.use(
+  session({
+    store: new PgSession({
+      pool,
+      createTableIfMissing: true,
+      tableName: "session",
+    }),
+    secret: process.env.SESSION_SECRET || "fallback-dev-secret-change-in-prod",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    },
+  })
+);
+
+// Passport auth
+configurePassport();
+app.use(passport.initialize());
+app.use(passport.session());
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {

@@ -5,6 +5,8 @@ import {
   tenants,
   locations,
   pushHistory,
+  users,
+  userTenantAccess,
   type Settings,
   type InsertSettings,
   type Quote,
@@ -14,9 +16,11 @@ import {
   type Location,
   type InsertLocation,
   type PushHistory,
-  type InsertPushHistory
+  type InsertPushHistory,
+  type User,
+  type InsertUser,
 } from "@shared/schema";
-import { eq, desc, asc, and } from "drizzle-orm";
+import { eq, desc, asc, and, inArray } from "drizzle-orm";
 
 export interface IStorage {
   getSettings(): Promise<Settings>;
@@ -49,6 +53,16 @@ export interface IStorage {
   getPendingPushes(tenantId: number): Promise<PushHistory[]>;
   getInProgressPushes(): Promise<PushHistory[]>;
   cleanupStalePushes(): Promise<number>;
+
+  // Users
+  getUserByGoogleId(googleId: string): Promise<User | undefined>;
+  getUserById(id: number): Promise<User | undefined>;
+  upsertUser(userData: { googleId: string; email: string; name: string; avatarUrl?: string }): Promise<User>;
+  listUsers(): Promise<User[]>;
+  countUsers(): Promise<number>;
+  updateUserRole(id: number, role: "everyone" | "user" | "admin"): Promise<User>;
+  getUserTenantIds(userId: number): Promise<number[]>;
+  setUserTenantAccess(userId: number, tenantIds: number[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -56,13 +70,11 @@ export class DatabaseStorage implements IStorage {
     const [existing] = await db.select().from(settings).limit(1);
     if (existing) return existing;
     
-    // Create default settings if none exist
     const [created] = await db.insert(settings).values({}).returning();
     return created;
   }
 
   async updateSettings(newSettings: InsertSettings): Promise<Settings> {
-    // Always update the single row with ID 1, or create it
     const existing = await this.getSettings();
     const [updated] = await db
       .update(settings)
@@ -217,7 +229,6 @@ export class DatabaseStorage implements IStorage {
       cleanedUp++;
     }
     
-    // Also mark pending (queued) pushes as cancelled since queue state is lost
     const pendingPushes = await db.select().from(pushHistory)
       .where(eq(pushHistory.status, "pending"));
     
@@ -233,6 +244,70 @@ export class DatabaseStorage implements IStorage {
     }
     
     return cleanedUp;
+  }
+
+  // ── Users ──────────────────────────────────────────────────────────────────
+
+  async getUserByGoogleId(googleId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.googleId, googleId));
+    return user;
+  }
+
+  async getUserById(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async upsertUser(userData: { googleId: string; email: string; name: string; avatarUrl?: string }): Promise<User> {
+    const existing = await this.getUserByGoogleId(userData.googleId);
+    if (existing) {
+      const [updated] = await db.update(users)
+        .set({ email: userData.email, name: userData.name, avatarUrl: userData.avatarUrl ?? null })
+        .where(eq(users.googleId, userData.googleId))
+        .returning();
+      return updated;
+    }
+
+    // Check if this is the very first user — auto-promote to admin
+    const count = await this.countUsers();
+    const role = count === 0 ? "admin" : "everyone";
+
+    const [created] = await db.insert(users)
+      .values({ ...userData, role })
+      .returning();
+    return created;
+  }
+
+  async listUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(asc(users.createdAt));
+  }
+
+  async countUsers(): Promise<number> {
+    const result = await db.select().from(users);
+    return result.length;
+  }
+
+  async updateUserRole(id: number, role: "everyone" | "user" | "admin"): Promise<User> {
+    const [updated] = await db.update(users)
+      .set({ role })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getUserTenantIds(userId: number): Promise<number[]> {
+    const rows = await db.select().from(userTenantAccess)
+      .where(eq(userTenantAccess.userId, userId));
+    return rows.map(r => r.tenantId);
+  }
+
+  async setUserTenantAccess(userId: number, tenantIds: number[]): Promise<void> {
+    // Replace all access rows for this user
+    await db.delete(userTenantAccess).where(eq(userTenantAccess.userId, userId));
+    if (tenantIds.length > 0) {
+      await db.insert(userTenantAccess)
+        .values(tenantIds.map(tid => ({ userId, tenantId: tid })));
+    }
   }
 }
 

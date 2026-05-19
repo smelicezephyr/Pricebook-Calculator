@@ -1,4 +1,4 @@
-import { pgTable, text, serial, numeric, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, numeric, timestamp, boolean, integer, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -25,6 +25,26 @@ export const tenants = pgTable("tenants", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Users (Google OAuth)
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  googleId: text("google_id").notNull().unique(),
+  email: text("email").notNull(),
+  name: text("name").notNull(),
+  avatarUrl: text("avatar_url"),
+  role: text("role", { enum: ["everyone", "user", "admin"] }).notNull().default("everyone"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Which tenants a "user"-role account can access
+export const userTenantAccess = pgTable("user_tenant_access", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+}, (table) => ({
+  uniqueUserTenant: uniqueIndex("unique_user_tenant").on(table.userId, table.tenantId),
+}));
+
 // Settings for the calculator (defaults based on the sheet)
 export const settings = pgTable("settings", {
   id: serial("id").primaryKey(),
@@ -47,10 +67,10 @@ export const settings = pgTable("settings", {
   // Margin Health Settings
   grossMarginMinPercent: numeric("gross_margin_min_percent").notNull().default("52.00"),
   
-  // ServiceTitan Section Password
+  // ServiceTitan Section Password (kept for legacy, no longer used for auth)
   serviceTitanPassword: text("servicetitan_password").notNull().default("ZephyrHome160"),
   
-  // Admin Section PIN
+  // Admin Section PIN (kept for legacy, no longer used for auth)
   adminPin: text("admin_pin").notNull().default("7437"),
 });
 
@@ -61,7 +81,7 @@ export const pushHistory = pgTable("push_history", {
   status: text("status", { enum: ["pending", "in_progress", "completed", "failed", "cancelled", "reverted"] }).notNull().default("pending"),
   
   // Settings snapshot used for this push
-  categoryIds: text("category_ids").notNull(), // JSON array of category IDs
+  categoryIds: text("category_ids").notNull(),
   targetMePercent: numeric("target_me_percent").notNull(),
   salesTaxPercent: numeric("sales_tax_percent").notNull(),
   laborMode: text("labor_mode").notNull(),
@@ -79,7 +99,7 @@ export const pushHistory = pgTable("push_history", {
   updatedCount: integer("updated_count").default(0),
   skippedCount: integer("skipped_count").default(0),
   errorCount: integer("error_count").default(0),
-  errorMessages: text("error_messages"), // JSON array of error messages
+  errorMessages: text("error_messages"),
   
   // Original values for revert functionality (JSON: [{serviceId, originalPrice, originalCost}])
   originalValues: text("original_values"),
@@ -96,7 +116,7 @@ export const quotes = pgTable("quotes", {
   title: text("title").notNull().default("Untitled Quote"),
   materialsCost: numeric("materials_cost").notNull(),
   equipmentCost: numeric("equipment_cost").notNull(),
-  laborHoursInput: numeric("labor_hours_input").default("10"), // For hours mode
+  laborHoursInput: numeric("labor_hours_input").default("10"),
   
   // Snapshotted results (to keep history even if settings change)
   calculatedPrice: numeric("calculated_price").notNull(),
@@ -152,6 +172,11 @@ export const insertPushHistorySchema = createInsertSchema(pushHistory).omit({
   originalValues: true,
 });
 
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type Location = typeof locations.$inferSelect;
 export type InsertLocation = z.infer<typeof insertLocationSchema>;
 export type Settings = typeof settings.$inferSelect;
@@ -162,3 +187,6 @@ export type Tenant = typeof tenants.$inferSelect;
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
 export type PushHistory = typeof pushHistory.$inferSelect;
 export type InsertPushHistory = z.infer<typeof insertPushHistorySchema>;
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UserTenantAccess = typeof userTenantAccess.$inferSelect;
