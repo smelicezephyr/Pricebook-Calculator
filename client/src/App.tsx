@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Switch, Route, useLocation, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -21,28 +20,6 @@ import PushToServiceTitan from "@/pages/PushToServiceTitan";
 import PushHistory from "@/pages/PushHistory";
 import AdminUsers from "@/pages/AdminUsers";
 import Login from "@/pages/Login";
-
-function AuthGate({ children }: { children: ReactNode }) {
-  const { user, isLoading } = useAuth();
-  const [location] = useLocation();
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user && location !== "/login") {
-    return <Redirect to="/login" />;
-  }
-
-  return <>{children}</>;
-}
 
 function AppRouter() {
   const { isAdmin, isUserOrAdmin } = useAuth();
