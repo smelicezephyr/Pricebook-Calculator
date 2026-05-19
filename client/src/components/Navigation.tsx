@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Clock, Wrench, Shield, MapPin, ArrowLeftRight, LogOut, Users } from "lucide-react";
+import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Clock, Wrench, Shield, MapPin, ArrowLeftRight, LogOut, Users, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 import clsx from "clsx";
 import horizontalLogo from "@assets/Logo_-_Horizontal_1772750848213.png";
@@ -39,7 +39,7 @@ export function Navigation() {
 
   const close = () => setIsOpen(false);
 
-  const navLink = (href: string, label: string, Icon: any) => {
+  const navLink = (href: string, label: string, Icon: LucideIcon) => {
     const isActive = location === href;
     return (
       <Link href={href}>

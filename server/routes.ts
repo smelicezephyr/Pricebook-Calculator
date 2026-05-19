@@ -49,7 +49,7 @@ export async function registerRoutes(
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Not authenticated" });
     }
-    if ((req.user as any).role !== "admin") {
+    if (req.user!.role !== "admin") {
       return res.status(403).json({ message: "Admin access required" });
     }
     next();
@@ -59,7 +59,7 @@ export async function registerRoutes(
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Not authenticated" });
     }
-    const role = (req.user as any).role;
+    const role = req.user!.role;
     if (role === "everyone") {
       return res.status(403).json({ message: "Access not granted. Ask an admin to assign you to a tenant." });
     }
@@ -67,16 +67,23 @@ export async function registerRoutes(
   }
 
   async function canAccessTenant(req: Request, tenantId: number): Promise<boolean> {
-    const role = (req.user as any).role;
+    const role = req.user!.role;
     if (role === "admin") return true;
     if (role !== "user") return false;
-    const allowedIds = await storage.getUserTenantIds((req.user as any).id);
+    const allowedIds = await storage.getUserTenantIds(req.user!.id);
     return allowedIds.includes(tenantId);
   }
 
   // ── Google OAuth ────────────────────────────────────────────────────────────
 
-  app.get("/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+  const googleOAuthEnabled = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+
+  app.get("/auth/google", (req, res, next) => {
+    if (!googleOAuthEnabled) {
+      return res.status(503).json({ message: "Google OAuth is not configured on this server" });
+    }
+    passport.authenticate("google", { scope: ["profile", "email"] })(req, res, next);
+  });
 
   app.get(
     "/auth/google/callback",
@@ -111,7 +118,8 @@ export async function registerRoutes(
     if (!["everyone", "user", "admin"].includes(role)) {
       return res.status(400).json({ message: "Invalid role" });
     }
-    const updated = await storage.updateUserRole(id, role as any);
+    const validRole = role as "everyone" | "user" | "admin";
+    const updated = await storage.updateUserRole(id, validRole);
     res.json(updated);
   });
 
@@ -144,7 +152,7 @@ export async function registerRoutes(
 
   // My accessible tenant IDs (used by frontend to filter dropdowns)
   app.get("/api/my/tenant-ids", requireUserOrAdmin, async (req, res) => {
-    const user = req.user as any;
+    const user = req.user!;
     if (user.role === "admin") {
       const all = await storage.getTenants();
       return res.json(all.map((t: any) => t.id));
@@ -285,7 +293,7 @@ export async function registerRoutes(
   // Tenant Routes
   app.get(api.tenants.list.path, requireUserOrAdmin, async (req, res) => {
     const allTenants = await storage.getTenants();
-    const user = req.user as any;
+    const user = req.user!;
     if (user.role === "admin") {
       return res.json(allTenants.map(sanitizeTenant));
     }
@@ -1013,8 +1021,8 @@ export async function registerRoutes(
     res.on('finish', cleanup);
   });
 
-  // Get push queue status
-  app.get("/api/servicetitan/push-queue/status", requireUserOrAdmin, async (req, res) => {
+  // Get push queue status (admin-only — exposes cross-tenant operational data)
+  app.get("/api/servicetitan/push-queue/status", requireAdmin, async (_req, res) => {
     const status = pushQueue.getStatus();
     res.json({
       activeCount: status.active.length,
@@ -1212,7 +1220,7 @@ export async function registerRoutes(
   // Push History API endpoints
   app.get("/api/push-history", requireUserOrAdmin, async (req, res) => {
     try {
-      const user = req.user as any;
+      const user = req.user!;
       const tenantId = req.query.tenantId ? Number(req.query.tenantId) : undefined;
 
       if (user.role !== "admin") {
@@ -1255,6 +1263,10 @@ export async function registerRoutes(
 
   app.post("/api/push-history", requireUserOrAdmin, async (req, res) => {
     try {
+      const tenantId = Number(req.body?.tenantId);
+      if (!isNaN(tenantId) && !(await canAccessTenant(req, tenantId))) {
+        return res.status(403).json({ message: "You don't have access to this tenant" });
+      }
       const item = await storage.createPushHistory(req.body);
       res.status(201).json(item);
     } catch (err: any) {
