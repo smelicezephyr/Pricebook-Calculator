@@ -27,6 +27,9 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
+// Trust the Replit proxy so secure cookies and redirect URLs work correctly
+app.set("trust proxy", 1);
+
 // Session store backed by PostgreSQL
 const PgSession = connectPgSimple(session);
 app.use(
@@ -36,7 +39,17 @@ app.use(
       createTableIfMissing: true,
       tableName: "session",
     }),
-    secret: process.env.SESSION_SECRET || "fallback-dev-secret-change-in-prod",
+    secret: (() => {
+      const s = process.env.SESSION_SECRET;
+      if (!s) {
+        if (process.env.NODE_ENV === "production") {
+          throw new Error("SESSION_SECRET must be set in production");
+        }
+        console.warn("[Auth] SESSION_SECRET not set — using insecure dev fallback");
+        return "dev-only-insecure-fallback";
+      }
+      return s;
+    })(),
     resave: false,
     saveUninitialized: false,
     cookie: {

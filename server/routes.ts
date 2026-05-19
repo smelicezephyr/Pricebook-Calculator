@@ -284,14 +284,23 @@ export async function registerRoutes(
 
   // Tenant Routes
   app.get(api.tenants.list.path, requireUserOrAdmin, async (req, res) => {
-    const tenants = await storage.getTenants();
-    res.json(tenants.map(sanitizeTenant));
+    const allTenants = await storage.getTenants();
+    const user = req.user as any;
+    if (user.role === "admin") {
+      return res.json(allTenants.map(sanitizeTenant));
+    }
+    // user role: only return tenants they're assigned to
+    const allowedIds = await storage.getUserTenantIds(user.id);
+    res.json(allTenants.filter(t => allowedIds.includes(t.id)).map(sanitizeTenant));
   });
 
   app.get(api.tenants.get.path, requireUserOrAdmin, async (req, res) => {
     const id = Number(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid ID" });
+    }
+    if (!(await canAccessTenant(req, id))) {
+      return res.status(403).json({ message: "You don't have access to this tenant" });
     }
     const tenant = await storage.getTenant(id);
     if (!tenant) {
@@ -412,6 +421,9 @@ export async function registerRoutes(
     if (!tenant) {
       return res.status(404).json({ success: false, message: "Tenant not found" });
     }
+    if (!(await canAccessTenant(req, tenantId))) {
+      return res.status(403).json({ success: false, message: "You don't have access to this tenant" });
+    }
     try {
       const stApi = new ServiceTitanAPI(tenant);
       await stApi.testConnection();
@@ -438,6 +450,9 @@ export async function registerRoutes(
     if (!tenant) {
       return res.status(404).json({ message: "Tenant not found" });
     }
+    if (!(await canAccessTenant(req, tenantId))) {
+      return res.status(403).json({ message: "You don't have access to this tenant" });
+    }
     try {
       const api = new ServiceTitanAPI(tenant);
       const categories = await api.getCategories();
@@ -456,6 +471,9 @@ export async function registerRoutes(
     const tenant = await storage.getTenant(tenantId);
     if (!tenant) {
       return res.status(404).json({ message: "Tenant not found" });
+    }
+    if (!(await canAccessTenant(req, tenantId))) {
+      return res.status(403).json({ message: "You don't have access to this tenant" });
     }
     try {
       const api = new ServiceTitanAPI(tenant);
@@ -476,6 +494,9 @@ export async function registerRoutes(
     if (!tenant) {
       return res.status(404).json({ message: "Tenant not found" });
     }
+    if (!(await canAccessTenant(req, tenantId))) {
+      return res.status(403).json({ message: "You don't have access to this tenant" });
+    }
     try {
       const api = new ServiceTitanAPI(tenant);
       const updated = await api.updateService(serviceId, req.body);
@@ -493,6 +514,9 @@ export async function registerRoutes(
     const tenant = await storage.getTenant(tenantId);
     if (!tenant) {
       return res.status(404).json({ message: "Tenant not found" });
+    }
+    if (!(await canAccessTenant(req, tenantId))) {
+      return res.status(403).json({ message: "You don't have access to this tenant" });
     }
     try {
       const api = new ServiceTitanAPI(tenant);
@@ -514,6 +538,9 @@ export async function registerRoutes(
     const tenant = await storage.getTenant(tenantId);
     if (!tenant) {
       return res.status(404).json({ message: "Tenant not found" });
+    }
+    if (!(await canAccessTenant(req, tenantId))) {
+      return res.status(403).json({ message: "You don't have access to this tenant" });
     }
     try {
       const api = new ServiceTitanAPI(tenant);
@@ -550,6 +577,9 @@ export async function registerRoutes(
     if (!tenant) {
       return res.status(404).json({ message: "Tenant not found" });
     }
+    if (!(await canAccessTenant(req, tenantId))) {
+      return res.status(403).json({ message: "You don't have access to this tenant" });
+    }
     try {
       const validatedBody = createServiceSchema.parse(req.body);
       const api = new ServiceTitanAPI(tenant);
@@ -583,6 +613,9 @@ export async function registerRoutes(
     if (!tenant) {
       return res.status(404).json({ message: "Tenant not found" });
     }
+    if (!(await canAccessTenant(req, tenantId))) {
+      return res.status(403).json({ message: "You don't have access to this tenant" });
+    }
     try {
       const { imageData, filename, mimeType } = uploadImageSchema.parse(req.body);
       const imageBuffer = Buffer.from(imageData, 'base64');
@@ -612,6 +645,9 @@ export async function registerRoutes(
     if (!tenant) {
       return res.status(404).json({ message: "Tenant not found" });
     }
+    if (!(await canAccessTenant(req, tenantId))) {
+      return res.status(403).json({ message: "You don't have access to this tenant" });
+    }
     try {
       const api = new ServiceTitanAPI(tenant);
       const service = await api.getServiceById(serviceId);
@@ -634,6 +670,9 @@ export async function registerRoutes(
     if (!tenant) {
       return res.status(404).json({ message: "Tenant not found" });
     }
+    if (!(await canAccessTenant(req, tenantId))) {
+      return res.status(403).json({ message: "You don't have access to this tenant" });
+    }
     try {
       const api = new ServiceTitanAPI(tenant);
       const material = await api.getMaterialById(materialId);
@@ -655,6 +694,9 @@ export async function registerRoutes(
     const tenant = await storage.getTenant(tenantId);
     if (!tenant) {
       return res.status(404).json({ message: "Tenant not found" });
+    }
+    if (!(await canAccessTenant(req, tenantId))) {
+      return res.status(403).json({ message: "You don't have access to this tenant" });
     }
     const settings = await storage.getSettings();
     const targetMePercent = parseFloat(settings.targetMePercent);
@@ -764,6 +806,9 @@ export async function registerRoutes(
     const tenant = await storage.getTenant(tenantId);
     if (!tenant) {
       return res.status(404).json({ message: "Tenant not found" });
+    }
+    if (!(await canAccessTenant(req, tenantId))) {
+      return res.status(403).json({ message: "You don't have access to this tenant" });
     }
     
     const stApi = new ServiceTitanAPI(tenant);
@@ -901,10 +946,13 @@ export async function registerRoutes(
   });
 
   // SSE endpoint for push progress updates
-  app.get("/api/servicetitan/:tenantId/push/progress", requireUserOrAdmin, (req, res) => {
+  app.get("/api/servicetitan/:tenantId/push/progress", requireUserOrAdmin, async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     if (isNaN(tenantId)) {
       return res.status(400).json({ message: "Invalid tenant ID" });
+    }
+    if (!(await canAccessTenant(req, tenantId))) {
+      return res.status(403).json({ message: "You don't have access to this tenant" });
     }
 
     // Set SSE headers
@@ -1012,6 +1060,9 @@ export async function registerRoutes(
     const tenant = await storage.getTenant(tenantId);
     if (!tenant) {
       return res.status(404).json({ message: "Tenant not found" });
+    }
+    if (!(await canAccessTenant(req, tenantId))) {
+      return res.status(403).json({ message: "You don't have access to this tenant" });
     }
     
     // Check if this tenant already has an active push
@@ -1161,7 +1212,21 @@ export async function registerRoutes(
   // Push History API endpoints
   app.get("/api/push-history", requireUserOrAdmin, async (req, res) => {
     try {
+      const user = req.user as any;
       const tenantId = req.query.tenantId ? Number(req.query.tenantId) : undefined;
+
+      if (user.role !== "admin") {
+        // Only show history for tenants the user has access to
+        const allowedIds = await storage.getUserTenantIds(user.id);
+        if (tenantId !== undefined) {
+          if (!allowedIds.includes(tenantId)) {
+            return res.status(403).json({ message: "You don't have access to this tenant" });
+          }
+        }
+        const history = await storage.getPushHistory(tenantId);
+        return res.json(history.filter(h => allowedIds.includes(h.tenantId)));
+      }
+
       const history = await storage.getPushHistory(tenantId);
       res.json(history);
     } catch (err: any) {
@@ -1178,6 +1243,9 @@ export async function registerRoutes(
       const item = await storage.getPushHistoryItem(id);
       if (!item) {
         return res.status(404).json({ message: "Push history item not found" });
+      }
+      if (!(await canAccessTenant(req, item.tenantId))) {
+        return res.status(403).json({ message: "You don't have access to this tenant" });
       }
       res.json(item);
     } catch (err: any) {
@@ -1200,6 +1268,11 @@ export async function registerRoutes(
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid ID" });
       }
+      const existing = await storage.getPushHistoryItem(id);
+      if (!existing) return res.status(404).json({ message: "Push history item not found" });
+      if (!(await canAccessTenant(req, existing.tenantId))) {
+        return res.status(403).json({ message: "You don't have access to this tenant" });
+      }
       const updated = await storage.updatePushHistory(id, req.body);
       res.json(updated);
     } catch (err: any) {
@@ -1212,6 +1285,11 @@ export async function registerRoutes(
       const id = Number(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid ID" });
+      }
+      const existing = await storage.getPushHistoryItem(id);
+      if (!existing) return res.status(404).json({ message: "Push history item not found" });
+      if (!(await canAccessTenant(req, existing.tenantId))) {
+        return res.status(403).json({ message: "You don't have access to this tenant" });
       }
       await storage.deletePushHistory(id);
       res.status(204).send();
@@ -1227,6 +1305,9 @@ export async function registerRoutes(
       if (isNaN(tenantId)) {
         return res.status(400).json({ message: "Invalid tenant ID" });
       }
+      if (!(await canAccessTenant(req, tenantId))) {
+        return res.status(403).json({ message: "You don't have access to this tenant" });
+      }
       const pending = await storage.getPendingPushes(tenantId);
       res.json(pending);
     } catch (err: any) {
@@ -1240,6 +1321,9 @@ export async function registerRoutes(
       const tenantId = Number(req.params.tenantId);
       if (isNaN(tenantId)) {
         return res.status(400).json({ message: "Invalid tenant ID" });
+      }
+      if (!(await canAccessTenant(req, tenantId))) {
+        return res.status(403).json({ message: "You don't have access to this tenant" });
       }
       
       // Request cancellation
@@ -1274,6 +1358,11 @@ export async function registerRoutes(
         return res.status(400).json({ message: "This push has already been reverted." });
       }
       
+      // Check tenant access
+      if (!(await canAccessTenant(req, historyItem.tenantId))) {
+        return res.status(403).json({ message: "You don't have access to this tenant" });
+      }
+
       // Get the tenant for API access
       const tenant = await storage.getTenant(historyItem.tenantId);
       if (!tenant) {
@@ -1336,6 +1425,10 @@ export async function registerRoutes(
       const historyItem = await storage.getPushHistoryItem(id);
       if (!historyItem) {
         return res.status(404).json({ message: "Push history item not found" });
+      }
+
+      if (!(await canAccessTenant(req, historyItem.tenantId))) {
+        return res.status(403).json({ message: "You don't have access to this tenant" });
       }
 
       const tenant = await storage.getTenant(historyItem.tenantId);
