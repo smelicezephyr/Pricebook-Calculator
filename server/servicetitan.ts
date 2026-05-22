@@ -11,10 +11,11 @@ interface PricebookCategory {
   name: string;
   active: boolean;
   parentId?: number | null;
+  subcategories?: PricebookCategory[];
   level?: number;
   categoryType?: string;
   displayOrder?: number;
-  [key: string]: any; // Allow additional fields from API
+  [key: string]: any;
 }
 
 interface PricebookService {
@@ -231,9 +232,11 @@ export class ServiceTitanAPI {
   private flattenSubcategories(category: PricebookCategory, result: PricebookCategory[]): void {
     if (category.subcategories && Array.isArray(category.subcategories)) {
       for (const sub of category.subcategories) {
-        result.push(sub);
-        // Recursively handle deeper nesting if present
-        this.flattenSubcategories(sub, result);
+        // Stamp parentId so the frontend hierarchy builder can reconstruct the tree
+        const withParent: PricebookCategory = { ...sub, parentId: category.id };
+        result.push(withParent);
+        // Recurse with the stamped copy so deeper children also get correct parentId
+        this.flattenSubcategories(withParent, result);
       }
     }
   }
