@@ -1403,7 +1403,7 @@ export async function registerRoutes(
   });
 
   // Revert a completed push using stored original values
-  app.post("/api/push-history/:id/revert", requireUserOrAdmin, async (req, res) => {
+  app.post("/api/push-history/:id/revert", requireAdmin, async (req, res) => {
     try {
       const id = Number(req.params.id);
       if (isNaN(id)) {

@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTenants } from "@/hooks/use-tenants";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -57,6 +58,7 @@ function calculateETA(progress: PushProgress): string | null {
 }
 
 export default function PushHistoryPage() {
+  const { isAdmin } = useAuth();
   const { tenants, isLoading: isTenantsLoading } = useTenants();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -72,6 +74,20 @@ export default function PushHistoryPage() {
   const { data: history = [], isLoading: isHistoryLoading, refetch } = useQuery<PushHistory[]>({
     queryKey: [historyUrl],
   });
+
+  // IDs of the 2 most recent revertible pushes — only admins can revert
+  const revertibleIds = useMemo(() => {
+    const candidates = [...history]
+      .filter(h =>
+        (h.status === 'completed' || h.status === 'cancelled') &&
+        h.originalValues
+      )
+      .sort((a, b) =>
+        new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+      )
+      .slice(0, 2);
+    return new Set(candidates.map(h => h.id));
+  }, [history]);
 
   // Connect to SSE for in-progress pushes
   // Note: Only one push per tenant can be active at a time (enforced by backend),
@@ -521,7 +537,7 @@ export default function PushHistoryPage() {
                             Retry
                           </Button>
                         )}
-                        {(item.status === 'completed' || item.status === 'cancelled') && item.originalValues && (
+                        {isAdmin && revertibleIds.has(item.id) && (
                           <Button
                             variant="outline"
                             size="sm"
