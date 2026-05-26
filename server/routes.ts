@@ -139,21 +139,48 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
-  app.get("/api/admin/dashboard", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/dashboard", requireAdmin, async (req, res) => {
     try {
+      const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
+
+      // Build date filter clauses
+      const dateParams: string[] = [];
+      const dateConditions: string[] = ["status NOT IN ('pending','in_progress')"];
+      if (startDate) { dateConditions.push(`created_at >= $${dateParams.push(startDate)}`); }
+      if (endDate)   { dateConditions.push(`created_at <= ($${dateParams.push(endDate)}::date + INTERVAL '1 day')`); }
+      const dateWhere = dateConditions.join(" AND ");
+
+      // For tenant join, build separate param sets
+      const tenantParams: string[] = [];
+      const tenantDateConds: string[] = ["ph.status NOT IN ('pending','in_progress')"];
+      if (startDate) { tenantDateConds.push(`ph.created_at >= $${tenantParams.push(startDate)}`); }
+      if (endDate)   { tenantDateConds.push(`ph.created_at <= ($${tenantParams.push(endDate)}::date + INTERVAL '1 day')`); }
+      const tenantDateWhere = tenantDateConds.join(" AND ");
+
+      // Monthly chart: use the date range if provided, else last 6 months
+      const monthlyParams: string[] = [];
+      const monthlyStart = startDate || null;
+      const monthlyEnd   = endDate   || null;
+      const monthlyConds: string[] = ["status NOT IN ('pending','in_progress')"];
+      if (monthlyStart) { monthlyConds.push(`created_at >= $${monthlyParams.push(monthlyStart)}`); }
+      else               { monthlyConds.push(`created_at >= NOW() - INTERVAL '6 months'`); }
+      if (monthlyEnd)   { monthlyConds.push(`created_at <= ($${monthlyParams.push(monthlyEnd)}::date + INTERVAL '1 day')`); }
+      const monthlyWhere = monthlyConds.join(" AND ");
+
       const [overallResult, tenantResult, monthlyResult, userResult] = await Promise.all([
-        pool.query(`
-          SELECT
+        pool.query(
+          `SELECT
             COUNT(*) AS total_pushes,
             COUNT(*) FILTER (WHERE status = 'completed') AS completed,
             COUNT(*) FILTER (WHERE status = 'failed') AS failed,
             COALESCE(SUM(updated_count) FILTER (WHERE status IN ('completed','cancelled','reverted')), 0) AS total_updated,
             COUNT(DISTINCT tenant_id) AS active_tenants
           FROM push_history
-          WHERE status NOT IN ('pending','in_progress')
-        `),
-        pool.query(`
-          SELECT
+          WHERE ${dateWhere}`,
+          dateParams,
+        ),
+        pool.query(
+          `SELECT
             t.id,
             t.name,
             COUNT(ph.id) AS total_pushes,
@@ -163,22 +190,23 @@ export async function registerRoutes(
             MAX(ph.created_at) AS last_push
           FROM tenants t
           LEFT JOIN push_history ph ON ph.tenant_id = t.id
-            AND ph.status NOT IN ('pending','in_progress')
+            AND ${tenantDateWhere}
           GROUP BY t.id, t.name
-          ORDER BY total_updated DESC
-        `),
-        pool.query(`
-          SELECT
+          ORDER BY total_updated DESC`,
+          tenantParams,
+        ),
+        pool.query(
+          `SELECT
             TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YY') AS month,
             DATE_TRUNC('month', created_at) AS month_date,
             COUNT(*) AS pushes,
             COALESCE(SUM(updated_count), 0) AS updated
           FROM push_history
-          WHERE created_at >= NOW() - INTERVAL '6 months'
-            AND status NOT IN ('pending','in_progress')
+          WHERE ${monthlyWhere}
           GROUP BY DATE_TRUNC('month', created_at)
-          ORDER BY month_date ASC
-        `),
+          ORDER BY month_date ASC`,
+          monthlyParams,
+        ),
         pool.query(`SELECT COUNT(*) AS active_users FROM users WHERE role != 'everyone'`),
       ]);
 
