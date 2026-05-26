@@ -38,40 +38,37 @@ export async function registerRoutes(
 
   // ── Auth Middleware ────────────────────────────────────────────────────────
 
-  function requireAuth(req: Request, res: Response, next: NextFunction) {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Not authenticated" });
-    }
-    next();
+  // AUTH TEMPORARILY DISABLED — restore by uncommenting the bodies below
+  // and removing the `next(); return;` bypass lines when Google OAuth is re-enabled.
+
+  function requireAuth(_req: Request, _res: Response, next: NextFunction) {
+    next(); return;
+    // if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+    // next();
   }
 
-  function requireAdmin(req: Request, res: Response, next: NextFunction) {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Not authenticated" });
-    }
-    if (req.user!.role !== "admin") {
-      return res.status(403).json({ message: "Admin access required" });
-    }
-    next();
+  function requireAdmin(_req: Request, _res: Response, next: NextFunction) {
+    next(); return;
+    // if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+    // if (req.user!.role !== "admin") return res.status(403).json({ message: "Admin access required" });
+    // next();
   }
 
-  function requireUserOrAdmin(req: Request, res: Response, next: NextFunction) {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Not authenticated" });
-    }
-    const role = req.user!.role;
-    if (role === "everyone") {
-      return res.status(403).json({ message: "Access not granted. Ask an admin to assign you to a tenant." });
-    }
-    next();
+  function requireUserOrAdmin(_req: Request, _res: Response, next: NextFunction) {
+    next(); return;
+    // if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+    // const role = req.user!.role;
+    // if (role === "everyone") return res.status(403).json({ message: "Access not granted. Ask an admin to assign you to a tenant." });
+    // next();
   }
 
-  async function canAccessTenant(req: Request, tenantId: number): Promise<boolean> {
-    const role = req.user!.role;
-    if (role === "admin") return true;
-    if (role !== "user") return false;
-    const allowedIds = await storage.getUserTenantIds(req.user!.id);
-    return allowedIds.includes(tenantId);
+  async function canAccessTenant(_req: Request, _tenantId: number): Promise<boolean> {
+    return true;
+    // const role = req.user!.role;
+    // if (role === "admin") return true;
+    // if (role !== "user") return false;
+    // const allowedIds = await storage.getUserTenantIds(req.user!.id);
+    // return allowedIds.includes(tenantId);
   }
 
   // ── Google OAuth ────────────────────────────────────────────────────────────

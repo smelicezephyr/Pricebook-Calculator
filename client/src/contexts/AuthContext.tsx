@@ -21,29 +21,43 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const { data: user, isLoading } = useQuery<CurrentUser | null>({
-    queryKey: ["/api/auth/me"],
-    queryFn: async () => {
-      const res = await fetch("/api/auth/me", { credentials: "include" });
-      if (res.status === 401) return null;
-      if (!res.ok) return null;
-      return res.json();
-    },
-    staleTime: 60_000,
-    retry: false,
-  });
+// AUTH TEMPORARILY DISABLED — restore the useQuery block and remove the mock below when Google OAuth is re-enabled.
+const MOCK_ADMIN: CurrentUser = {
+  id: 0,
+  googleId: "",
+  email: "",
+  name: "Admin",
+  avatarUrl: null,
+  role: "admin",
+  createdAt: null,
+};
 
-  const resolvedUser = user ?? null;
+export function AuthProvider({ children }: { children: ReactNode }) {
+  // AUTH TEMPORARILY DISABLED
+  const resolvedUser = MOCK_ADMIN;
+
+  // Restore this block when Google OAuth is re-enabled:
+  // const { data: user, isLoading } = useQuery<CurrentUser | null>({
+  //   queryKey: ["/api/auth/me"],
+  //   queryFn: async () => {
+  //     const res = await fetch("/api/auth/me", { credentials: "include" });
+  //     if (res.status === 401) return null;
+  //     if (!res.ok) return null;
+  //     return res.json();
+  //   },
+  //   staleTime: 60_000,
+  //   retry: false,
+  // });
+  // const resolvedUser = user ?? null;
 
   return (
     <AuthContext.Provider
       value={{
         user: resolvedUser,
-        isLoading,
-        isAuthenticated: !!resolvedUser,
-        isAdmin: resolvedUser?.role === "admin",
-        isUserOrAdmin: resolvedUser?.role === "user" || resolvedUser?.role === "admin",
+        isLoading: false,
+        isAuthenticated: true,
+        isAdmin: true,
+        isUserOrAdmin: true,
       }}
     >
       {children}
