@@ -30,13 +30,23 @@ app.use(express.urlencoded({ extended: false }));
 // Trust the Replit proxy so secure cookies and redirect URLs work correctly
 app.set("trust proxy", 1);
 
+// Ensure the session table exists (avoids connect-pg-simple trying to read table.sql from disk)
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS "session" (
+    "sid" varchar NOT NULL,
+    "sess" json NOT NULL,
+    "expire" timestamp(6) NOT NULL,
+    CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
+  );
+  CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+`);
+
 // Session store backed by PostgreSQL
 const PgSession = connectPgSimple(session);
 app.use(
   session({
     store: new PgSession({
       pool,
-      createTableIfMissing: true,
       tableName: "session",
     }),
     secret: (() => {
