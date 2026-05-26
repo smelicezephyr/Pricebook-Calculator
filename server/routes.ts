@@ -138,6 +138,82 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
+  app.get("/api/admin/dashboard", requireAdmin, async (_req, res) => {
+    try {
+      const [overallResult, tenantResult, monthlyResult, userResult] = await Promise.all([
+        pool.query(`
+          SELECT
+            COUNT(*) AS total_pushes,
+            COUNT(*) FILTER (WHERE status = 'completed') AS completed,
+            COUNT(*) FILTER (WHERE status = 'failed') AS failed,
+            COALESCE(SUM(updated_count) FILTER (WHERE status IN ('completed','cancelled','reverted')), 0) AS total_updated,
+            COUNT(DISTINCT tenant_id) AS active_tenants
+          FROM push_history
+          WHERE status NOT IN ('pending','in_progress')
+        `),
+        pool.query(`
+          SELECT
+            t.id,
+            t.name,
+            COUNT(ph.id) AS total_pushes,
+            COUNT(ph.id) FILTER (WHERE ph.status = 'completed') AS completed,
+            COUNT(ph.id) FILTER (WHERE ph.status = 'failed') AS failed,
+            COALESCE(SUM(ph.updated_count), 0) AS total_updated,
+            MAX(ph.created_at) AS last_push
+          FROM tenants t
+          LEFT JOIN push_history ph ON ph.tenant_id = t.id
+            AND ph.status NOT IN ('pending','in_progress')
+          GROUP BY t.id, t.name
+          ORDER BY total_updated DESC
+        `),
+        pool.query(`
+          SELECT
+            TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YY') AS month,
+            DATE_TRUNC('month', created_at) AS month_date,
+            COUNT(*) AS pushes,
+            COALESCE(SUM(updated_count), 0) AS updated
+          FROM push_history
+          WHERE created_at >= NOW() - INTERVAL '6 months'
+            AND status NOT IN ('pending','in_progress')
+          GROUP BY DATE_TRUNC('month', created_at)
+          ORDER BY month_date ASC
+        `),
+        pool.query(`SELECT COUNT(*) AS active_users FROM users WHERE role != 'everyone'`),
+      ]);
+
+      const o = overallResult.rows[0];
+      const total = Number(o.completed) + Number(o.failed);
+      res.json({
+        totalPushes: Number(o.total_pushes),
+        completedPushes: Number(o.completed),
+        failedPushes: Number(o.failed),
+        totalUpdated: Number(o.total_updated),
+        successRate: total > 0 ? Math.round((Number(o.completed) / total) * 100) : null,
+        activeTenants: Number(o.active_tenants),
+        activeUsers: Number(userResult.rows[0].active_users),
+        byTenant: tenantResult.rows.map(r => ({
+          id: Number(r.id),
+          name: r.name,
+          totalPushes: Number(r.total_pushes),
+          completed: Number(r.completed),
+          failed: Number(r.failed),
+          totalUpdated: Number(r.total_updated),
+          lastPush: r.last_push,
+          successRate: (Number(r.completed) + Number(r.failed)) > 0
+            ? Math.round((Number(r.completed) / (Number(r.completed) + Number(r.failed))) * 100)
+            : null,
+        })),
+        monthly: monthlyResult.rows.map(r => ({
+          month: r.month,
+          pushes: Number(r.pushes),
+          updated: Number(r.updated),
+        })),
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/admin/history/logins", requireAdmin, async (req, res) => {
     const limit = Math.min(Number(req.query.limit) || 200, 500);
     const events = await storage.listLoginEvents(limit);

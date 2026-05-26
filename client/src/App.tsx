@@ -20,6 +20,7 @@ import PushToServiceTitan from "@/pages/PushToServiceTitan";
 import PushHistory from "@/pages/PushHistory";
 import AdminUsers from "@/pages/AdminUsers";
 import AdminHistory from "@/pages/AdminHistory";
+import AdminDashboard from "@/pages/AdminDashboard";
 import Login from "@/pages/Login";
 
 function AppRouter() {
@@ -58,6 +59,9 @@ function AppRouter() {
           </Route>
           <Route path="/admin/history">
             {isAdmin ? <AdminHistory /> : <NotFound />}
+          </Route>
+          <Route path="/admin/dashboard">
+            {isAdmin ? <AdminDashboard /> : <NotFound />}
           </Route>
 
           <Route component={NotFound} />

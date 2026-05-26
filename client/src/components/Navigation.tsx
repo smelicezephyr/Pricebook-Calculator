@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Clock, Wrench, Shield, MapPin, ArrowLeftRight, LogOut, Users, ScrollText, type LucideIcon } from "lucide-react";
+import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Clock, Wrench, Shield, MapPin, ArrowLeftRight, LogOut, Users, ScrollText, BarChart2, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 import clsx from "clsx";
 import horizontalLogo from "@assets/Logo_-_Horizontal_1772750848213.png";
@@ -190,6 +190,21 @@ export function Navigation() {
 
                 {adminExpanded && (
                   <div className="ml-4 mt-1 space-y-1 border-l-2 border-border pl-4">
+                    <Link href="/admin/dashboard">
+                      <div
+                        className={clsx(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer text-sm",
+                          location === "/admin/dashboard"
+                            ? "bg-primary/10 text-primary font-medium"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        )}
+                        onClick={close}
+                        data-testid="link-admin-dashboard"
+                      >
+                        <BarChart2 size={16} />
+                        Dashboard
+                      </div>
+                    </Link>
                     <Link href="/admin/users">
                       <div
                         className={clsx(
