@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth, type CurrentUser } from "@/contexts/AuthContext";
-import { useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Shield, Users, Trash2 } from "lucide-react";
+import { Loader2, Shield, Users, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import type { Tenant } from "@shared/schema";
 
 function roleBadgeVariant(role: string) {
@@ -26,10 +25,12 @@ function getInitials(name: string) {
 
 export default function AdminUsers() {
   const { isAdmin, isLoading: authLoading } = useAuth();
-  const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [savingUsers, setSavingUsers] = useState<Set<number>>(new Set());
+  const [savingRoles, setSavingRoles] = useState<Set<number>>(new Set());
+  const [savingTenants, setSavingTenants] = useState<Set<number>>(new Set());
   const [isClearingHistory, setIsClearingHistory] = useState(false);
+  const [expandedUsers, setExpandedUsers] = useState<Set<number>>(new Set());
+  const [pendingTenantIds, setPendingTenantIds] = useState<Record<number, number[]>>({});
 
   const { data: users = [], isLoading: usersLoading } = useQuery<CurrentUser[]>({
     queryKey: ["/api/admin/users"],
@@ -40,9 +41,6 @@ export default function AdminUsers() {
     queryKey: ["/api/tenants"],
     enabled: isAdmin,
   });
-
-  // Per-user tenant access state (loaded separately)
-  const [userTenantIds, setUserTenantIds] = useState<Record<number, number[]>>({});
 
   const { data: allUserTenants } = useQuery<Record<number, number[]>>({
     queryKey: ["/api/admin/user-tenant-map"],
@@ -59,9 +57,11 @@ export default function AdminUsers() {
     },
   });
 
-  // Sync fetched tenant access into local state
   const resolvedTenantIds = (userId: number) =>
-    userTenantIds[userId] ?? allUserTenants?.[userId] ?? [];
+    pendingTenantIds[userId] ?? allUserTenants?.[userId] ?? [];
+
+  const isDirty = (userId: number) =>
+    pendingTenantIds[userId] !== undefined;
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: number; role: string }) => {
@@ -80,23 +80,48 @@ export default function AdminUsers() {
     mutationFn: async ({ userId, tenantIds }: { userId: number; tenantIds: number[] }) => {
       await apiRequest("PUT", `/api/admin/users/${userId}/tenants`, { tenantIds });
     },
+    onSuccess: (_data, { userId }) => {
+      setPendingTenantIds(prev => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/user-tenant-map"] });
+      toast({ title: "Saved", description: "Tenant access updated." });
+    },
     onError: () => {
       toast({ title: "Error", description: "Failed to update tenant access", variant: "destructive" });
     },
   });
 
   const handleRoleChange = (userId: number, role: string) => {
-    setSavingUsers(prev => new Set(prev).add(userId));
+    setSavingRoles(prev => new Set(prev).add(userId));
     updateRoleMutation.mutate({ userId, role }, {
-      onSettled: () => setSavingUsers(prev => { const s = new Set(prev); s.delete(userId); return s; }),
+      onSettled: () => setSavingRoles(prev => { const s = new Set(prev); s.delete(userId); return s; }),
     });
   };
 
-  const handleTenantToggle = async (userId: number, tenantId: number, checked: boolean) => {
+  const handleTenantToggle = (userId: number, tenantId: number, checked: boolean) => {
     const current = resolvedTenantIds(userId);
     const next = checked ? [...current, tenantId] : current.filter(id => id !== tenantId);
-    setUserTenantIds(prev => ({ ...prev, [userId]: next }));
-    updateTenantsMutation.mutate({ userId, tenantIds: next });
+    setPendingTenantIds(prev => ({ ...prev, [userId]: next }));
+  };
+
+  const handleSaveTenants = (userId: number) => {
+    const tenantIds = resolvedTenantIds(userId);
+    setSavingTenants(prev => new Set(prev).add(userId));
+    updateTenantsMutation.mutate({ userId, tenantIds }, {
+      onSettled: () => setSavingTenants(prev => { const s = new Set(prev); s.delete(userId); return s; }),
+    });
+  };
+
+  const toggleExpanded = (userId: number) => {
+    setExpandedUsers(prev => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
   };
 
   const handleClearHistory = async () => {
@@ -137,19 +162,16 @@ export default function AdminUsers() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Shield size={22} />
-            User Management
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Manage roles and tenant access for everyone who has signed in.
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <Shield size={22} />
+          User Management
+        </h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Manage roles and tenant access for everyone who has signed in.
+        </p>
       </div>
 
-      {/* Users Table */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -171,17 +193,21 @@ export default function AdminUsers() {
           ) : (
             <div className="space-y-3">
               {users.map((u) => {
-                const isSaving = savingUsers.has(u.id);
+                const isRoleSaving = savingRoles.has(u.id);
+                const isTenantSaving = savingTenants.has(u.id);
                 const isUser = u.role === "user";
                 const tenantIds = resolvedTenantIds(u.id);
+                const expanded = expandedUsers.has(u.id);
+                const dirty = isDirty(u.id);
+
                 return (
                   <div
                     key={u.id}
                     className="border border-border rounded-xl p-4 space-y-3"
                     data-testid={`user-row-${u.id}`}
                   >
+                    {/* Top row: avatar, name/email, role badge + selector, expand button */}
                     <div className="flex items-center justify-between gap-4 flex-wrap">
-                      {/* Identity */}
                       <div className="flex items-center gap-3 min-w-0">
                         <Avatar className="w-9 h-9 shrink-0">
                           <AvatarImage src={u.avatarUrl ?? undefined} alt={u.name} />
@@ -193,7 +219,6 @@ export default function AdminUsers() {
                         </div>
                       </div>
 
-                      {/* Role selector */}
                       <div className="flex items-center gap-2">
                         <Badge variant={roleBadgeVariant(u.role)} className="capitalize text-xs">
                           {u.role}
@@ -201,17 +226,10 @@ export default function AdminUsers() {
                         <Select
                           value={u.role}
                           onValueChange={(role) => handleRoleChange(u.id, role)}
-                          disabled={isSaving}
+                          disabled={isRoleSaving}
                         >
-                          <SelectTrigger
-                            className="h-8 w-32 text-xs"
-                            data-testid={`select-role-${u.id}`}
-                          >
-                            {isSaving ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <SelectValue />
-                            )}
+                          <SelectTrigger className="h-8 w-32 text-xs" data-testid={`select-role-${u.id}`}>
+                            {isRoleSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <SelectValue />}
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="everyone">Everyone</SelectItem>
@@ -219,34 +237,64 @@ export default function AdminUsers() {
                             <SelectItem value="admin">Admin</SelectItem>
                           </SelectContent>
                         </Select>
+
+                        {isUser && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-muted-foreground"
+                            onClick={() => toggleExpanded(u.id)}
+                            data-testid={`button-toggle-tenants-${u.id}`}
+                          >
+                            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </Button>
+                        )}
                       </div>
                     </div>
 
-                    {/* Tenant access (only shown when role is "user") */}
-                    {isUser && (
-                      <div className="pl-12 space-y-2">
-                        <p className="text-xs text-muted-foreground font-medium">Tenant Access</p>
+                    {/* Tenant access — collapsible, only for "user" role */}
+                    {isUser && expanded && (
+                      <div className="pl-12 space-y-3 pt-1 border-t border-border/60">
+                        <p className="text-xs text-muted-foreground font-medium pt-2">Tenant Access</p>
                         {tenants.length === 0 ? (
                           <p className="text-xs text-muted-foreground">No tenants configured yet.</p>
                         ) : (
-                          <div className="flex flex-wrap gap-3">
-                            {tenants.map((t) => {
-                              const checked = tenantIds.includes(t.id);
-                              return (
-                                <label
-                                  key={t.id}
-                                  className="flex items-center gap-2 cursor-pointer text-sm"
-                                  data-testid={`checkbox-tenant-${u.id}-${t.id}`}
-                                >
-                                  <Checkbox
-                                    checked={checked}
-                                    onCheckedChange={(c) => handleTenantToggle(u.id, t.id, !!c)}
-                                  />
-                                  {t.name}
-                                </label>
-                              );
-                            })}
-                          </div>
+                          <>
+                            <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                              {tenants.map((t) => {
+                                const checked = tenantIds.includes(t.id);
+                                return (
+                                  <label
+                                    key={t.id}
+                                    className="flex items-center gap-2 cursor-pointer text-sm"
+                                    data-testid={`checkbox-tenant-${u.id}-${t.id}`}
+                                  >
+                                    <Checkbox
+                                      checked={checked}
+                                      onCheckedChange={(c) => handleTenantToggle(u.id, t.id, !!c)}
+                                      disabled={isTenantSaving}
+                                    />
+                                    <span className="truncate">{t.name}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+
+                            <div className="flex justify-end pt-1">
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveTenants(u.id)}
+                                disabled={isTenantSaving || !dirty}
+                                data-testid={`button-save-tenants-${u.id}`}
+                              >
+                                {isTenantSaving ? (
+                                  <><Loader2 className="w-3 h-3 animate-spin mr-1" /> Saving…</>
+                                ) : (
+                                  "Save Changes"
+                                )}
+                              </Button>
+                            </div>
+                          </>
                         )}
                       </div>
                     )}
