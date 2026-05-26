@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Clock, CheckCircle2, XCircle, AlertCircle, Trash2, ArrowLeft, History as HistoryIcon, RefreshCw, RotateCcw, RotateCw, StopCircle, Ban } from "lucide-react";
+import { Loader2, Clock, CheckCircle2, XCircle, AlertCircle, Trash2, ArrowLeft, History as HistoryIcon, RefreshCw, RotateCcw, RotateCw, StopCircle, Ban, Download } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -75,19 +75,45 @@ export default function PushHistoryPage() {
     queryKey: [historyUrl],
   });
 
-  // IDs of the 2 most recent revertible pushes — only admins can revert
+  // ID of the most recent revertible push PER TENANT — only admins can revert
   const revertibleIds = useMemo(() => {
-    const candidates = [...history]
+    const sorted = [...history]
       .filter(h =>
         (h.status === 'completed' || h.status === 'cancelled') &&
         h.originalValues
       )
       .sort((a, b) =>
         new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-      )
-      .slice(0, 2);
-    return new Set(candidates.map(h => h.id));
+      );
+    const byTenant = new Map<number, PushHistory>();
+    for (const h of sorted) {
+      if (!byTenant.has(h.tenantId)) byTenant.set(h.tenantId, h);
+    }
+    return new Set([...byTenant.values()].map(h => h.id));
   }, [history]);
+
+  function downloadChanges(item: PushHistory, tenantName: string) {
+    type ChangeRow = { serviceId: number; serviceName?: string; originalPrice: number; originalCost: number; newPrice?: number };
+    const rows: ChangeRow[] = JSON.parse(item.originalValues || '[]');
+    const hasNewPrice = rows.some(r => r.newPrice !== undefined);
+    const headers = ['Service ID', 'Service Name', 'Price Before', ...(hasNewPrice ? ['Price After'] : [])];
+    const csvRows = [
+      headers.join(','),
+      ...rows.map(r => [
+        r.serviceId,
+        `"${(r.serviceName ?? '').replace(/"/g, '""')}"`,
+        r.originalPrice.toFixed(2),
+        ...(hasNewPrice ? [(r.newPrice ?? '').toString()] : []),
+      ].join(','))
+    ];
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `push-changes-${tenantName.replace(/[^a-z0-9]/gi, '-')}-${item.id}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   // Connect to SSE for in-progress pushes
   // Note: Only one push per tenant can be active at a time (enforced by backend),
@@ -468,11 +494,6 @@ export default function PushHistoryPage() {
                                 Errors: {item.errorCount}
                               </span>
                             )}
-                            {item.originalValues && item.status !== 'reverted' && (
-                              <span className="text-muted-foreground text-xs">
-                                (Can be reverted)
-                              </span>
-                            )}
                           </div>
                         )}
 
@@ -552,6 +573,18 @@ export default function PushHistoryPage() {
                               <RotateCcw className="w-4 h-4" />
                             )}
                             Revert
+                          </Button>
+                        )}
+                        {item.originalValues && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadChanges(item, getTenantName(item.tenantId))}
+                            className="gap-1"
+                            data-testid={`button-download-changes-${item.id}`}
+                          >
+                            <Download className="w-4 h-4" />
+                            Changes
                           </Button>
                         )}
                         <Button

@@ -398,8 +398,10 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
         batch.map(async (update) => {
           const originalEntry = {
             serviceId: update.service.id,
+            serviceName: update.service.name ?? "",
             originalPrice: update.currentPrice,
             originalCost: update.currentCost,
+            newPrice: update.roundedPrice,
           };
 
           // Note: ServiceTitan's 'cost' field (Estimated Labor Cost) is calculated internally
