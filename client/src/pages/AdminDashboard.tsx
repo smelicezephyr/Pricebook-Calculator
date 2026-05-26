@@ -61,13 +61,13 @@ function StatCard({
 export default function AdminDashboard() {
   const { isAdmin, isLoading: authLoading } = useAuth();
 
-  const { data, isLoading } = useQuery<DashboardData>({
+  const { data, isLoading, isError } = useQuery<DashboardData>({
     queryKey: ["/api/admin/dashboard"],
     enabled: isAdmin,
     refetchInterval: 60_000,
   });
 
-  if (authLoading || isLoading) {
+  if (authLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="animate-spin w-6 h-6 text-muted-foreground" />
@@ -83,7 +83,21 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!data) return null;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="animate-spin w-6 h-6 text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <div className="flex items-center justify-center h-full p-8 text-muted-foreground">
+        Failed to load dashboard data. Check server logs.
+      </div>
+    );
+  }
 
   const formatNumber = (n: number) => n.toLocaleString();
 
