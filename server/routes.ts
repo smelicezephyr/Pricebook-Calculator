@@ -207,14 +207,14 @@ export async function registerRoutes(
   // ── Quotes Routes ──────────────────────────────────────────────────────────
 
   app.get(api.quotes.list.path, requireAuth, async (req, res) => {
-    const quotes = await storage.getQuotes();
+    const quotes = await storage.getQuotes(req.user!.id, req.user!.role === "admin");
     res.json(quotes);
   });
 
   app.post(api.quotes.create.path, requireAuth, async (req, res) => {
     try {
       const input = api.quotes.create.input.parse(req.body);
-      const quote = await storage.createQuote(input);
+      const quote = await storage.createQuote(input, req.user!.id);
       res.status(201).json(quote);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -231,7 +231,8 @@ export async function registerRoutes(
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid ID" });
     }
-    await storage.deleteQuote(id);
+    const result = await storage.deleteQuote(id, req.user!.id, req.user!.role === "admin");
+    if (result.forbidden) return res.status(403).json({ message: "Not your quote" });
     res.status(204).send();
   });
 

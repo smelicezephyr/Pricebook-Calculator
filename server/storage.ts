@@ -27,9 +27,9 @@ export interface IStorage {
   getSettings(): Promise<Settings>;
   updateSettings(settings: InsertSettings): Promise<Settings>;
   
-  createQuote(quote: InsertQuote): Promise<Quote>;
-  getQuotes(): Promise<Quote[]>;
-  deleteQuote(id: number): Promise<void>;
+  createQuote(quote: InsertQuote, userId: number): Promise<Quote>;
+  getQuotes(userId: number, isAdmin: boolean): Promise<Quote[]>;
+  deleteQuote(id: number, userId: number, isAdmin: boolean): Promise<{ ok: boolean; forbidden?: boolean }>;
   clearAllQuotes(): Promise<void>;
   
   getLocations(): Promise<Location[]>;
@@ -94,17 +94,26 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async createQuote(quote: InsertQuote): Promise<Quote> {
-    const [created] = await db.insert(quotes).values(quote).returning();
+  async createQuote(quote: InsertQuote, userId: number): Promise<Quote> {
+    const [created] = await db.insert(quotes).values({ ...quote, userId }).returning();
     return created;
   }
 
-  async getQuotes(): Promise<Quote[]> {
-    return await db.select().from(quotes).orderBy(desc(quotes.createdAt));
+  async getQuotes(userId: number, isAdmin: boolean): Promise<Quote[]> {
+    if (isAdmin) {
+      return await db.select().from(quotes).orderBy(desc(quotes.createdAt));
+    }
+    return await db.select().from(quotes)
+      .where(eq(quotes.userId, userId))
+      .orderBy(desc(quotes.createdAt));
   }
 
-  async deleteQuote(id: number): Promise<void> {
+  async deleteQuote(id: number, userId: number, isAdmin: boolean): Promise<{ ok: boolean; forbidden?: boolean }> {
+    const [item] = await db.select().from(quotes).where(eq(quotes.id, id));
+    if (!item) return { ok: false };
+    if (!isAdmin && item.userId !== userId) return { ok: false, forbidden: true };
     await db.delete(quotes).where(eq(quotes.id, id));
+    return { ok: true };
   }
 
   async clearAllQuotes(): Promise<void> {

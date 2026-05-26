@@ -118,6 +118,7 @@ export const pushHistory = pgTable("push_history", {
 // Saved Quotes/Calculations
 export const quotes = pgTable("quotes", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
   title: text("title").notNull().default("Untitled Quote"),
   materialsCost: numeric("materials_cost").notNull(),
   equipmentCost: numeric("equipment_cost").notNull(),
@@ -144,7 +145,8 @@ export const insertLocationSchema = createInsertSchema(locations).omit({
 
 export const insertSettingsSchema = createInsertSchema(settings);
 export const insertQuoteSchema = createInsertSchema(quotes).omit({ 
-  id: true, 
+  id: true,
+  userId: true,
   createdAt: true 
 });
 export const insertTenantSchema = createInsertSchema(tenants).omit({
