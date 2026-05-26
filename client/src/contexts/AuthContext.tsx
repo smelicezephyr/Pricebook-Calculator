@@ -8,6 +8,7 @@ export interface CurrentUser {
   name: string;
   avatarUrl: string | null;
   role: "everyone" | "user" | "admin";
+  emailNotifications: boolean;
   createdAt: string | null;
 }
 

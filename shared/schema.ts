@@ -33,6 +33,7 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   avatarUrl: text("avatar_url"),
   role: text("role", { enum: ["everyone", "user", "admin"] }).notNull().default("everyone"),
+  emailNotifications: boolean("email_notifications").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -103,7 +104,11 @@ export const pushHistory = pgTable("push_history", {
   
   // Original values for revert functionality (JSON: [{serviceId, originalPrice, originalCost}])
   originalValues: text("original_values"),
-  
+
+  // Attribution — who initiated this push
+  pushedByUserId: integer("pushed_by_user_id"),
+  pushedByName: text("pushed_by_name"),
+
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   startedAt: timestamp("started_at"),

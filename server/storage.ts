@@ -69,6 +69,10 @@ export interface IStorage {
   // Login Events
   logLoginEvent(userId: number, email: string, name: string): Promise<void>;
   listLoginEvents(limit?: number): Promise<{ id: number; userId: number | null; userEmail: string; userName: string; createdAt: Date | null }[]>;
+
+  // Admin Email Notifications
+  getAdminEmailSubscribers(): Promise<User[]>;
+  setEmailNotifications(userId: number, enabled: boolean): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -330,6 +334,15 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(loginEvents)
       .orderBy(desc(loginEvents.createdAt))
       .limit(limit);
+  }
+
+  async getAdminEmailSubscribers(): Promise<User[]> {
+    return await db.select().from(users)
+      .where(and(eq(users.role, "admin"), eq(users.emailNotifications, true)));
+  }
+
+  async setEmailNotifications(userId: number, enabled: boolean): Promise<void> {
+    await db.update(users).set({ emailNotifications: enabled }).where(eq(users.id, userId));
   }
 }
 

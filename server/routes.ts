@@ -9,6 +9,7 @@ import { pushProgressEmitter, emitProgress } from "./pushProgress";
 import { pushQueue, withRetry, MAX_CONCURRENT_PUSHES } from "./pushQueue";
 import { processPush } from "./pushProcessor";
 import type { PushHistory } from "@shared/schema";
+import { sendPushCompleteNotification } from "./email";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -135,6 +136,16 @@ export async function registerRoutes(
     const limit = Math.min(Number(req.query.limit) || 200, 500);
     const events = await storage.listLoginEvents(limit);
     res.json(events);
+  });
+
+  app.put("/api/users/me/email-notifications", requireAdmin, async (req, res) => {
+    try {
+      const { enabled } = req.body;
+      await storage.setEmailNotifications(req.user!.id, !!enabled);
+      res.json({ success: true, emailNotifications: !!enabled });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
   });
 
   app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
@@ -1117,6 +1128,8 @@ export async function registerRoutes(
           commissionBurdenPercent: commissionBurdenPercent.toString(),
           financingFeePercent: financingFeePercent.toString(),
           roundUp: shouldRoundUp,
+          pushedByUserId: req.user?.id ?? null,
+          pushedByName: req.user?.name ?? null,
         });
         historyId = history.id;
       } else {
@@ -1155,6 +1168,8 @@ export async function registerRoutes(
         commissionBurdenPercent: commissionBurdenPercent.toString(),
         financingFeePercent: financingFeePercent.toString(),
         roundUp: shouldRoundUp,
+        pushedByUserId: req.user?.id ?? null,
+        pushedByName: req.user?.name ?? null,
       });
       historyId = history.id;
       // Set startedAt separately
@@ -1204,7 +1219,22 @@ export async function registerRoutes(
         errorMessages: results.errors.length > 0 ? JSON.stringify(results.errors) : null,
         originalValues: results.originalValues,
       });
-      
+
+      // Notify opted-in admins by email (fire-and-forget)
+      storage.getAdminEmailSubscribers().then(subscribers => {
+        if (subscribers.length > 0) {
+          sendPushCompleteNotification(subscribers.map(u => ({ email: u.email, name: u.name })), {
+            tenantName: tenant.name,
+            pushedByName: req.user?.name ?? 'Unknown',
+            status: finalStatus,
+            processedCount: results.processed,
+            updatedCount: results.updated,
+            skippedCount: results.skipped,
+            errorCount: results.errors.length,
+          }).catch(e => console.error('[Push] Email notification failed:', e));
+        }
+      }).catch(() => {});
+
       pushQueue.completePush(tenantId);
       console.log(`[Push] Background push for tenant ${tenantId} (history ${historyId}) completed: ${results.updated} updated, ${results.skipped} skipped, ${results.errors.length} errors`);
     }).catch(async (err: any) => {
@@ -1214,7 +1244,20 @@ export async function registerRoutes(
         errorMessages: JSON.stringify([err.message || 'Push failed']),
         errorCount: 1,
       });
-      
+      storage.getAdminEmailSubscribers().then(subscribers => {
+        if (subscribers.length > 0) {
+          sendPushCompleteNotification(subscribers.map(u => ({ email: u.email, name: u.name })), {
+            tenantName: tenant.name,
+            pushedByName: req.user?.name ?? 'Unknown',
+            status: 'failed',
+            processedCount: 0,
+            updatedCount: 0,
+            skippedCount: 0,
+            errorCount: 1,
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+
       pushQueue.completePush(tenantId);
       emitProgress(tenantId, 'error', `Push failed: ${err.message}`, 0, 0);
       console.error(`[Push] Background push for tenant ${tenantId} (history ${historyId}) failed:`, err.message);
@@ -1236,7 +1279,10 @@ export async function registerRoutes(
           }
         }
         const history = await storage.getPushHistory(tenantId);
-        return res.json(history.filter(h => allowedIds.includes(h.tenantId)));
+        return res.json(history.filter(h =>
+          allowedIds.includes(h.tenantId) &&
+          (h.pushedByUserId === null || h.pushedByUserId === user.id)
+        ));
       }
 
       const history = await storage.getPushHistory(tenantId);
@@ -1271,7 +1317,11 @@ export async function registerRoutes(
       if (!isNaN(tenantId) && !(await canAccessTenant(req, tenantId))) {
         return res.status(403).json({ message: "You don't have access to this tenant" });
       }
-      const item = await storage.createPushHistory(req.body);
+      const item = await storage.createPushHistory({
+        ...req.body,
+        pushedByUserId: req.user?.id ?? null,
+        pushedByName: req.user?.name ?? null,
+      });
       res.status(201).json(item);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -1485,6 +1535,8 @@ export async function registerRoutes(
         commissionBurdenPercent: commissionBurdenPercent.toString(),
         financingFeePercent: financingFeePercent.toString(),
         roundUp,
+        pushedByUserId: req.user?.id ?? null,
+        pushedByName: req.user?.name ?? null,
       };
 
       let newHistoryId: number;
@@ -1527,6 +1579,19 @@ export async function registerRoutes(
             errorMessages: results.errors.length > 0 ? JSON.stringify(results.errors) : null,
             originalValues: results.originalValues,
           });
+          storage.getAdminEmailSubscribers().then(subscribers => {
+            if (subscribers.length > 0) {
+              sendPushCompleteNotification(subscribers.map(u => ({ email: u.email, name: u.name })), {
+                tenantName: tenant.name,
+                pushedByName: req.user?.name ?? 'Unknown',
+                status: finalStatus,
+                processedCount: results.processed,
+                updatedCount: results.updated,
+                skippedCount: results.skipped,
+                errorCount: results.errors.length,
+              }).catch(() => {});
+            }
+          }).catch(() => {});
           pushQueue.completePush(tenantId);
           console.log(`[Retry] Push for tenant ${tenantId} (history ${newHistoryId}) completed: ${results.updated} updated, ${results.errors.length} errors`);
         }).catch(async (err: any) => {

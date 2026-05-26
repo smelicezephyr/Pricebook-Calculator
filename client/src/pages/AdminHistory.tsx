@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, ScrollText, LogIn, Upload, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Loader2, ScrollText, LogIn, Upload, AlertTriangle, ChevronDown, ChevronUp, Bell } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 import type { PushHistory, Tenant } from "@shared/schema";
 
 type LoginEvent = {
@@ -72,7 +76,8 @@ function ErrorMessages({ messages }: { messages: string }) {
 }
 
 export default function AdminHistory() {
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { user, isAdmin, isLoading: authLoading } = useAuth();
+  const { toast } = useToast();
 
   const { data: logins = [], isLoading: loginsLoading } = useQuery<LoginEvent[]>({
     queryKey: ["/api/admin/history/logins"],
@@ -95,8 +100,32 @@ export default function AdminHistory() {
   });
 
   const tenantMap = Object.fromEntries(tenants.map(t => [t.id, t.name]));
-
   const errorPushes = pushes.filter(p => (p.errorCount ?? 0) > 0 && p.errorMessages);
+
+  const emailToggleMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      await apiRequest("PUT", "/api/users/me/email-notifications", { enabled });
+    },
+    onSuccess: (_data, enabled) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({
+        title: enabled ? "Email notifications on" : "Email notifications off",
+        description: enabled
+          ? "You'll receive an email when any push completes."
+          : "You will no longer receive push notification emails.",
+      });
+    },
+    onError: () => {
+      toast({ title: "Failed to update preference", variant: "destructive" });
+    },
+  });
+
+  const sortedPushes = [...pushes].sort(
+    (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+  );
+  const sortedErrors = [...errorPushes].sort(
+    (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+  );
 
   if (authLoading) {
     return (
@@ -191,21 +220,42 @@ export default function AdminHistory() {
         <TabsContent value="pushes">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">ServiceTitan Push History</CardTitle>
-              <CardDescription>All pricebook pushes across every tenant, most recent first.</CardDescription>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="text-base">ServiceTitan Push History</CardTitle>
+                  <CardDescription>All pricebook pushes across every tenant, most recent first.</CardDescription>
+                </div>
+                {/* Per-admin email notification toggle */}
+                <div className="flex items-center gap-2 shrink-0 pt-0.5" data-testid="email-notifications-toggle">
+                  <Bell size={14} className={user?.emailNotifications ? "text-primary" : "text-muted-foreground"} />
+                  <Switch
+                    id="email-notifications"
+                    checked={!!user?.emailNotifications}
+                    disabled={emailToggleMutation.isPending}
+                    onCheckedChange={enabled => emailToggleMutation.mutate(enabled)}
+                    data-testid="switch-email-notifications"
+                  />
+                  <Label htmlFor="email-notifications" className="text-sm cursor-pointer select-none">
+                    Email me on completion
+                  </Label>
+                </div>
+              </div>
+              {!process.env.SMTP_HOST && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 flex items-center gap-1">
+                  ⚠ No SMTP configured — set SMTP_HOST, SMTP_USER, and SMTP_PASS to enable email delivery.
+                </p>
+              )}
             </CardHeader>
             <CardContent>
               {pushesLoading ? (
                 <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
                   <Loader2 className="animate-spin w-4 h-4" /> Loading…
                 </div>
-              ) : pushes.length === 0 ? (
+              ) : sortedPushes.length === 0 ? (
                 <EmptyState icon={Upload} message="No pushes have been made yet." />
               ) : (
                 <div className="divide-y divide-border">
-                  {[...pushes].sort((a, b) =>
-                    new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-                  ).map(push => (
+                  {sortedPushes.map(push => (
                     <div key={push.id} className="py-3 space-y-1" data-testid={`row-push-${push.id}`}>
                       <div className="flex items-center justify-between gap-4">
                         <div className="min-w-0 flex items-center gap-2">
@@ -216,17 +266,18 @@ export default function AdminHistory() {
                             {tenantMap[push.tenantId] ?? `Tenant #${push.tenantId}`}
                           </span>
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-xs text-muted-foreground" title={fullDate(push.createdAt ? String(push.createdAt) : null)}>
-                            {timeAgo(push.createdAt ? String(push.createdAt) : null)}
-                          </p>
-                        </div>
+                        <p className="text-xs text-muted-foreground shrink-0" title={fullDate(push.createdAt ? String(push.createdAt) : null)}>
+                          {timeAgo(push.createdAt ? String(push.createdAt) : null)}
+                        </p>
                       </div>
-                      <div className="flex gap-4 pl-1 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 pl-1 text-xs text-muted-foreground">
+                        {(push as any).pushedByName && (
+                          <span className="font-medium text-foreground/70">↑ {(push as any).pushedByName}</span>
+                        )}
                         {push.processedCount != null && <span>{push.processedCount} processed</span>}
-                        {push.updatedCount != null && <span className="text-green-600">{push.updatedCount} updated</span>}
-                        {push.skippedCount != null && push.skippedCount > 0 && <span>{push.skippedCount} skipped</span>}
-                        {push.errorCount != null && push.errorCount > 0 && (
+                        {push.updatedCount != null && <span className="text-green-600 dark:text-green-400">{push.updatedCount} updated</span>}
+                        {(push.skippedCount ?? 0) > 0 && <span>{push.skippedCount} skipped</span>}
+                        {(push.errorCount ?? 0) > 0 && (
                           <span className="text-destructive">{push.errorCount} errors</span>
                         )}
                       </div>
@@ -250,13 +301,11 @@ export default function AdminHistory() {
                 <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
                   <Loader2 className="animate-spin w-4 h-4" /> Loading…
                 </div>
-              ) : errorPushes.length === 0 ? (
+              ) : sortedErrors.length === 0 ? (
                 <EmptyState icon={AlertTriangle} message="No errors recorded — everything has been clean." />
               ) : (
                 <div className="divide-y divide-border">
-                  {[...errorPushes].sort((a, b) =>
-                    new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-                  ).map(push => (
+                  {sortedErrors.map(push => (
                     <div key={push.id} className="py-3 space-y-1" data-testid={`row-error-${push.id}`}>
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-2 min-w-0">
@@ -271,6 +320,9 @@ export default function AdminHistory() {
                           {timeAgo(push.createdAt ? String(push.createdAt) : null)}
                         </p>
                       </div>
+                      {(push as any).pushedByName && (
+                        <p className="text-xs text-muted-foreground pl-1">↑ {(push as any).pushedByName}</p>
+                      )}
                       {push.errorMessages && <ErrorMessages messages={push.errorMessages} />}
                     </div>
                   ))}

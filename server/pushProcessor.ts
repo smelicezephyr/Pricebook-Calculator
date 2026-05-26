@@ -3,6 +3,7 @@ import { ServiceTitanAPI } from "./servicetitan";
 import { pushProgressEmitter, emitProgress } from "./pushProgress";
 import { pushQueue, withRetry } from "./pushQueue";
 import type { PushHistory, Tenant } from "@shared/schema";
+import { sendPushCompleteNotification } from "./email";
 
 interface PushParams {
   tenantId: number;
@@ -529,6 +530,21 @@ export async function processQueuedPush(historyId: number): Promise<void> {
       errorMessages: results.errors.length > 0 ? JSON.stringify(results.errors) : null,
       originalValues: results.originalValues,
     });
+
+    // Email opted-in admins (fire-and-forget)
+    storage.getAdminEmailSubscribers().then(subscribers => {
+      if (subscribers.length > 0) {
+        sendPushCompleteNotification(subscribers.map(u => ({ email: u.email, name: u.name })), {
+          tenantName: tenant.name,
+          pushedByName: historyItem.pushedByName ?? 'Unknown',
+          status: finalStatus,
+          processedCount: results.processed,
+          updatedCount: results.updated,
+          skippedCount: results.skipped,
+          errorCount: results.errors.length,
+        }).catch(e => console.error('[PushQueue] Email notification failed:', e));
+      }
+    }).catch(() => {});
 
   } catch (err: any) {
     console.error(`[PushQueue] Push failed for history ${historyId}:`, err);

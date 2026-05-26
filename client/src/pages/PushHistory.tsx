@@ -381,6 +381,9 @@ export default function PushHistoryPage() {
                         </div>
                         
                         <div className="text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+                          {(item as any).pushedByName && (
+                            <span className="font-medium text-foreground/70">↑ {(item as any).pushedByName}</span>
+                          )}
                           <span>Started: {formatDate(item.startedAt || item.createdAt)}</span>
                           {item.completedAt && (
                             <span>Completed: {formatDate(item.completedAt)}</span>
