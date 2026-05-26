@@ -105,7 +105,7 @@ export function Navigation() {
             {navLink("/", "System Calculator", Calculator)}
             {navLink("/repair", "Repair Calculator", Wrench)}
             {navLink("/reverse", "Reverse Calculator", ArrowLeftRight)}
-            {navLink("/history", "History", History)}
+            {navLink("/history", "Saved Quotes", History)}
 
             {/* Settings — admin only */}
             {isAdmin && navLink("/settings", "Settings", Settings)}
