@@ -30,52 +30,6 @@ app.use(express.urlencoded({ extended: false }));
 // Trust the Replit proxy so secure cookies and redirect URLs work correctly
 app.set("trust proxy", 1);
 
-// Ensure the session table exists (avoids connect-pg-simple trying to read table.sql from disk)
-await pool.query(`
-  CREATE TABLE IF NOT EXISTS "session" (
-    "sid" varchar NOT NULL,
-    "sess" json NOT NULL,
-    "expire" timestamp(6) NOT NULL,
-    CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
-  );
-  CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
-`);
-
-// Session store backed by PostgreSQL
-const PgSession = connectPgSimple(session);
-app.use(
-  session({
-    store: new PgSession({
-      pool,
-      tableName: "session",
-    }),
-    secret: (() => {
-      const s = process.env.SESSION_SECRET;
-      if (!s) {
-        if (process.env.NODE_ENV === "production") {
-          throw new Error("SESSION_SECRET must be set in production");
-        }
-        console.warn("[Auth] SESSION_SECRET not set — using insecure dev fallback");
-        return "dev-only-insecure-fallback";
-      }
-      return s;
-    })(),
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    },
-  })
-);
-
-// Passport auth
-configurePassport();
-app.use(passport.initialize());
-app.use(passport.session());
-
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -114,6 +68,53 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Ensure the session table exists — done inside the async IIFE so esbuild
+  // can bundle this as CJS without top-level await errors.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS "session" (
+      "sid" varchar NOT NULL,
+      "sess" json NOT NULL,
+      "expire" timestamp(6) NOT NULL,
+      CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
+    );
+    CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+  `);
+
+  // Session store backed by PostgreSQL
+  const PgSession = connectPgSimple(session);
+  app.use(
+    session({
+      store: new PgSession({
+        pool,
+        tableName: "session",
+      }),
+      secret: (() => {
+        const s = process.env.SESSION_SECRET;
+        if (!s) {
+          if (process.env.NODE_ENV === "production") {
+            throw new Error("SESSION_SECRET must be set in production");
+          }
+          console.warn("[Auth] SESSION_SECRET not set — using insecure dev fallback");
+          return "dev-only-insecure-fallback";
+        }
+        return s;
+      })(),
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      },
+    })
+  );
+
+  // Passport auth
+  configurePassport();
+  app.use(passport.initialize());
+  app.use(passport.session());
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
