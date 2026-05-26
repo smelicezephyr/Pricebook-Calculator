@@ -99,6 +99,11 @@ export default function AdminHistory() {
     enabled: isAdmin,
   });
 
+  const { data: smtpStatus } = useQuery<{ configured: boolean }>({
+    queryKey: ["/api/config/smtp-status"],
+  });
+  const smtpConfigured = smtpStatus?.configured ?? false;
+
   const tenantMap = Object.fromEntries(tenants.map(t => [t.id, t.name]));
   const errorPushes = pushes.filter(p => (p.errorCount ?? 0) > 0 && p.errorMessages);
 
@@ -226,21 +231,28 @@ export default function AdminHistory() {
                   <CardDescription>All pricebook pushes across every tenant, most recent first.</CardDescription>
                 </div>
                 {/* Per-admin email notification toggle */}
-                <div className="flex items-center gap-2 shrink-0 pt-0.5" data-testid="email-notifications-toggle">
-                  <Bell size={14} className={user?.emailNotifications ? "text-primary" : "text-muted-foreground"} />
+                <div
+                  className={`flex items-center gap-2 shrink-0 pt-0.5 ${!smtpConfigured ? "opacity-50 cursor-not-allowed" : ""}`}
+                  data-testid="email-notifications-toggle"
+                  title={!smtpConfigured ? "SMTP not configured — set SMTP_HOST, SMTP_USER, and SMTP_PASS to enable email delivery" : undefined}
+                >
+                  <Bell size={14} className={user?.emailNotifications && smtpConfigured ? "text-primary" : "text-muted-foreground"} />
                   <Switch
                     id="email-notifications"
                     checked={!!user?.emailNotifications}
-                    disabled={emailToggleMutation.isPending}
+                    disabled={emailToggleMutation.isPending || !smtpConfigured}
                     onCheckedChange={enabled => emailToggleMutation.mutate(enabled)}
                     data-testid="switch-email-notifications"
                   />
-                  <Label htmlFor="email-notifications" className="text-sm cursor-pointer select-none">
+                  <Label
+                    htmlFor="email-notifications"
+                    className={`text-sm select-none ${smtpConfigured ? "cursor-pointer" : "cursor-not-allowed"}`}
+                  >
                     Email me on completion
                   </Label>
                 </div>
               </div>
-              {!process.env.SMTP_HOST && (
+              {!smtpConfigured && (
                 <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 flex items-center gap-1">
                   ⚠ No SMTP configured — set SMTP_HOST, SMTP_USER, and SMTP_PASS to enable email delivery.
                 </p>

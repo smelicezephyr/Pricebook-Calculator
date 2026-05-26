@@ -575,7 +575,7 @@ export default function PushHistoryPage() {
                             Revert
                           </Button>
                         )}
-                        {item.originalValues && (
+                        {isAdmin && item.originalValues && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -587,16 +587,18 @@ export default function PushHistoryPage() {
                             Changes
                           </Button>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteMutation.mutate(item.id)}
-                          disabled={deleteMutation.isPending}
-                          className="text-muted-foreground"
-                          data-testid={`button-delete-${item.id}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteMutation.mutate(item.id)}
+                            disabled={deleteMutation.isPending}
+                            className="text-muted-foreground"
+                            data-testid={`button-delete-${item.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>

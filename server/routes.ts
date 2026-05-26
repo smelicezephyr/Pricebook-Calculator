@@ -32,6 +32,12 @@ export async function registerRoutes(
     res.json({ buildId: BUILD_ID });
   });
 
+  app.get("/api/config/smtp-status", (_req, res) => {
+    res.json({
+      configured: !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS),
+    });
+  });
+
   // Health check endpoint for deployment
   app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok" });
@@ -1346,7 +1352,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/push-history/:id", requireUserOrAdmin, async (req, res) => {
+  app.delete("/api/push-history/:id", requireAdmin, async (req, res) => {
     try {
       const id = Number(req.params.id);
       if (isNaN(id)) {
