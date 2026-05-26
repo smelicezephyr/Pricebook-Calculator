@@ -64,13 +64,33 @@ function AppRouter() {
 }
 
 function Router() {
-  // AUTH TEMPORARILY DISABLED — restore the user/isLoading checks below when Google OAuth is re-enabled.
-  // const { user, isLoading } = useAuth();
-  // if (isLoading) { return <Loader2 spinner />; }
-  // if (!user) { return <Redirect to="/login" />; }
+  const { user, isLoading } = useAuth();
+  const [location] = useLocation();
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Switch>
+        <Route path="/login" component={Login} />
+        <Route>
+          <Redirect to="/login" />
+        </Route>
+      </Switch>
+    );
+  }
+
   return (
     <Switch>
-      <Route path="/login"><Redirect to="/" /></Route>
+      <Route path="/login">
+        <Redirect to="/" />
+      </Route>
       <Route component={AppRouter} />
     </Switch>
   );
