@@ -30,6 +30,7 @@ export interface IStorage {
   createQuote(quote: InsertQuote, userId: number): Promise<Quote>;
   getQuotes(userId: number, isAdmin: boolean): Promise<Quote[]>;
   deleteQuote(id: number, userId: number, isAdmin: boolean): Promise<{ ok: boolean; forbidden?: boolean }>;
+  clearUserQuotes(userId: number): Promise<void>;
   clearAllQuotes(): Promise<void>;
   
   getLocations(): Promise<Location[]>;
@@ -114,6 +115,10 @@ export class DatabaseStorage implements IStorage {
     if (!isAdmin && item.userId !== userId) return { ok: false, forbidden: true };
     await db.delete(quotes).where(eq(quotes.id, id));
     return { ok: true };
+  }
+
+  async clearUserQuotes(userId: number): Promise<void> {
+    await db.delete(quotes).where(eq(quotes.userId, userId));
   }
 
   async clearAllQuotes(): Promise<void> {

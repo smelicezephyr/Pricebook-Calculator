@@ -1,6 +1,6 @@
-import { useQuotes, useDeleteQuote } from "@/hooks/use-quotes";
+import { useQuotes, useDeleteQuote, useClearQuotes } from "@/hooks/use-quotes";
 import { format } from "date-fns";
-import { Loader2, Trash2, Search, Calendar, DollarSign, Users, AlertCircle } from "lucide-react";
+import { Loader2, Trash2, Search, Calendar, DollarSign, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
@@ -10,6 +10,7 @@ import clsx from "clsx";
 export default function History() {
   const { data: quotes, isLoading } = useQuotes();
   const deleteQuote = useDeleteQuote();
+  const clearQuotes = useClearQuotes();
   const [search, setSearch] = useState("");
 
   const formatCurrency = (val: string | number) => 
@@ -31,18 +32,55 @@ export default function History() {
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">Quote History</h1>
+          <h1 className="text-3xl font-display font-bold text-foreground">Saved Quotes</h1>
           <p className="text-muted-foreground mt-1">Manage your saved calculations.</p>
         </div>
         
-        <div className="relative w-full md:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input 
-            placeholder="Search quotes..." 
-            className="pl-9 bg-card"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="relative flex-1 md:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input 
+              placeholder="Search quotes..." 
+              className="pl-9 bg-card"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              data-testid="input-search-quotes"
+            />
+          </div>
+          {(quotes?.length ?? 0) > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive border-destructive/40 hover:bg-destructive/10 shrink-0"
+                  disabled={clearQuotes.isPending}
+                  data-testid="button-clear-all-quotes"
+                >
+                  {clearQuotes.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  <span className="ml-1">Clear All</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Clear all saved quotes?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all {quotes?.length} of your saved quotes. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => clearQuotes.mutate()}
+                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                    data-testid="button-confirm-clear-all"
+                  >
+                    Clear All
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </div>
 

@@ -236,6 +236,11 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.delete("/api/quotes", requireAuth, async (req, res) => {
+    await storage.clearUserQuotes(req.user!.id);
+    res.status(204).send();
+  });
+
   // Helper to sanitize tenant data (mask secrets)
   const sanitizeTenant = (tenant: any) => ({
     id: tenant.id,

@@ -85,3 +85,25 @@ export function useDeleteQuote() {
     },
   });
 }
+
+export function useClearQuotes() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/quotes", {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to clear quotes");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.quotes.list.path] });
+      toast({ title: "All quotes cleared", description: "Your saved quotes have been removed." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to clear quotes.", variant: "destructive" });
+    },
+  });
+}
