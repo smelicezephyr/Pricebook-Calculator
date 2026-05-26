@@ -237,7 +237,11 @@ export async function registerRoutes(
   });
 
   app.delete("/api/quotes", requireAuth, async (req, res) => {
-    await storage.clearUserQuotes(req.user!.id);
+    if (req.user!.role === "admin") {
+      await storage.clearAllQuotes();
+    } else {
+      await storage.clearUserQuotes(req.user!.id);
+    }
     res.status(204).send();
   });
 
