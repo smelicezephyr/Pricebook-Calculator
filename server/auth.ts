@@ -65,6 +65,10 @@ export function configurePassport() {
             name: profile.displayName,
             avatarUrl,
           });
+          // Fire-and-forget login event — never block auth on this
+          storage.logLoginEvent(user.id, user.email, user.name).catch(err =>
+            console.error("[Auth] Failed to log login event:", err)
+          );
           done(null, user);
         } catch (err) {
           done(err as Error);

@@ -19,6 +19,7 @@ import Locations from "@/pages/Locations";
 import PushToServiceTitan from "@/pages/PushToServiceTitan";
 import PushHistory from "@/pages/PushHistory";
 import AdminUsers from "@/pages/AdminUsers";
+import AdminHistory from "@/pages/AdminHistory";
 import Login from "@/pages/Login";
 
 function AppRouter() {
@@ -54,6 +55,9 @@ function AppRouter() {
           </Route>
           <Route path="/admin/users">
             {isAdmin ? <AdminUsers /> : <NotFound />}
+          </Route>
+          <Route path="/admin/history">
+            {isAdmin ? <AdminHistory /> : <NotFound />}
           </Route>
 
           <Route component={NotFound} />

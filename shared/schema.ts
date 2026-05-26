@@ -190,3 +190,13 @@ export type InsertPushHistory = z.infer<typeof insertPushHistorySchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UserTenantAccess = typeof userTenantAccess.$inferSelect;
+
+// Login event log
+export const loginEvents = pgTable("login_events", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id"),
+  userEmail: text("user_email").notNull(),
+  userName: text("user_name").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export type LoginEvent = typeof loginEvents.$inferSelect;

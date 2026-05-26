@@ -131,6 +131,12 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
+  app.get("/api/admin/history/logins", requireAdmin, async (req, res) => {
+    const limit = Math.min(Number(req.query.limit) || 200, 500);
+    const events = await storage.listLoginEvents(limit);
+    res.json(events);
+  });
+
   app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
     const id = Number(req.params.id);
     if (isNaN(id)) return res.status(400).json({ message: "Invalid user ID" });

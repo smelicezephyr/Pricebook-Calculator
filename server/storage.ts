@@ -7,6 +7,7 @@ import {
   pushHistory,
   users,
   userTenantAccess,
+  loginEvents,
   type Settings,
   type InsertSettings,
   type Quote,
@@ -64,6 +65,10 @@ export interface IStorage {
   deleteUser(id: number): Promise<void>;
   getUserTenantIds(userId: number): Promise<number[]>;
   setUserTenantAccess(userId: number, tenantIds: number[]): Promise<void>;
+
+  // Login Events
+  logLoginEvent(userId: number, email: string, name: string): Promise<void>;
+  listLoginEvents(limit?: number): Promise<{ id: number; userId: number | null; userEmail: string; userName: string; createdAt: Date | null }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -310,13 +315,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async setUserTenantAccess(userId: number, tenantIds: number[]): Promise<void> {
-    // Replace all access rows for this user
     await db.delete(userTenantAccess).where(eq(userTenantAccess.userId, userId));
     if (tenantIds.length > 0) {
       await db.insert(userTenantAccess)
         .values(tenantIds.map(tid => ({ userId, tenantId: tid })));
     }
   }
+
+  async logLoginEvent(userId: number, email: string, name: string): Promise<void> {
+    await db.insert(loginEvents).values({ userId, userEmail: email, userName: name });
+  }
+
+  async listLoginEvents(limit = 200) {
+    return await db.select().from(loginEvents)
+      .orderBy(desc(loginEvents.createdAt))
+      .limit(limit);
+  }
 }
+
 
 export const storage = new DatabaseStorage();
