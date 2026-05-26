@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db, pool } from "./db";
 import {
   settings,
   quotes,
@@ -61,6 +61,7 @@ export interface IStorage {
   listUsers(): Promise<User[]>;
   countUsers(): Promise<number>;
   updateUserRole(id: number, role: "everyone" | "user" | "admin"): Promise<User>;
+  deleteUser(id: number): Promise<void>;
   getUserTenantIds(userId: number): Promise<number[]>;
   setUserTenantAccess(userId: number, tenantIds: number[]): Promise<void>;
 }
@@ -293,6 +294,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return updated;
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    // Deleting the user cascades to user_tenant_access.
+    // Also wipe their sessions so they can't keep using an active cookie.
+    await db.delete(users).where(eq(users.id, id));
+    await pool.query(`DELETE FROM session WHERE sess->>'passport' IS NOT NULL AND (sess->'passport'->>'user')::int = $1`, [id]);
   }
 
   async getUserTenantIds(userId: number): Promise<number[]> {

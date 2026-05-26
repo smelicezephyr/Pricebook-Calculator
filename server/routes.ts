@@ -131,6 +131,14 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
+  app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid user ID" });
+    if (req.user!.id === id) return res.status(400).json({ message: "You cannot delete your own account" });
+    await storage.deleteUser(id);
+    res.json({ success: true });
+  });
+
   app.delete("/api/admin/clear-history", requireAdmin, async (_req, res) => {
     try {
       await storage.clearAllQuotes();

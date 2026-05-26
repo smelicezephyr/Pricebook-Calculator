@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Shield, Users, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Shield, Users, Trash2, ChevronDown, ChevronUp, UserX } from "lucide-react";
 import type { Tenant } from "@shared/schema";
 
 function roleBadgeVariant(role: string) {
@@ -73,6 +73,20 @@ export default function AdminUsers() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to update role", variant: "destructive" });
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: number) => {
+      await apiRequest("DELETE", `/api/admin/users/${userId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/user-tenant-map"] });
+      toast({ title: "User removed", description: "The user has been deleted and their access revoked." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete user.", variant: "destructive" });
     },
   });
 
@@ -249,6 +263,39 @@ export default function AdminUsers() {
                             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                           </Button>
                         )}
+
+                        {/* Delete user */}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                              disabled={deleteUserMutation.isPending}
+                              data-testid={`button-delete-user-${u.id}`}
+                            >
+                              <UserX className="w-4 h-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete and revoke access?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete <strong>{u.name}</strong> ({u.email}) and immediately invalidate their session. They will be signed out and required to sign in again with Google, at which point they will start with the default <strong>everyone</strong> role.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteUserMutation.mutate(u.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                data-testid={`button-confirm-delete-user-${u.id}`}
+                              >
+                                Delete &amp; Revoke
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </div>
 
