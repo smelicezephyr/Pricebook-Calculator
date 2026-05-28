@@ -274,6 +274,24 @@ export default function PushHistoryPage() {
     },
   });
 
+  const cancelQueuedMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest('POST', `/api/push-history/${id}/cancel-queued`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/push-history');
+        }
+      });
+      toast({ title: "Cancelled", description: "The queued push has been removed." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to cancel the queued push.", variant: "destructive" });
+    },
+  });
+
   const cancelMutation = useMutation({
     mutationFn: async (tenantId: number) => {
       await apiRequest('POST', `/api/servicetitan/${tenantId}/push/cancel`);
@@ -620,6 +638,23 @@ export default function PushHistoryPage() {
                       </div>
 
                       <div className="flex sm:flex-col flex-row flex-wrap gap-2 shrink-0">
+                        {item.status === 'pending' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => cancelQueuedMutation.mutate(item.id)}
+                            disabled={cancelQueuedMutation.isPending}
+                            className="gap-1 text-orange-600 border-orange-300"
+                            data-testid={`button-cancel-queued-${item.id}`}
+                          >
+                            {cancelQueuedMutation.isPending ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <StopCircle className="w-4 h-4" />
+                            )}
+                            Cancel
+                          </Button>
+                        )}
                         {item.status === 'in_progress' && (
                           <Button
                             variant="outline"

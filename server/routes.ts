@@ -1540,6 +1540,36 @@ export async function registerRoutes(
     }
   });
 
+  // Cancel a queued (pending, not-yet-started) push
+  app.post("/api/push-history/:id/cancel-queued", requireUserOrAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID" });
+      }
+      const item = await storage.getPushHistoryItem(id);
+      if (!item) {
+        return res.status(404).json({ message: "Push history item not found" });
+      }
+      if (!(await canAccessTenant(req, item.tenantId))) {
+        return res.status(403).json({ message: "You don't have access to this tenant" });
+      }
+      if (item.status !== 'pending') {
+        return res.status(400).json({ message: "Only pending (queued) pushes can be cancelled this way." });
+      }
+      const removed = pushQueue.removeFromQueue(id);
+      if (!removed) {
+        // May have just started — still mark cancelled if still pending in DB
+        console.warn(`[Push] cancel-queued: history ${id} not found in queue (may have just started)`);
+      }
+      await storage.updatePushHistory(id, { status: 'cancelled', completedAt: new Date() });
+      console.log(`[Push] Cancelled queued push history ${id} for tenant ${item.tenantId}`);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // Revert a completed push using stored original values
   app.post("/api/push-history/:id/revert", requireAdmin, async (req, res) => {
     try {
