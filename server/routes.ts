@@ -121,6 +121,18 @@ export async function registerRoutes(
     res.json(updated);
   });
 
+  app.patch("/api/admin/users/:id/push-permission", requireAdmin, async (req, res) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid user ID" });
+    const { pushPermission } = req.body;
+    if (!["both", "reprice_only", "add_new_only"].includes(pushPermission)) {
+      return res.status(400).json({ message: "Invalid push permission" });
+    }
+    const validPermission = pushPermission as "both" | "reprice_only" | "add_new_only";
+    const updated = await storage.updateUserPushPermission(id, validPermission);
+    res.json(updated);
+  });
+
   app.get("/api/admin/users/:id/tenants", requireAdmin, async (req, res) => {
     const id = Number(req.params.id);
     if (isNaN(id)) return res.status(400).json({ message: "Invalid user ID" });
@@ -724,6 +736,9 @@ export async function registerRoutes(
     if (!(await canAccessTenant(req, tenantId))) {
       return res.status(403).json({ message: "You don't have access to this tenant" });
     }
+    if (req.user?.role !== "admin" && req.user?.pushPermission === "reprice_only") {
+      return res.status(403).json({ message: "You don't have permission to add new tasks" });
+    }
     try {
       const validatedBody = createServiceSchema.parse(req.body);
       const api = new ServiceTitanAPI(tenant);
@@ -1207,6 +1222,9 @@ export async function registerRoutes(
     }
     if (!(await canAccessTenant(req, tenantId))) {
       return res.status(403).json({ message: "You don't have access to this tenant" });
+    }
+    if (req.user?.role !== "admin" && req.user?.pushPermission === "add_new_only") {
+      return res.status(403).json({ message: "You don't have permission to reprice the pricebook" });
     }
     
     // Prepare push parameters

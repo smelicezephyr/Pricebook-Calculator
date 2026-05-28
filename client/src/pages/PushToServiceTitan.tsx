@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTenants, useServiceTitan } from "@/hooks/use-tenants";
 import { useSettings } from "@/hooks/use-settings";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Location } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -35,6 +36,8 @@ interface Category {
 export default function PushToServiceTitan() {
   const { tenants, isLoading: isTenantsLoading } = useTenants();
   const { settings } = useSettings();
+  const { user, isAdmin } = useAuth();
+  const pushPermission = isAdmin ? "both" : (user?.pushPermission ?? "both");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { data: locationsList = [] } = useQuery<Location[]>({ queryKey: ['/api/locations'] });
@@ -162,7 +165,9 @@ export default function PushToServiceTitan() {
   const { testConnection, isTesting } = useServiceTitan(selectedTenantId);
 
   // Push New Task State
-  const [activeTab, setActiveTab] = useState<string>("update-category");
+  const [activeTab, setActiveTab] = useState<string>(
+    pushPermission === "add_new_only" ? "push-new-task" : "update-category"
+  );
   const [newTaskCode, setNewTaskCode] = useState("");
   const [newTaskCodeError, setNewTaskCodeError] = useState<string | null>(null);
   const [newTaskName, setNewTaskName] = useState("");
@@ -1148,16 +1153,22 @@ export default function PushToServiceTitan() {
 
           {connectionStatus === 'connected' && (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 h-auto">
-                <TabsTrigger value="update-category" className="text-xs sm:text-sm px-1 sm:px-3 py-2 whitespace-normal" data-testid="tab-update-category">
-                  Update Pricebook
-                </TabsTrigger>
-                <TabsTrigger value="push-new-task" className="text-xs sm:text-sm px-1 sm:px-3 py-2 whitespace-normal" data-testid="tab-push-new-system-task">
-                  New System Task
-                </TabsTrigger>
-                <TabsTrigger value="push-new-repair" className="text-xs sm:text-sm px-1 sm:px-3 py-2 whitespace-normal" data-testid="tab-push-new-repair-task">
-                  New Repair Task
-                </TabsTrigger>
+              <TabsList className={`grid w-full h-auto ${pushPermission === "both" ? "grid-cols-3" : "grid-cols-2"}`}>
+                {pushPermission !== "add_new_only" && (
+                  <TabsTrigger value="update-category" className="text-xs sm:text-sm px-1 sm:px-3 py-2 whitespace-normal" data-testid="tab-update-category">
+                    Update Pricebook
+                  </TabsTrigger>
+                )}
+                {pushPermission !== "reprice_only" && (
+                  <TabsTrigger value="push-new-task" className="text-xs sm:text-sm px-1 sm:px-3 py-2 whitespace-normal" data-testid="tab-push-new-system-task">
+                    New System Task
+                  </TabsTrigger>
+                )}
+                {pushPermission !== "reprice_only" && (
+                  <TabsTrigger value="push-new-repair" className="text-xs sm:text-sm px-1 sm:px-3 py-2 whitespace-normal" data-testid="tab-push-new-repair-task">
+                    New Repair Task
+                  </TabsTrigger>
+                )}
               </TabsList>
               
               <TabsContent value="update-category" className="space-y-6 mt-6">

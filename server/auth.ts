@@ -12,6 +12,8 @@ declare global {
       name: string;
       avatarUrl: string | null;
       role: "everyone" | "user" | "admin";
+      pushPermission: "both" | "reprice_only" | "add_new_only";
+      emailNotifications: boolean;
       createdAt: Date | null;
     }
   }

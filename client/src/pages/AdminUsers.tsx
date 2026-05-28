@@ -28,6 +28,7 @@ export default function AdminUsers() {
   const { toast } = useToast();
   const [savingRoles, setSavingRoles] = useState<Set<number>>(new Set());
   const [savingTenants, setSavingTenants] = useState<Set<number>>(new Set());
+  const [savingPushPermissions, setSavingPushPermissions] = useState<Set<number>>(new Set());
   const [isClearingHistory, setIsClearingHistory] = useState(false);
   const [expandedUsers, setExpandedUsers] = useState<Set<number>>(new Set());
   const [pendingTenantIds, setPendingTenantIds] = useState<Record<number, number[]>>({});
@@ -89,6 +90,27 @@ export default function AdminUsers() {
       toast({ title: "Error", description: "Failed to delete user.", variant: "destructive" });
     },
   });
+
+  const updatePushPermissionMutation = useMutation({
+    mutationFn: async ({ userId, pushPermission }: { userId: number; pushPermission: string }) => {
+      const res = await apiRequest("PATCH", `/api/admin/users/${userId}/push-permission`, { pushPermission });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "Saved", description: "Push access updated." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update push access.", variant: "destructive" });
+    },
+  });
+
+  const handlePushPermissionChange = (userId: number, pushPermission: string) => {
+    setSavingPushPermissions(prev => new Set(prev).add(userId));
+    updatePushPermissionMutation.mutate({ userId, pushPermission }, {
+      onSettled: () => setSavingPushPermissions(prev => { const s = new Set(prev); s.delete(userId); return s; }),
+    });
+  };
 
   const updateTenantsMutation = useMutation({
     mutationFn: async ({ userId, tenantIds }: { userId: number; tenantIds: number[] }) => {
@@ -302,7 +324,24 @@ export default function AdminUsers() {
                     {/* Tenant access — collapsible, only for "user" role */}
                     {isUser && expanded && (
                       <div className="pl-12 space-y-3 pt-1 border-t border-border/60">
-                        <p className="text-xs text-muted-foreground font-medium pt-2">Tenant Access</p>
+                        <div className="flex items-center justify-between pt-2">
+                          <p className="text-xs text-muted-foreground font-medium">Push access</p>
+                          <Select
+                            value={u.pushPermission}
+                            onValueChange={(val) => handlePushPermissionChange(u.id, val)}
+                            disabled={savingPushPermissions.has(u.id)}
+                          >
+                            <SelectTrigger className="h-7 w-40 text-xs" data-testid={`select-push-permission-${u.id}`}>
+                              {savingPushPermissions.has(u.id) ? <Loader2 className="w-3 h-3 animate-spin" /> : <SelectValue />}
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="both">Both</SelectItem>
+                              <SelectItem value="reprice_only">Reprice only</SelectItem>
+                              <SelectItem value="add_new_only">Add new only</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <p className="text-xs text-muted-foreground font-medium">Tenant Access</p>
                         {tenants.length === 0 ? (
                           <p className="text-xs text-muted-foreground">No tenants configured yet.</p>
                         ) : (

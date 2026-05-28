@@ -63,6 +63,7 @@ export interface IStorage {
   listUsers(): Promise<User[]>;
   countUsers(): Promise<number>;
   updateUserRole(id: number, role: "everyone" | "user" | "admin"): Promise<User>;
+  updateUserPushPermission(id: number, pushPermission: "both" | "reprice_only" | "add_new_only"): Promise<User>;
   deleteUser(id: number): Promise<void>;
   getUserTenantIds(userId: number): Promise<number[]>;
   setUserTenantAccess(userId: number, tenantIds: number[]): Promise<void>;
@@ -314,6 +315,14 @@ export class DatabaseStorage implements IStorage {
   async updateUserRole(id: number, role: "everyone" | "user" | "admin"): Promise<User> {
     const [updated] = await db.update(users)
       .set({ role })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateUserPushPermission(id: number, pushPermission: "both" | "reprice_only" | "add_new_only"): Promise<User> {
+    const [updated] = await db.update(users)
+      .set({ pushPermission })
       .where(eq(users.id, id))
       .returning();
     return updated;
