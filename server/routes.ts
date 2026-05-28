@@ -1481,6 +1481,27 @@ export async function registerRoutes(
     }
   });
 
+  // Get live queue position for a specific push history entry
+  app.get("/api/push-history/:historyId/queue-position", requireUserOrAdmin, async (req, res) => {
+    try {
+      const historyId = Number(req.params.historyId);
+      if (isNaN(historyId)) {
+        return res.status(400).json({ message: "Invalid history ID" });
+      }
+      const item = await storage.getPushHistoryItem(historyId);
+      if (!item) {
+        return res.status(404).json({ message: "History item not found" });
+      }
+      if (!(await canAccessTenant(req, item.tenantId))) {
+        return res.status(403).json({ message: "You don't have access to this tenant" });
+      }
+      const { position, laneLength } = pushQueue.getQueuePositionDetails(historyId);
+      res.json({ position, queueLength: laneLength });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // Get pending pushes for a tenant (queue)
   app.get("/api/servicetitan/:tenantId/push-queue", requireUserOrAdmin, async (req, res) => {
     try {

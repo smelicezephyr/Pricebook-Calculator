@@ -121,6 +121,21 @@ class PushQueue extends EventEmitter {
     return gi === -1 ? -1 : gi + 1;
   }
 
+  /**
+   * Returns position and the size of the lane this historyId belongs to.
+   * laneLength is the tenant-lane length when in a tenant lane, or the global
+   * queue length when in the global queue.  Both are -1 when not found.
+   */
+  getQueuePositionDetails(historyId: number): { position: number; laneLength: number } {
+    for (const lane of this.tenantQueues.values()) {
+      const idx = lane.findIndex(q => q.historyId === historyId);
+      if (idx !== -1) return { position: idx + 1, laneLength: lane.length };
+    }
+    const gi = this.globalQueue.findIndex(q => q.historyId === historyId);
+    if (gi !== -1) return { position: gi + 1, laneLength: this.globalQueue.length };
+    return { position: -1, laneLength: -1 };
+  }
+
   private processQueue(completedTenantId: number): void {
     // Priority 1: promote the next item from the tenant that just finished.
     // This keeps the tenant's own backlog moving without competing for the global cap.

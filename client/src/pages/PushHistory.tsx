@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Clock, CheckCircle2, XCircle, AlertCircle, Trash2, ArrowLeft, History as HistoryIcon, RefreshCw, RotateCcw, RotateCw, StopCircle, Ban, Download } from "lucide-react";
+import { Loader2, Clock, CheckCircle2, XCircle, AlertCircle, Trash2, ArrowLeft, History as HistoryIcon, RefreshCw, RotateCcw, RotateCw, StopCircle, Ban, Download, ListOrdered } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -57,6 +57,11 @@ function calculateETA(progress: PushProgress): string | null {
   return `~${formatETA(etaSeconds)} remaining`;
 }
 
+interface QueuePosition {
+  position: number;
+  queueLength: number;
+}
+
 export default function PushHistoryPage() {
   const { isAdmin } = useAuth();
   const { tenants, isLoading: isTenantsLoading } = useTenants();
@@ -64,6 +69,7 @@ export default function PushHistoryPage() {
   const { toast } = useToast();
   const [selectedTenantId, setSelectedTenantId] = useState<string>("all");
   const [liveProgress, setLiveProgress] = useState<Map<number, PushProgress>>(new Map());
+  const [queuePositions, setQueuePositions] = useState<Map<number, QueuePosition>>(new Map());
   const [expandedErrors, setExpandedErrors] = useState<Set<number>>(new Set());
   const eventSourcesRef = useRef<Map<number, EventSource>>(new Map());
 
@@ -183,6 +189,70 @@ export default function PushHistoryPage() {
     return () => {
       currentSources.forEach(source => source.close());
       currentSources.clear();
+    };
+  }, [history, refetch]);
+
+  // Poll queue positions for pending items every 3 seconds
+  useEffect(() => {
+    const pendingItems = history.filter(item => item.status === 'pending');
+
+    if (pendingItems.length === 0) {
+      setQueuePositions(new Map());
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchPositions = async () => {
+      const results = await Promise.all(
+        pendingItems.map(async (item) => {
+          try {
+            const res = await fetch(`/api/push-history/${item.id}/queue-position`);
+            if (!res.ok) return null;
+            const data = await res.json() as QueuePosition;
+            return { id: item.id, data };
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      if (cancelled) return;
+
+      setQueuePositions(prev => {
+        const next = new Map(prev);
+        let changed = false;
+        for (const result of results) {
+          if (!result) continue;
+          const existing = prev.get(result.id);
+          if (!existing || existing.position !== result.data.position || existing.queueLength !== result.data.queueLength) {
+            changed = true;
+          }
+          next.set(result.id, result.data);
+        }
+        // Remove positions for items that are no longer pending
+        for (const id of prev.keys()) {
+          if (!pendingItems.some(i => i.id === id)) {
+            next.delete(id);
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+
+      // If any position is -1 the push left the queue (started or removed) — refresh history
+      const anyLeft = results.some(r => r && r.data.position === -1);
+      if (anyLeft && !cancelled) {
+        refetch();
+      }
+    };
+
+    fetchPositions();
+    const interval = setInterval(fetchPositions, 3000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
     };
   }, [history, refetch]);
 
@@ -437,6 +507,31 @@ export default function PushHistoryPage() {
                             </span>
                           )}
                         </div>
+
+                        {/* Queue position for pending items */}
+                        {item.status === 'pending' && (() => {
+                          const pos = queuePositions.get(item.id);
+                          return (
+                            <div
+                              className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg border text-sm"
+                              data-testid={`queue-position-${item.id}`}
+                            >
+                              <ListOrdered className="w-4 h-4 text-muted-foreground shrink-0" />
+                              {pos && pos.position > 0 ? (
+                                <span>
+                                  Waiting in queue{' '}
+                                  <span className="font-semibold">
+                                    (position {pos.position}{pos.queueLength > 1 ? ` of ${pos.queueLength}` : ''})
+                                  </span>
+                                </span>
+                              ) : pos && pos.position === -1 ? (
+                                <span className="text-muted-foreground">Starting soon…</span>
+                              ) : (
+                                <span className="text-muted-foreground">Waiting in queue…</span>
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         {/* Live progress for in-progress items */}
                         {item.status === 'in_progress' && liveProgress.has(item.tenantId) && (() => {
