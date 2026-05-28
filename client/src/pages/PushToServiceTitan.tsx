@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign, ArrowUp, Plus, ImagePlus, Search, Check, ChevronsUpDown, Wrench, MapPin, Edit, Trash2 } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign, ArrowUp, Plus, ImagePlus, Search, Check, ChevronsUpDown, Wrench, MapPin, Edit, Trash2, ListOrdered } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -854,12 +854,16 @@ export default function PushToServiceTitan() {
 
   const [pushSubmitted, setPushSubmitted] = useState(false);
   const [pushStatusMessage, setPushStatusMessage] = useState("");
+  const [queuedHistoryId, setQueuedHistoryId] = useState<number | null>(null);
+  const [queuePosition, setQueuePosition] = useState<number | null>(null);
 
   const handlePush = async () => {
     if (!selectedTenantId || selectedCategories.size === 0) return;
     
     setIsPushing(true);
     setPushSubmitted(false);
+    setQueuedHistoryId(null);
+    setQueuePosition(null);
     
     try {
       const response = await fetch(`/api/servicetitan/${selectedTenantId}/push`, {
@@ -901,15 +905,17 @@ export default function PushToServiceTitan() {
       const isQueued = response.status === 202;
       
       setPushSubmitted(true);
-      setPushStatusMessage(
-        isQueued 
-          ? `Your push is queued at position ${data.queuePosition}. Track its progress on the Push History page.`
-          : "Your push is now processing in the background. Track its progress on the Push History page."
-      );
+      if (isQueued) {
+        setQueuedHistoryId(data.historyId);
+        setQueuePosition(data.queuePosition);
+        setPushStatusMessage("");
+      } else {
+        setPushStatusMessage("Your push is now processing in the background. Track its progress on the Push History page.");
+      }
       toast({
         title: isQueued ? "Push Queued" : "Push Submitted",
         description: isQueued 
-          ? `Your push is queued at position ${data.queuePosition}. Go to Push History to track progress.`
+          ? `Queued at position ${data.queuePosition}. The indicator below will update automatically.`
           : "Your push is now processing. Go to Push History to track progress.",
       });
     } catch (err: any) {
@@ -922,6 +928,38 @@ export default function PushToServiceTitan() {
       setIsPushing(false);
     }
   };
+
+  useEffect(() => {
+    if (!queuedHistoryId) return;
+
+    let cancelled = false;
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/push-history/${queuedHistoryId}/queue-position`);
+        if (!res.ok || cancelled) return;
+        const data = await res.json() as { position: number; queueLength: number };
+        if (cancelled) return;
+        if (data.position === -1) {
+          setQueuePosition(-1);
+          setQueuedHistoryId(null);
+          setPushStatusMessage("Your push is now processing in the background. Track its progress on the Push History page.");
+        } else {
+          setQueuePosition(data.position);
+        }
+      } catch {
+        // ignore transient errors
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, 3000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [queuedHistoryId]);
 
   const parentCategories = categories.filter(c => !c.parentId && c.active);
 
@@ -1531,7 +1569,30 @@ export default function PushToServiceTitan() {
                     />
                   </div>
                   
-                  {pushSubmitted && (
+                  {pushSubmitted && queuedHistoryId && (
+                    <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800" data-testid="push-queue-indicator">
+                      <div className="flex items-center gap-2 mb-2">
+                        <ListOrdered className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        <span className="text-sm font-medium text-amber-800 dark:text-amber-200">Waiting in Queue</span>
+                        <Loader2 className="w-3 h-3 animate-spin text-amber-500 ml-auto" />
+                      </div>
+                      <p className="text-sm text-amber-700 dark:text-amber-300 mb-3" data-testid="queue-position-text">
+                        {queuePosition && queuePosition > 0
+                          ? `Your push is at position ${queuePosition} in the queue. It will start automatically.`
+                          : "Your push is in the queue and will start automatically."}
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLocation("/push-history")}
+                        data-testid="button-go-to-push-history-queue"
+                      >
+                        Go to Push History
+                      </Button>
+                    </div>
+                  )}
+
+                  {pushSubmitted && !queuedHistoryId && pushStatusMessage && (
                     <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-200 dark:border-emerald-800" data-testid="push-submitted-banner">
                       <div className="flex items-center gap-2 mb-2">
                         <CheckCircle2 className="w-4 h-4 text-emerald-600" />
