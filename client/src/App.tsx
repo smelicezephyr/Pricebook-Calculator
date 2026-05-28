@@ -7,6 +7,7 @@ import { Navigation } from "@/components/Navigation";
 import { CalculatorProvider } from "@/contexts/CalculatorContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { VersionCheck } from "@/components/VersionCheck";
+import { InactivityTimeout } from "@/components/InactivityTimeout";
 import { Loader2 } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import Calculator from "@/pages/Calculator";
@@ -28,6 +29,7 @@ function AppRouter() {
 
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-background text-foreground font-body">
+      <InactivityTimeout />
       <Navigation />
       <main className="flex-1 w-full p-4 md:p-8 lg:p-12 overflow-y-auto h-screen">
         <Switch>
