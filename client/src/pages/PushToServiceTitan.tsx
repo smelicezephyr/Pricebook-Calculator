@@ -168,6 +168,15 @@ export default function PushToServiceTitan() {
   const [activeTab, setActiveTab] = useState<string>(
     pushPermission === "add_new_only" ? "push-new-task" : "update-category"
   );
+
+  // Reconcile activeTab when pushPermission resolves (auth loads after initial render)
+  useEffect(() => {
+    if (pushPermission === "add_new_only" && activeTab === "update-category") {
+      setActiveTab("push-new-task");
+    } else if (pushPermission === "reprice_only" && (activeTab === "push-new-task" || activeTab === "push-new-repair")) {
+      setActiveTab("update-category");
+    }
+  }, [pushPermission]);
   const [newTaskCode, setNewTaskCode] = useState("");
   const [newTaskCodeError, setNewTaskCodeError] = useState<string | null>(null);
   const [newTaskName, setNewTaskName] = useState("");
