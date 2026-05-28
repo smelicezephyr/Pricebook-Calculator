@@ -82,6 +82,7 @@ export default function PushHistoryPage() {
   const [queuePositions, setQueuePositions] = useState<Map<number, QueuePosition>>(new Map());
   const [expandedErrors, setExpandedErrors] = useState<Set<number>>(new Set());
   const [cancelConfirmItem, setCancelConfirmItem] = useState<PushHistory | null>(null);
+  const [cancelInProgressItem, setCancelInProgressItem] = useState<PushHistory | null>(null);
   const eventSourcesRef = useRef<Map<number, EventSource>>(new Map());
 
   const historyUrl = selectedTenantId === "all" 
@@ -670,12 +671,16 @@ export default function PushHistoryPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => cancelMutation.mutate(item.tenantId)}
+                            onClick={() => setCancelInProgressItem(item)}
                             disabled={cancelMutation.isPending}
                             className="gap-1 text-orange-600 border-orange-300"
                             data-testid={`button-cancel-${item.id}`}
                           >
-                            <StopCircle className="w-4 h-4" />
+                            {cancelMutation.isPending && cancelInProgressItem?.id === item.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <StopCircle className="w-4 h-4" />
+                            )}
                             Cancel
                           </Button>
                         )}
@@ -749,6 +754,38 @@ export default function PushHistoryPage() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={cancelInProgressItem !== null}
+        onOpenChange={(open) => { if (!open) setCancelInProgressItem(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel in-progress push?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {cancelInProgressItem && (() => {
+                const tenantName = getTenantName(cancelInProgressItem.tenantId);
+                return `The push for ${tenantName} will stop at the next checkpoint. Any updates already applied to ServiceTitan will not be rolled back — the pricebook may be left in a partially-updated state.`;
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-inprogress-dismiss">Keep Running</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-cancel-inprogress-proceed"
+              onClick={() => {
+                if (cancelInProgressItem) {
+                  cancelMutation.mutate(cancelInProgressItem.tenantId);
+                  setCancelInProgressItem(null);
+                }
+              }}
+            >
+              Yes, Cancel Push
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={cancelConfirmItem !== null}
