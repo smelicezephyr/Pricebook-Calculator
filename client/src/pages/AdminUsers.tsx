@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Shield, Users, Trash2, ChevronDown, ChevronUp, UserX } from "lucide-react";
+import { Loader2, Shield, Users, Trash2, ChevronDown, ChevronUp, UserX, RefreshCw } from "lucide-react";
 import type { Tenant } from "@shared/schema";
 
 function roleBadgeVariant(role: string) {
@@ -33,10 +33,23 @@ export default function AdminUsers() {
   const [expandedUsers, setExpandedUsers] = useState<Set<number>>(new Set());
   const [pendingTenantIds, setPendingTenantIds] = useState<Record<number, number[]>>({});
 
-  const { data: users = [], isLoading: usersLoading } = useQuery<CurrentUser[]>({
+  const { data: users = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery<CurrentUser[]>({
     queryKey: ["/api/admin/users"],
     enabled: isAdmin,
   });
+
+  const roleOrder = { admin: 0, user: 1, everyone: 2 } as const;
+  const sortedUsers = [...users].sort((a, b) => roleOrder[a.role] - roleOrder[b.role]);
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await Promise.all([
+      refetchUsers(),
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/user-tenant-map"] }),
+    ]);
+    setIsRefreshing(false);
+  };
 
   const { data: tenants = [], isLoading: tenantsLoading } = useQuery<Tenant[]>({
     queryKey: ["/api/tenants"],
@@ -210,9 +223,21 @@ export default function AdminUsers() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Users size={16} />
-            Signed-in Users ({users.length})
+          <CardTitle className="flex items-center justify-between text-base">
+            <span className="flex items-center gap-2">
+              <Users size={16} />
+              Signed-in Users ({users.length})
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-muted-foreground"
+              onClick={handleRefresh}
+              disabled={isRefreshing || usersLoading}
+              data-testid="button-refresh-users"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            </Button>
           </CardTitle>
           <CardDescription>
             New sign-ins default to the <strong>everyone</strong> role (calculator only). Promote to <strong>user</strong> and assign tenants to grant ServiceTitan access, or promote to <strong>admin</strong> for full access.
@@ -228,7 +253,7 @@ export default function AdminUsers() {
             <p className="text-muted-foreground text-sm text-center py-6">No users yet.</p>
           ) : (
             <div className="space-y-3">
-              {users.map((u) => {
+              {sortedUsers.map((u) => {
                 const isRoleSaving = savingRoles.has(u.id);
                 const isTenantSaving = savingTenants.has(u.id);
                 const isUser = u.role === "user";
