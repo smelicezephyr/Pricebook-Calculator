@@ -406,7 +406,7 @@ export default function AdminDashboard() {
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr className="border-t-2 border-border font-semibold">
+                    <tr className="border-t-2 border-b-2 border-border font-semibold">
                       <td className="pt-3">Total</td>
                       <td className="pt-3 text-right tabular-nums">{fmtNum(data.totalPushes)}</td>
                       <td className="pt-3 text-right tabular-nums text-emerald-600">{fmtNum(data.totalUpdated)}</td>
