@@ -56,6 +56,12 @@ export default function AdminUsers() {
     enabled: isAdmin,
   });
 
+  const { data: onlineUserIds = [] } = useQuery<number[]>({
+    queryKey: ["/api/admin/online-users"],
+    enabled: isAdmin,
+    refetchInterval: 30_000,
+  });
+
   const { data: allUserTenants } = useQuery<Record<number, number[]>>({
     queryKey: ["/api/admin/user-tenant-map"],
     enabled: isAdmin && users.length > 0,
@@ -260,6 +266,7 @@ export default function AdminUsers() {
                 const tenantIds = resolvedTenantIds(u.id);
                 const expanded = expandedUsers.has(u.id);
                 const dirty = isDirty(u.id);
+                const isOnline = onlineUserIds.includes(u.id);
 
                 return (
                   <div
@@ -270,10 +277,18 @@ export default function AdminUsers() {
                     {/* Top row: avatar, name/email, role badge + selector, expand button */}
                     <div className="flex items-center justify-between gap-4 flex-wrap">
                       <div className="flex items-center gap-3 min-w-0">
-                        <Avatar className="w-9 h-9 shrink-0">
-                          <AvatarImage src={u.avatarUrl ?? undefined} alt={u.name} />
-                          <AvatarFallback className="text-xs">{getInitials(u.name)}</AvatarFallback>
-                        </Avatar>
+                        <div className="relative shrink-0">
+                          <Avatar className="w-9 h-9">
+                            <AvatarImage src={u.avatarUrl ?? undefined} alt={u.name} />
+                            <AvatarFallback className="text-xs">{getInitials(u.name)}</AvatarFallback>
+                          </Avatar>
+                          {isOnline && (
+                            <span
+                              className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-background"
+                              data-testid={`indicator-online-${u.id}`}
+                            />
+                          )}
+                        </div>
                         <div className="min-w-0">
                           <p className="font-medium text-sm truncate" data-testid={`text-user-name-${u.id}`}>{u.name}</p>
                           <p className="text-xs text-muted-foreground truncate" data-testid={`text-user-email-${u.id}`}>{u.email}</p>

@@ -133,6 +133,16 @@ export async function registerRoutes(
     res.json(updated);
   });
 
+  app.get("/api/admin/online-users", requireAdmin, async (_req, res) => {
+    const result = await pool.query<{ user_id: number }>(`
+      SELECT DISTINCT (sess->'passport'->>'user')::int AS user_id
+      FROM session
+      WHERE expire > NOW()
+        AND sess->>'passport' IS NOT NULL
+    `);
+    res.json(result.rows.map(r => r.user_id));
+  });
+
   app.get("/api/admin/users/:id/tenants", requireAdmin, async (req, res) => {
     const id = Number(req.params.id);
     if (isNaN(id)) return res.status(400).json({ message: "Invalid user ID" });
