@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign, ArrowUp, Plus, ImagePlus, Search, Check, ChevronsUpDown, Wrench, MapPin, Edit, Trash2, ListOrdered } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign, ArrowUp, Plus, ImagePlus, Search, Check, ChevronsUpDown, Wrench, MapPin, Edit, Trash2, ListOrdered, Info } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -1179,7 +1179,18 @@ export default function PushToServiceTitan() {
                   </TabsTrigger>
                 )}
               </TabsList>
-              
+
+              {pushPermission !== "both" && (
+                <div className="flex items-start gap-2 mt-3 px-3 py-2 rounded-md bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200 text-sm" data-testid="banner-push-permission-notice">
+                  <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>
+                    Your account is limited to{" "}
+                    <strong>{pushPermission === "reprice_only" ? "Reprice only" : "Add new only"}</strong>.
+                    {" "}Contact an admin to change this.
+                  </span>
+                </div>
+              )}
+
               <TabsContent value="update-category" className="space-y-6 mt-6">
               {/* Section 2: Select Categories */}
               <Card>
