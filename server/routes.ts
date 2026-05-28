@@ -1209,15 +1209,6 @@ export async function registerRoutes(
       return res.status(403).json({ message: "You don't have access to this tenant" });
     }
     
-    // Check if this tenant already has an active push
-    if (pushQueue.isActive(tenantId)) {
-      return res.status(429).json({ 
-        message: "This tenant already has an active push in progress.",
-        queued: false,
-        activeCount: pushQueue.getActiveCount()
-      });
-    }
-    
     // Prepare push parameters
     const salesTaxPercent = clientSalesTaxPercent ?? 6.35;
     const laborMode = clientLaborMode || 'percent';
@@ -1231,8 +1222,10 @@ export async function registerRoutes(
     // Get or create history ID
     let historyId = clientHistoryId;
     
-    // Check if we can start or need to queue (max 3 concurrent pushes)
-    if (!pushQueue.canStart()) {
+    // Queue if:
+    //  a) this tenant already has an active push (→ per-tenant lane), or
+    //  b) the global concurrent-tenant cap is reached (→ global queue)
+    if (pushQueue.isActive(tenantId) || !pushQueue.canStart()) {
       // Create a pending history record if not already created
       if (!historyId) {
         const history = await storage.createPushHistory({
@@ -1258,12 +1251,15 @@ export async function registerRoutes(
         await storage.updatePushHistory(historyId, { status: 'pending' });
       }
       
-      // Add to queue
-      const queuePosition = pushQueue.addToQueue(tenantId, historyId);
+      // Route to the correct lane and get back the position
+      const { position: queuePosition, lane } = pushQueue.addToQueue(tenantId, historyId);
+      const queueMsg = lane === 'tenant'
+        ? `Push queued at position ${queuePosition} for this tenant. Will start automatically when the current push completes.`
+        : `Push queued at position ${queuePosition}. Will auto-start when a global slot opens.`;
       
       // Return 202 Accepted - push is queued and will auto-start
       return res.status(202).json({ 
-        message: `Push queued at position ${queuePosition}. Will auto-start when a slot opens.`,
+        message: queueMsg,
         queued: true,
         historyId,
         queuePosition,
@@ -1625,9 +1621,6 @@ export async function registerRoutes(
 
       const tenantId = historyItem.tenantId;
 
-      if (pushQueue.isActive(tenantId)) {
-        return res.status(429).json({ message: "This tenant already has an active push in progress." });
-      }
 
       // Re-parse all settings from the stored history record
       const categoryIds: number[] = JSON.parse(historyItem.categoryIds);
@@ -1663,7 +1656,7 @@ export async function registerRoutes(
       let newHistoryId: number;
       let queued = false;
 
-      if (!pushQueue.canStart()) {
+      if (pushQueue.isActive(tenantId) || !pushQueue.canStart()) {
         const newHistory = await storage.createPushHistory({ ...historyBase, status: 'pending' });
         newHistoryId = newHistory.id;
         pushQueue.addToQueue(tenantId, newHistoryId);

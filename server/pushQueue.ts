@@ -9,14 +9,29 @@ interface QueuedPush {
 
 class PushQueue extends EventEmitter {
   private activePushes: Map<number, number> = new Map(); // tenantId -> historyId
-  private queue: QueuedPush[] = [];
+
+  // Per-tenant lane: holds pushes queued because that tenant already has an active push.
+  // A tenant's next push starts automatically the moment the current one finishes.
+  private tenantQueues: Map<number, QueuedPush[]> = new Map();
+
+  // Global queue: holds pushes for tenants that have no active push but the
+  // system-wide concurrent-tenant cap (MAX_CONCURRENT_PUSHES) is reached.
+  private globalQueue: QueuedPush[] = [];
 
   getActiveCount(): number {
     return this.activePushes.size;
   }
 
+  /** Total items waiting across all tenant lanes and the global queue. */
   getQueueLength(): number {
-    return this.queue.length;
+    let total = this.globalQueue.length;
+    for (const lane of this.tenantQueues.values()) total += lane.length;
+    return total;
+  }
+
+  /** Number of pushes queued in a specific tenant's lane (not counting the one running). */
+  getTenantQueueLength(tenantId: number): number {
+    return this.tenantQueues.get(tenantId)?.length ?? 0;
   }
 
   isActive(tenantId: number): boolean {
@@ -43,45 +58,100 @@ class PushQueue extends EventEmitter {
   completePush(tenantId: number): void {
     this.activePushes.delete(tenantId);
     console.log(`[PushQueue] Completed push for tenant ${tenantId}. Active: ${this.activePushes.size}/${MAX_CONCURRENT_PUSHES}`);
-    this.processQueue();
+    this.processQueue(tenantId);
   }
 
-  addToQueue(tenantId: number, historyId: number): number {
-    const position = this.queue.length + 1;
-    this.queue.push({ tenantId, historyId });
-    console.log(`[PushQueue] Added tenant ${tenantId} (history ${historyId}) to queue at position ${position}`);
-    return position;
+  /**
+   * Queue a push. Routes to the correct lane:
+   * - If the tenant is already active → add to that tenant's per-tenant lane.
+   * - If the global cap is reached but the tenant is free → add to the global queue.
+   *
+   * Returns the 1-based position within the chosen lane and which lane was used.
+   */
+  addToQueue(tenantId: number, historyId: number): { position: number; lane: 'tenant' | 'global' } {
+    if (this.activePushes.has(tenantId)) {
+      // Tenant is busy — queue in its own lane
+      if (!this.tenantQueues.has(tenantId)) {
+        this.tenantQueues.set(tenantId, []);
+      }
+      const lane = this.tenantQueues.get(tenantId)!;
+      lane.push({ tenantId, historyId });
+      const position = lane.length;
+      console.log(`[PushQueue] Queued tenant ${tenantId} (history ${historyId}) in tenant lane at position ${position}`);
+      return { position, lane: 'tenant' };
+    } else {
+      // Global cap reached — add to global queue
+      this.globalQueue.push({ tenantId, historyId });
+      const position = this.globalQueue.length;
+      console.log(`[PushQueue] Queued tenant ${tenantId} (history ${historyId}) in global queue at position ${position}`);
+      return { position, lane: 'global' };
+    }
   }
 
   removeFromQueue(historyId: number): boolean {
-    const index = this.queue.findIndex(q => q.historyId === historyId);
-    if (index !== -1) {
-      this.queue.splice(index, 1);
-      console.log(`[PushQueue] Removed history ${historyId} from queue`);
+    // Check global queue first
+    const gi = this.globalQueue.findIndex(q => q.historyId === historyId);
+    if (gi !== -1) {
+      this.globalQueue.splice(gi, 1);
+      console.log(`[PushQueue] Removed history ${historyId} from global queue`);
       return true;
+    }
+    // Check all per-tenant lanes
+    for (const [tenantId, lane] of this.tenantQueues.entries()) {
+      const ti = lane.findIndex(q => q.historyId === historyId);
+      if (ti !== -1) {
+        lane.splice(ti, 1);
+        if (lane.length === 0) this.tenantQueues.delete(tenantId);
+        console.log(`[PushQueue] Removed history ${historyId} from tenant ${tenantId} lane`);
+        return true;
+      }
     }
     return false;
   }
 
+  /** Returns 1-based queue position (within the tenant's own lane, or within the global queue). */
   getQueuePosition(historyId: number): number {
-    const index = this.queue.findIndex(q => q.historyId === historyId);
-    return index === -1 ? -1 : index + 1;
+    // Check per-tenant lanes first
+    for (const lane of this.tenantQueues.values()) {
+      const idx = lane.findIndex(q => q.historyId === historyId);
+      if (idx !== -1) return idx + 1;
+    }
+    // Check global queue
+    const gi = this.globalQueue.findIndex(q => q.historyId === historyId);
+    return gi === -1 ? -1 : gi + 1;
   }
 
-  private processQueue(): void {
-    while (this.queue.length > 0 && this.activePushes.size < MAX_CONCURRENT_PUSHES) {
-      const next = this.queue.shift();
-      if (next) {
-        console.log(`[PushQueue] Dequeuing history ${next.historyId} for tenant ${next.tenantId}`);
-        this.emit('ready', next);
+  private processQueue(completedTenantId: number): void {
+    // Priority 1: promote the next item from the tenant that just finished.
+    // This keeps the tenant's own backlog moving without competing for the global cap.
+    const tenantLane = this.tenantQueues.get(completedTenantId);
+    if (tenantLane && tenantLane.length > 0 && this.activePushes.size < MAX_CONCURRENT_PUSHES) {
+      const next = tenantLane.shift()!;
+      if (tenantLane.length === 0) this.tenantQueues.delete(completedTenantId);
+      console.log(`[PushQueue] Promoting tenant lane: history ${next.historyId} for tenant ${next.tenantId}`);
+      this.emit('ready', next);
+    }
+
+    // Priority 2: promote waiting items from the global queue for different tenants.
+    while (this.globalQueue.length > 0 && this.activePushes.size < MAX_CONCURRENT_PUSHES) {
+      const next = this.globalQueue.shift()!;
+      // Safety: if this tenant somehow became active in the meantime, re-route to its lane
+      if (this.activePushes.has(next.tenantId)) {
+        if (!this.tenantQueues.has(next.tenantId)) this.tenantQueues.set(next.tenantId, []);
+        this.tenantQueues.get(next.tenantId)!.unshift(next);
+        continue;
       }
+      console.log(`[PushQueue] Promoting global queue: history ${next.historyId} for tenant ${next.tenantId}`);
+      this.emit('ready', next);
     }
   }
 
   getStatus(): { active: Array<{tenantId: number; historyId: number}>; queued: QueuedPush[] } {
+    const allQueued: QueuedPush[] = [...this.globalQueue];
+    for (const lane of this.tenantQueues.values()) allQueued.push(...lane);
     return {
       active: Array.from(this.activePushes.entries()).map(([tenantId, historyId]) => ({ tenantId, historyId })),
-      queued: [...this.queue]
+      queued: allQueued,
     };
   }
 }
