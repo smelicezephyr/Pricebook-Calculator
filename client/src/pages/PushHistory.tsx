@@ -7,6 +7,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Loader2, Clock, CheckCircle2, XCircle, AlertCircle, Trash2, ArrowLeft, History as HistoryIcon, RefreshCw, RotateCcw, RotateCw, StopCircle, Ban, Download, ListOrdered } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -71,6 +81,7 @@ export default function PushHistoryPage() {
   const [liveProgress, setLiveProgress] = useState<Map<number, PushProgress>>(new Map());
   const [queuePositions, setQueuePositions] = useState<Map<number, QueuePosition>>(new Map());
   const [expandedErrors, setExpandedErrors] = useState<Set<number>>(new Set());
+  const [cancelConfirmItem, setCancelConfirmItem] = useState<PushHistory | null>(null);
   const eventSourcesRef = useRef<Map<number, EventSource>>(new Map());
 
   const historyUrl = selectedTenantId === "all" 
@@ -642,12 +653,12 @@ export default function PushHistoryPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => cancelQueuedMutation.mutate(item.id)}
+                            onClick={() => setCancelConfirmItem(item)}
                             disabled={cancelQueuedMutation.isPending}
                             className="gap-1 text-orange-600 border-orange-300"
                             data-testid={`button-cancel-queued-${item.id}`}
                           >
-                            {cancelQueuedMutation.isPending ? (
+                            {cancelQueuedMutation.isPending && cancelConfirmItem?.id === item.id ? (
                               <Loader2 className="w-4 h-4 animate-spin" />
                             ) : (
                               <StopCircle className="w-4 h-4" />
@@ -738,6 +749,39 @@ export default function PushHistoryPage() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={cancelConfirmItem !== null}
+        onOpenChange={(open) => { if (!open) setCancelConfirmItem(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel queued push?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {cancelConfirmItem && (() => {
+                const categoryIds = JSON.parse(cancelConfirmItem.categoryIds || "[]");
+                const tenantName = getTenantName(cancelConfirmItem.tenantId);
+                return `This will remove the queued push for ${tenantName} (${categoryIds.length} ${categoryIds.length === 1 ? 'category' : 'categories'}) from the queue. This action cannot be undone.`;
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-confirm-dismiss">Keep in Queue</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-cancel-confirm-proceed"
+              onClick={() => {
+                if (cancelConfirmItem) {
+                  cancelQueuedMutation.mutate(cancelConfirmItem.id);
+                  setCancelConfirmItem(null);
+                }
+              }}
+            >
+              Yes, Cancel Push
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
