@@ -213,6 +213,8 @@ export class ServiceTitanAPI {
       
       // Flatten categories - ServiceTitan returns nested subcategories
       for (const category of response.data) {
+        // Skip inactive top-level categories
+        if (category.active === false) continue;
         allCategories.push(category);
         // Recursively add all nested subcategories
         this.flattenSubcategories(category, allCategories);
@@ -227,15 +229,19 @@ export class ServiceTitanAPI {
     
     console.log(`[ServiceTitan] Total categories (including subcategories): ${allCategories.length}`);
     // Smoke-test log: show first 10 items with id, name, parentId to verify hierarchy
-    console.log(`[ServiceTitan] Category sample (first 10):`, allCategories.slice(0, 10).map(c => ({ id: c.id, name: c.name, parentId: c.parentId ?? null })));
+    console.log(`[ServiceTitan] Category sample (first 10):`, allCategories.slice(0, 10).map(c => ({ id: c.id, name: c.name, active: c.active, parentId: c.parentId ?? null })));
     return allCategories;
   }
   
   private flattenSubcategories(category: PricebookCategory, result: PricebookCategory[]): void {
     if (category.subcategories && Array.isArray(category.subcategories)) {
       for (const sub of category.subcategories) {
-        // Stamp parentId so the frontend hierarchy builder can reconstruct the tree
-        const withParent: PricebookCategory = { ...sub, parentId: category.id };
+        // Skip inactive subcategories; if 'active' is absent on the nested object,
+        // treat it as active (inherit from parent which was already confirmed active).
+        if (sub.active === false) continue;
+        // Stamp parentId so the frontend hierarchy builder can reconstruct the tree.
+        // Also ensure 'active' is explicitly set so downstream filters work correctly.
+        const withParent: PricebookCategory = { ...sub, parentId: category.id, active: sub.active !== false };
         result.push(withParent);
         // Recurse with the stamped copy so deeper children also get correct parentId
         this.flattenSubcategories(withParent, result);

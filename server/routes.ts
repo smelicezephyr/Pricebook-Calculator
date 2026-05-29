@@ -622,7 +622,7 @@ export async function registerRoutes(
     try {
       const api = new ServiceTitanAPI(tenant);
       const categories = await api.getCategories();
-      res.json(categories.filter((c: any) => c.active === true));
+      res.json(categories.filter((c: any) => c.active !== false));
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
