@@ -31,6 +31,8 @@ interface Category {
   name: string;
   active: boolean;
   parentId?: number;
+  sortOrder?: number;
+  displayOrder?: number;
 }
 
 export default function PushToServiceTitan() {
@@ -803,7 +805,11 @@ export default function PushToServiceTitan() {
     }
   };
 
-  const getChildren = (parentId: number) => categories.filter(c => c.parentId === parentId && c.active);
+  const sortByOrder = (a: Category, b: Category) =>
+    (a.sortOrder ?? a.displayOrder ?? 0) - (b.sortOrder ?? b.displayOrder ?? 0);
+
+  const getChildren = (parentId: number) =>
+    categories.filter(c => c.parentId === parentId && c.active).sort(sortByOrder);
   
   const getAllDescendants = (parentId: number): number[] => {
     const children = getChildren(parentId);
@@ -975,7 +981,7 @@ export default function PushToServiceTitan() {
     };
   }, [queuedHistoryId]);
 
-  const parentCategories = categories.filter(c => !c.parentId && c.active);
+  const parentCategories = categories.filter(c => !c.parentId && c.active).sort(sortByOrder);
 
   if (isTenantsLoading) {
     return (

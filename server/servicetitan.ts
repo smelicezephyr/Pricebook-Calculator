@@ -15,6 +15,7 @@ interface PricebookCategory {
   level?: number;
   categoryType?: string;
   displayOrder?: number;
+  sortOrder?: number;
   [key: string]: any; // Allow additional fields from API
 }
 
