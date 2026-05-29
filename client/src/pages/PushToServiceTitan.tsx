@@ -1271,12 +1271,11 @@ export default function PushToServiceTitan() {
                                   id={`category-${category.id}`}
                                   checked={selectedCategories.has(category.id)}
                                   onCheckedChange={() => toggleCategory(category.id)}
-                                  disabled={!category.active}
                                   data-testid={`checkbox-category-${category.id}`}
                                 />
                                 <label 
                                   htmlFor={`category-${category.id}`}
-                                  className={`flex-1 cursor-pointer ${depth === 0 ? 'font-medium' : 'text-sm'} ${!category.active ? 'text-muted-foreground' : ''}`}
+                                  className={`flex-1 cursor-pointer ${depth === 0 ? 'font-medium' : 'text-sm'}`}
                                 >
                                   {category.name}
                                 </label>
@@ -1285,7 +1284,6 @@ export default function PushToServiceTitan() {
                                     {catChildren.length} subcategories
                                   </span>
                                 )}
-                                {!category.active && <Badge variant="outline" className="text-xs">Inactive</Badge>}
                               </div>
                               
                               {hasCatChildren && isCatExpanded && (
