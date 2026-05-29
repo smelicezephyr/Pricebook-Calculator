@@ -215,6 +215,8 @@ export class ServiceTitanAPI {
       for (const category of response.data) {
         // Skip inactive top-level categories
         if (category.active === false) continue;
+        // Skip non-service categories (e.g. Materials)
+        if (category.categoryType && category.categoryType !== "Services") continue;
         allCategories.push(category);
         // Recursively add all nested subcategories
         this.flattenSubcategories(category, allCategories);
@@ -239,6 +241,8 @@ export class ServiceTitanAPI {
         // Skip inactive subcategories; if 'active' is absent on the nested object,
         // treat it as active (inherit from parent which was already confirmed active).
         if (sub.active === false) continue;
+        // Skip non-service category types (e.g. Materials)
+        if (sub.categoryType && sub.categoryType !== "Services") continue;
         // Stamp parentId so the frontend hierarchy builder can reconstruct the tree.
         // Also ensure 'active' is explicitly set so downstream filters work correctly.
         const withParent: PricebookCategory = { ...sub, parentId: category.id, active: sub.active !== false };
