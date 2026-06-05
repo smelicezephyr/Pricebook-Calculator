@@ -1,15 +1,26 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSettings } from "@/hooks/use-settings";
 import { useCalculatorState } from "@/contexts/CalculatorContext";
+import { useCreateQuote } from "@/hooks/use-quotes";
 import { InputMoney } from "@/components/InputMoney";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { RefreshCw, Loader2, DollarSign, TrendingUp } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { RefreshCw, Loader2, DollarSign, TrendingUp, Save } from "lucide-react";
+import { toPng } from "html-to-image";
+import { useToast } from "@/hooks/use-toast";
 
 export default function RepairCalculator() {
   const { settings, isLoading: settingsLoading } = useSettings();
   const { setRepairState } = useCalculatorState();
+  const createQuote = useCreateQuote();
+  const { toast } = useToast();
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  const [isSaveOpen, setIsSaveOpen] = useState(false);
+  const [quoteTitle, setQuoteTitle] = useState("");
 
   const [partsCost, setPartsCost] = useState("");
   const [materialMarkup, setMaterialMarkup] = useState("200");
@@ -161,6 +172,42 @@ export default function RepairCalculator() {
     setRoundUp(false);
   };
 
+  const downloadImage = async () => {
+    if (!resultsRef.current) return;
+    try {
+      const dataUrl = await toPng(resultsRef.current, { cacheBust: true, backgroundColor: "#fff" });
+      const link = document.createElement("a");
+      link.download = `${quoteTitle || "repair-quote"}-${new Date().toISOString().split("T")[0]}.png`;
+      link.href = dataUrl;
+      link.click();
+      toast({ title: "Image Saved", description: "The quote image has been downloaded successfully." });
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "Failed to save the image." });
+    }
+  };
+
+  const handleSave = () => {
+    createQuote.mutate({
+      title: quoteTitle || "Untitled Repair Quote",
+      materialsCost: partsTotal.toString(),
+      equipmentCost: "0",
+      laborHoursInput: laborMode === "percent" ? "0" : laborHoursVal.toString(),
+      calculatedPrice: totalPrice.toFixed(2),
+      calculatedGrossMargin: grossMarginPercent.toFixed(2),
+      calculatedEstimatedLabor: burdenedLaborCost.toFixed(2),
+      calculatedMePercent: materialMarkup,
+      subcontractorCost: "0",
+      craneCost: "0",
+      permitCost: "0",
+    }, {
+      onSuccess: async () => {
+        await downloadImage();
+        setIsSaveOpen(false);
+        setQuoteTitle("");
+      },
+    });
+  };
+
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
 
@@ -196,6 +243,64 @@ export default function RepairCalculator() {
             <RefreshCw size={16} />
             Reset
           </Button>
+
+          <Dialog open={isSaveOpen} onOpenChange={setIsSaveOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30" data-testid="button-save-repair">
+                <Save size={16} />
+                Save Calc
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Save Repair Quote</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Quote Title</Label>
+                  <Input
+                    placeholder="e.g. Johnson - AC Repair"
+                    value={quoteTitle}
+                    onChange={(e) => setQuoteTitle(e.target.value)}
+                    data-testid="input-quote-title"
+                  />
+                </div>
+                <div className="bg-muted p-4 rounded-lg space-y-3 text-sm">
+                  <div className="space-y-1 pb-2 border-b border-border/50">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Job Summary</p>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Parts Total:</span>
+                      <span className="font-medium">{formatCurrency(partsTotal)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Markup:</span>
+                      <span className="font-medium">{materialMarkup}%</span>
+                    </div>
+                    {laborMode !== "percent" && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Labor:</span>
+                        <span className="font-medium">{formatCurrency(directLaborCost)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="pt-2 flex justify-between items-baseline">
+                    <span className="text-muted-foreground font-bold">Total Price:</span>
+                    <span className="text-xl font-bold text-primary">{formatCurrency(totalPrice)}</span>
+                  </div>
+                  <div className="flex justify-between items-baseline border-t border-border/50 pt-2">
+                    <span className="text-muted-foreground font-bold">Gross Margin:</span>
+                    <span className="text-lg font-bold text-emerald-600">{grossMarginPercent.toFixed(2)}%</span>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsSaveOpen(false)}>Cancel</Button>
+                <Button onClick={handleSave} disabled={createQuote.isPending} data-testid="button-save-confirm">
+                  {createQuote.isPending ? "Saving..." : "Save & Download"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -347,7 +452,7 @@ export default function RepairCalculator() {
           </div>
         </div>
 
-        <div className="lg:col-span-9 space-y-4">
+        <div className="lg:col-span-9 space-y-4" ref={resultsRef}>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="md:col-span-3 bg-primary text-primary-foreground rounded-xl p-5 shadow-xl shadow-primary/20 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
