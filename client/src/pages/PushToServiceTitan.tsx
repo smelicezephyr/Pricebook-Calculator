@@ -196,7 +196,6 @@ export default function PushToServiceTitan() {
   const [newTaskImagePreview, setNewTaskImagePreview] = useState<string | null>(null);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [categorySelectOpen, setCategorySelectOpen] = useState(false);
-  const [newTaskPsiMode, setNewTaskPsiMode] = useState(false);
 
   // Push New Repair Task State
   const [repairCode, setRepairCode] = useState("");
@@ -218,45 +217,8 @@ export default function PushToServiceTitan() {
   const [repairCommissionPercent, setRepairCommissionPercent] = useState("10.00");
   const [repairFinancingFeePercent, setRepairFinancingFeePercent] = useState("4");
   const [repairHighestTechRate, setRepairHighestTechRate] = useState("");
-  const [repairPsiMode, setRepairPsiMode] = useState(false);
   const [repairLaborMode, setRepairLaborMode] = useState<"dollars" | "percent">("dollars");
 
-  // Handle PSI mode toggle for New System Task
-  const handleNewTaskPsiToggle = (enabled: boolean) => {
-    setNewTaskPsiMode(enabled);
-    if (enabled) {
-      setNewTaskGlAccount("Sales");
-    } else {
-      setNewTaskGlAccount("Revenue");
-    }
-  };
-
-  const handlePsiToggle = (enabled: boolean) => {
-    setRepairPsiMode(enabled);
-    if (enabled) {
-      setRepairMaterialMarkup("40");
-      setRepairLaborRate("600");
-      setRepairSalesTaxPercent("7.4");
-      setRepairGlAccount("Sales");
-    } else {
-      setRepairMaterialMarkup("200");
-      setRepairLaborRate("175");
-      setRepairGlAccount("Revenue");
-      setRepairFinancingFeePercent("4");
-      const fallbackTax = settings?.salesTaxPercent || "6.35";
-      const selectedTenant = tenants.find(t => t.id === selectedTenantId);
-      if (selectedTenant?.locationId) {
-        const loc = locationsList.find(l => l.id === selectedTenant.locationId);
-        if (loc) {
-          setRepairSalesTaxPercent(loc.salesTaxPercent.toString());
-        } else {
-          setRepairSalesTaxPercent(fallbackTax);
-        }
-      } else {
-        setRepairSalesTaxPercent(fallbackTax);
-      }
-    }
-  };
   const [repairImage, setRepairImage] = useState<File | null>(null);
   const [repairImagePreview, setRepairImagePreview] = useState<string | null>(null);
   const [isCreatingRepair, setIsCreatingRepair] = useState(false);
@@ -1685,17 +1647,6 @@ export default function PushToServiceTitan() {
                           Create a new system installation service with M&E calculated pricing
                         </CardDescription>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="newTaskPsiMode" className="text-sm font-medium cursor-pointer">
-                          PSI
-                        </Label>
-                        <Switch
-                          id="newTaskPsiMode"
-                          checked={newTaskPsiMode}
-                          onCheckedChange={handleNewTaskPsiToggle}
-                          data-testid="switch-new-task-psi-mode"
-                        />
-                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-6">
@@ -2206,23 +2157,10 @@ export default function PushToServiceTitan() {
                   <CardContent className="space-y-6">
                     {/* Calculator Section */}
                     <div className="p-4 bg-muted/30 rounded-lg border space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-medium text-sm flex items-center gap-2">
-                          <DollarSign className="w-4 h-4 text-primary" />
-                          Repair Price Calculator
-                        </h3>
-                        <div className="flex items-center gap-2">
-                          <Label htmlFor="psiMode" className="text-sm font-medium cursor-pointer">
-                            PSI
-                          </Label>
-                          <Switch
-                            id="psiMode"
-                            checked={repairPsiMode}
-                            onCheckedChange={handlePsiToggle}
-                            data-testid="switch-psi-mode"
-                          />
-                        </div>
-                      </div>
+                      <h3 className="font-medium text-sm flex items-center gap-2">
+                        <DollarSign className="w-4 h-4 text-primary" />
+                        Repair Price Calculator
+                      </h3>
                       
                       {/* Parts & Markup Row */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
