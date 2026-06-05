@@ -54,7 +54,7 @@ function AppRouter() {
             {isAdmin ? <Locations /> : <NotFound />}
           </Route>
           <Route path="/settings">
-            {isAdmin ? <Settings /> : <NotFound />}
+            <Settings />
           </Route>
           <Route path="/admin/users">
             {isAdmin ? <AdminUsers /> : <NotFound />}

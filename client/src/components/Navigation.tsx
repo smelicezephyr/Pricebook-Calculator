@@ -107,8 +107,8 @@ export function Navigation() {
             {navLink("/reverse", "Reverse Calculator", ArrowLeftRight)}
             {navLink("/history", "Saved Quotes", History)}
 
-            {/* Settings — admin only */}
-            {isAdmin && navLink("/settings", "Settings", Settings)}
+            {/* Settings — all roles */}
+            {navLink("/settings", "Settings", Settings)}
 
             {/* ServiceTitan section — user or admin only */}
             {isUserOrAdmin && (

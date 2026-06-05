@@ -316,7 +316,7 @@ export async function registerRoutes(
     res.json(settings);
   });
 
-  app.put(api.settings.update.path, requireAdmin, async (req, res) => {
+  app.put(api.settings.update.path, requireAuth, async (req, res) => {
     try {
       const input = api.settings.update.input.parse(req.body);
       const updated = await storage.updateSettings(input);
