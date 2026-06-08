@@ -158,7 +158,7 @@ export default function PushToServiceTitan() {
       setCommissionPercent(settings.commissionPercent);
       setCommissionBurdenPercent(settings.commissionBurdenPercent);
       setFinancingFeePercent(settings.financingFeePercent);
-      if (!repairPsiMode && !selectedTenantId) {
+      if (!selectedTenantId) {
         setRepairSalesTaxPercent(settings.salesTaxPercent);
       }
     }
