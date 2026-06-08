@@ -147,7 +147,6 @@ export default function RepairCalculator() {
     setPartsCost("");
     setMaterialMarkup("200");
     setLaborHours("");
-    setPsiMode(false);
     setLaborMode("dollars");
     setSalesTaxPercent(settings?.salesTaxPercent || "6.35");
     setCommissionPercent(settings?.commissionPercent || "10.00");

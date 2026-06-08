@@ -478,7 +478,6 @@ export default function PushToServiceTitan() {
     setNewTaskEquipmentCost("0");
     setNewTaskImage(null);
     setNewTaskImagePreview(null);
-    setNewTaskPsiMode(false);
   };
 
   const handleCreateTask = async () => {
@@ -633,7 +632,6 @@ export default function PushToServiceTitan() {
     setRepairFinancingFeePercent("4");
     setRepairImage(null);
     setRepairImagePreview(null);
-    setRepairPsiMode(false);
     setRepairLaborMode("dollars");
     const fallbackTax = settings?.salesTaxPercent || "6.35";
     const selectedTenant = tenants.find(t => t.id === selectedTenantId);
