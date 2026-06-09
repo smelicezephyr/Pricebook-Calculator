@@ -21,11 +21,11 @@ import {
   type User,
   type InsertUser,
 } from "@shared/schema";
-import { eq, desc, asc, and, inArray } from "drizzle-orm";
+import { eq, desc, asc, and, inArray, isNull } from "drizzle-orm";
 
 export interface IStorage {
-  getSettings(): Promise<Settings>;
-  updateSettings(settings: InsertSettings): Promise<Settings>;
+  getSettings(userId: number): Promise<Settings>;
+  updateSettings(userId: number, settings: InsertSettings): Promise<Settings>;
   
   createQuote(quote: InsertQuote, userId: number): Promise<Quote>;
   getQuotes(userId: number, isAdmin: boolean): Promise<Quote[]>;
@@ -78,22 +78,35 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  async getSettings(): Promise<Settings> {
-    const [existing] = await db.select().from(settings).limit(1);
-    if (existing) return existing;
-    
+  async getSettings(userId: number): Promise<Settings> {
+    const [userRow] = await db.select().from(settings)
+      .where(eq(settings.userId, userId));
+    if (userRow) return userRow;
+
+    const [globalRow] = await db.select().from(settings)
+      .where(isNull(settings.userId));
+    if (globalRow) return globalRow;
+
     const [created] = await db.insert(settings).values({}).returning();
     return created;
   }
 
-  async updateSettings(newSettings: InsertSettings): Promise<Settings> {
-    const existing = await this.getSettings();
-    const [updated] = await db
-      .update(settings)
-      .set(newSettings)
-      .where(eq(settings.id, existing.id))
+  async updateSettings(userId: number, newSettings: InsertSettings): Promise<Settings> {
+    const [userRow] = await db.select().from(settings)
+      .where(eq(settings.userId, userId));
+
+    if (userRow) {
+      const [updated] = await db.update(settings)
+        .set({ ...newSettings, userId })
+        .where(eq(settings.id, userRow.id))
+        .returning();
+      return updated;
+    }
+
+    const [created] = await db.insert(settings)
+      .values({ ...newSettings, userId })
       .returning();
-    return updated;
+    return created;
   }
 
   async createQuote(quote: InsertQuote, userId: number): Promise<Quote> {

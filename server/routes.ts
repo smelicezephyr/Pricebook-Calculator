@@ -312,14 +312,14 @@ export async function registerRoutes(
   // ── Settings Routes ─────────────────────────────────────────────────────────
 
   app.get(api.settings.get.path, requireAuth, async (req, res) => {
-    const settings = await storage.getSettings();
+    const settings = await storage.getSettings(req.user!.id);
     res.json(settings);
   });
 
   app.put(api.settings.update.path, requireAuth, async (req, res) => {
     try {
       const input = api.settings.update.input.parse(req.body);
-      const updated = await storage.updateSettings(input);
+      const updated = await storage.updateSettings(req.user!.id, input);
       res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -867,7 +867,7 @@ export async function registerRoutes(
     if (!(await canAccessTenant(req, tenantId))) {
       return res.status(403).json({ message: "You don't have access to this tenant" });
     }
-    const settings = await storage.getSettings();
+    const settings = await storage.getSettings(req.user!.id);
     const targetMePercent = parseFloat(settings.targetMePercent);
     
     try {

@@ -50,6 +50,7 @@ export const userTenantAccess = pgTable("user_tenant_access", {
 // Settings for the calculator (defaults based on the sheet)
 export const settings = pgTable("settings", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
   targetMePercent: numeric("target_me_percent").notNull().default("23.00"),
   salesTaxPercent: numeric("sales_tax_percent").notNull().default("6.35"),
   
