@@ -107,6 +107,9 @@ export const pushHistory = pgTable("push_history", {
   // Original values for revert functionality (JSON: [{serviceId, originalPrice, originalCost}])
   originalValues: text("original_values"),
 
+  // Push type — update (bulk reprice), new_system (new install task), new_repair (new repair task)
+  pushType: text("push_type").default("update"),
+
   // Attribution — who initiated this push
   pushedByUserId: integer("pushed_by_user_id"),
   pushedByName: text("pushed_by_name"),

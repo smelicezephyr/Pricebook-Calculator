@@ -189,7 +189,14 @@ export async function registerRoutes(
       if (monthlyEnd)   { monthlyConds.push(`created_at <= ($${monthlyParams.push(monthlyEnd)}::date + INTERVAL '1 day')`); }
       const monthlyWhere = monthlyConds.join(" AND ");
 
-      const [overallResult, tenantResult, monthlyResult, userResult] = await Promise.all([
+      // Build login date conditions (login_events uses created_at)
+      const loginParams: string[] = [];
+      const loginConds: string[] = [];
+      if (startDate) { loginConds.push(`le.created_at >= $${loginParams.push(startDate)}`); }
+      if (endDate)   { loginConds.push(`le.created_at <= ($${loginParams.push(endDate)}::date + INTERVAL '1 day')`); }
+      const loginWhere = loginConds.length ? `WHERE ${loginConds.join(" AND ")}` : "";
+
+      const [overallResult, tenantResult, monthlyResult, userResult, typeResult, loginCountResult, recentLoginsResult] = await Promise.all([
         pool.query(
           `SELECT
             COUNT(*) AS total_pushes,
@@ -230,10 +237,37 @@ export async function registerRoutes(
           monthlyParams,
         ),
         pool.query(`SELECT COUNT(*) AS active_users FROM users WHERE role != 'everyone'`),
+        pool.query(
+          `SELECT COALESCE(push_type, 'update') AS push_type, COUNT(*) AS cnt
+           FROM push_history WHERE ${dateWhere}
+           GROUP BY COALESCE(push_type, 'update')`,
+          dateParams,
+        ),
+        pool.query(
+          `SELECT COUNT(*) AS login_count FROM login_events le ${loginWhere}`,
+          loginParams,
+        ),
+        pool.query(
+          `SELECT le.id, le.user_name AS name, le.user_email AS email,
+                  COALESCE(u.role, 'everyone') AS role, le.created_at
+           FROM login_events le
+           LEFT JOIN users u ON u.id = le.user_id
+           ${loginWhere}
+           ORDER BY le.created_at DESC LIMIT 30`,
+          loginParams,
+        ),
       ]);
 
       const o = overallResult.rows[0];
       const total = Number(o.completed) + Number(o.failed);
+
+      const byType = { update: 0, newSystem: 0, newRepair: 0 };
+      for (const row of typeResult.rows) {
+        if (row.push_type === 'update')     byType.update     = Number(row.cnt);
+        if (row.push_type === 'new_system') byType.newSystem  = Number(row.cnt);
+        if (row.push_type === 'new_repair') byType.newRepair  = Number(row.cnt);
+      }
+
       res.json({
         totalPushes: Number(o.total_pushes),
         completedPushes: Number(o.completed),
@@ -242,6 +276,15 @@ export async function registerRoutes(
         successRate: total > 0 ? Math.round((Number(o.completed) / total) * 100) : null,
         activeTenants: Number(o.active_tenants),
         activeUsers: Number(userResult.rows[0].active_users),
+        loginCount: Number(loginCountResult.rows[0].login_count),
+        byType,
+        recentLogins: recentLoginsResult.rows.map(r => ({
+          id: Number(r.id),
+          name: r.name,
+          email: r.email,
+          role: r.role,
+          createdAt: r.created_at,
+        })),
         byTenant: tenantResult.rows.map(r => ({
           id: Number(r.id),
           name: r.name,
@@ -1259,6 +1302,7 @@ export async function registerRoutes(
         const history = await storage.createPushHistory({
           tenantId,
           status: 'pending',
+          pushType: 'update',
           categoryIds: JSON.stringify(categoryIds),
           targetMePercent: targetMePercent.toString(),
           salesTaxPercent: salesTaxPercent.toString(),
@@ -1302,6 +1346,7 @@ export async function registerRoutes(
       const history = await storage.createPushHistory({
         tenantId,
         status: 'in_progress',
+        pushType: 'update',
         categoryIds: JSON.stringify(categoryIds),
         targetMePercent: targetMePercent.toString(),
         salesTaxPercent: salesTaxPercent.toString(),
@@ -1717,6 +1762,7 @@ export async function registerRoutes(
 
       const historyBase = {
         tenantId,
+        pushType: 'update',
         categoryIds: JSON.stringify(categoryIds),
         targetMePercent: targetMePercent.toString(),
         salesTaxPercent: salesTaxPercent.toString(),

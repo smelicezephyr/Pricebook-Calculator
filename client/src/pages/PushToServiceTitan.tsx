@@ -589,7 +589,31 @@ export default function PushToServiceTitan() {
         title: "Success",
         description: `Task "${newTaskName}" created successfully with price $${newTaskCalculatedPrice.toFixed(2)}`,
       });
-      
+
+      fetch("/api/push-history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenantId: selectedTenantId,
+          status: "completed",
+          pushType: "new_system",
+          categoryIds: "[]",
+          targetMePercent,
+          salesTaxPercent,
+          laborMode,
+          laborHourlyRate,
+          laborHours: newTaskHours,
+          laborPercent,
+          laborBurdenPercent,
+          commissionPercent,
+          commissionBurdenPercent,
+          financingFeePercent,
+          roundUp,
+          updatedCount: 1,
+          processedCount: 1,
+        }),
+      }).catch(() => {});
+
       resetNewTaskForm();
     } catch (err: any) {
       toast({
@@ -752,7 +776,31 @@ export default function PushToServiceTitan() {
         title: "Success",
         description: `Repair task "${repairName}" created successfully with price $${repairCalculatedPrice.toFixed(2)}`,
       });
-      
+
+      fetch("/api/push-history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenantId: selectedTenantId,
+          status: "completed",
+          pushType: "new_repair",
+          categoryIds: "[]",
+          targetMePercent,
+          salesTaxPercent: repairSalesTaxPercent,
+          laborMode: repairLaborMode,
+          laborHourlyRate: repairLaborRate,
+          laborHours: repairLaborHours,
+          laborPercent,
+          laborBurdenPercent: repairBurdenPercent,
+          commissionPercent: repairCommissionPercent,
+          commissionBurdenPercent,
+          financingFeePercent: repairFinancingFeePercent,
+          roundUp,
+          updatedCount: 1,
+          processedCount: 1,
+        }),
+      }).catch(() => {});
+
       resetRepairForm();
     } catch (err: any) {
       toast({

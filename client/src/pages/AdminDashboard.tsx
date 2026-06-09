@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Loader2, BarChart2, CheckCircle2, Building2, Users,
-  TrendingUp, FileDown, CalendarRange, RotateCcw,
+  TrendingUp, FileDown, CalendarRange, RotateCcw, LogIn,
+  RefreshCw, Plus, Wrench,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format, subDays, subMonths, startOfYear } from "date-fns";
@@ -25,6 +26,9 @@ type DashboardData = {
   successRate: number | null;
   activeTenants: number;
   activeUsers: number;
+  loginCount: number;
+  byType: { update: number; newSystem: number; newRepair: number };
+  recentLogins: { id: number; name: string; email: string; role: string; createdAt: string }[];
   byTenant: {
     id: number;
     name: string;
@@ -52,6 +56,12 @@ const PRESETS = [
   { label: "This year", range: () => ({ startDate: fmt(startOfYear(new Date())), endDate: today() }) },
   { label: "All time", range: () => ({ startDate: "", endDate: "" }) },
 ];
+
+const ROLE_LABEL: Record<string, string> = {
+  admin: "Admin",
+  user: "User",
+  everyone: "View-only",
+};
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
@@ -177,6 +187,9 @@ export default function AdminDashboard() {
   if (isError || !data) return <Center>Failed to load dashboard data. Please try again.</Center>;
 
   const fmtNum = (n: number) => n.toLocaleString();
+  const byType = data.byType ?? { update: 0, newSystem: 0, newRepair: 0 };
+  const loginCount = data.loginCount ?? 0;
+  const recentLogins = data.recentLogins ?? [];
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -281,7 +294,7 @@ export default function AdminDashboard() {
       {/* Printable content area */}
       <div ref={printRef} className="space-y-6 bg-background p-1 rounded-lg">
 
-        {/* Stat Cards */}
+        {/* Stat Cards — row 1: overall performance */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="Services Updated"
@@ -308,6 +321,36 @@ export default function AdminDashboard() {
             value={data.activeUsers}
             sub="users with app access"
             icon={Users}
+          />
+        </div>
+
+        {/* Stat Cards — row 2: push type breakdown + logins */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            title="Pricebook Updates"
+            value={fmtNum(byType.update)}
+            sub="bulk reprice pushes"
+            icon={RefreshCw}
+          />
+          <StatCard
+            title="New System Tasks"
+            value={fmtNum(byType.newSystem)}
+            sub="new install tasks created"
+            icon={Plus}
+            accent="text-blue-600"
+          />
+          <StatCard
+            title="New Repair Tasks"
+            value={fmtNum(byType.newRepair)}
+            sub="new repair tasks created"
+            icon={Wrench}
+            accent="text-violet-600"
+          />
+          <StatCard
+            title="Logins"
+            value={fmtNum(loginCount)}
+            sub="user sign-ins in period"
+            icon={LogIn}
           />
         </div>
 
@@ -429,6 +472,51 @@ export default function AdminDashboard() {
                       <td />
                     </tr>
                   </tfoot>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Login Activity */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <LogIn size={16} />
+              Recent Login Activity
+            </CardTitle>
+            <CardDescription>Last 30 sign-ins within the selected period.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {recentLogins.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">No logins recorded in this period.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-muted-foreground text-left">
+                      <th className="pb-3 font-medium">User</th>
+                      <th className="pb-3 font-medium">Email</th>
+                      <th className="pb-3 font-medium">Role</th>
+                      <th className="pb-3 font-medium text-right">Time</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {recentLogins.map((login) => (
+                      <tr key={login.id} className="hover:bg-muted/40 transition-colors" data-testid={`row-login-${login.id}`}>
+                        <td className="py-2.5 font-medium">{login.name}</td>
+                        <td className="py-2.5 text-muted-foreground">{login.email}</td>
+                        <td className="py-2.5">
+                          <Badge variant="outline" className="text-xs">
+                            {ROLE_LABEL[login.role] ?? login.role}
+                          </Badge>
+                        </td>
+                        <td className="py-2.5 text-right text-muted-foreground tabular-nums">
+                          {format(new Date(login.createdAt), "MMM d, yyyy h:mm a")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
                 </table>
               </div>
             )}
