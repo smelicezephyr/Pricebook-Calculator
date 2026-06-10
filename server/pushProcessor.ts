@@ -46,7 +46,7 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
     commissionPercent,
     commissionBurdenPercent,
     financingFeePercent,
-    skipZeroEquipment = false,
+    skipZeroEquipment = true,
   } = params;
 
   const salesTaxRate = salesTaxPercent / 100;

@@ -146,7 +146,7 @@ export default function PushToServiceTitan() {
   const [financingFeePercent, setFinancingFeePercent] = useState<string>("6.00");
   const [roundUp, setRoundUp] = useState<boolean>(false);
   const [skipZeroEquipment, setSkipZeroEquipment] = useState<boolean>(() => {
-    try { return localStorage.getItem("push_skipZeroEquipment") === "true"; } catch { return false; }
+    try { return localStorage.getItem("push_skipZeroEquipment") !== "false"; } catch { return true; }
   });
 
   // Initialize local settings from global settings when they load
@@ -1560,10 +1560,10 @@ export default function PushToServiceTitan() {
                   <div className="flex items-center justify-between pt-4 border-t">
                     <div className="space-y-0.5">
                       <Label htmlFor="skipZeroEquipment" className="text-sm font-medium cursor-pointer">
-                        Skip services with no equipment cost
+                        Skip services with $0 equipment cost
                       </Label>
                       <p className="text-xs text-muted-foreground">
-                        When on, services where equipment = $0 are skipped, even if materials have a value
+                        Skip any service where equipment = $0, even if it has materials cost. Turn off to price those services using materials only.
                       </p>
                     </div>
                     <Switch
