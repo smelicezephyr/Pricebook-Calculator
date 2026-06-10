@@ -1316,6 +1316,7 @@ export async function registerRoutes(
           commissionBurdenPercent: commissionBurdenPercent.toString(),
           financingFeePercent: financingFeePercent.toString(),
           roundUp: shouldRoundUp,
+          skipZeroEquipment,
           pushedByUserId: req.user?.id ?? null,
           pushedByName: req.user?.name ?? null,
         });
@@ -1363,6 +1364,7 @@ export async function registerRoutes(
         commissionBurdenPercent: commissionBurdenPercent.toString(),
         financingFeePercent: financingFeePercent.toString(),
         roundUp: shouldRoundUp,
+        skipZeroEquipment,
         pushedByUserId: req.user?.id ?? null,
         pushedByName: req.user?.name ?? null,
       });
@@ -1765,6 +1767,7 @@ export async function registerRoutes(
       const commissionBurdenPercent = parseFloat(historyItem.commissionBurdenPercent);
       const financingFeePercent = parseFloat(historyItem.financingFeePercent);
       const roundUp = historyItem.roundUp;
+      const skipZeroEquipment = historyItem.skipZeroEquipment ?? false;
 
       const historyBase = {
         tenantId,
@@ -1780,6 +1783,7 @@ export async function registerRoutes(
         commissionBurdenPercent: commissionBurdenPercent.toString(),
         financingFeePercent: financingFeePercent.toString(),
         roundUp,
+        skipZeroEquipment,
         pushedByUserId: req.user?.id ?? null,
         pushedByName: req.user?.name ?? null,
       };
@@ -1813,6 +1817,7 @@ export async function registerRoutes(
           commissionPercent,
           commissionBurdenPercent,
           financingFeePercent,
+          skipZeroEquipment,
         }, tenant).then(async (results) => {
           const finalStatus: 'completed' | 'cancelled' = results.cancelled ? 'cancelled' : 'completed';
           await storage.updatePushHistory(newHistoryId, {

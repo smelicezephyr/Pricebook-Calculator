@@ -96,6 +96,7 @@ export const pushHistory = pgTable("push_history", {
   commissionBurdenPercent: numeric("commission_burden_percent").notNull(),
   financingFeePercent: numeric("financing_fee_percent").notNull(),
   roundUp: boolean("round_up").notNull().default(false),
+  skipZeroEquipment: boolean("skip_zero_equipment").notNull().default(false),
   
   // Results
   processedCount: integer("processed_count").default(0),
