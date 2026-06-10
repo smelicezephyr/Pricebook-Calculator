@@ -465,6 +465,9 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
   }
 }
 
+/** Transient options stored at queue-time so processQueuedPush can use them later. */
+export const pendingPushExtras = new Map<number, { skipZeroME: boolean }>();
+
 export async function processQueuedPush(historyId: number): Promise<void> {
   const historyItem = await storage.getPushHistoryItem(historyId);
   if (!historyItem) {
@@ -517,7 +520,9 @@ export async function processQueuedPush(historyId: number): Promise<void> {
       commissionPercent: parseFloat(historyItem.commissionPercent),
       commissionBurdenPercent: parseFloat(historyItem.commissionBurdenPercent),
       financingFeePercent: parseFloat(historyItem.financingFeePercent),
+      skipZeroME: pendingPushExtras.get(historyId)?.skipZeroME ?? true,
     }, tenant);
+    pendingPushExtras.delete(historyId);
 
     let finalStatus: 'completed' | 'cancelled' = 'completed';
     if (results.cancelled) {

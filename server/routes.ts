@@ -8,7 +8,7 @@ import { z } from "zod";
 import { ServiceTitanAPI } from "./servicetitan";
 import { pushProgressEmitter, emitProgress } from "./pushProgress";
 import { pushQueue, withRetry, MAX_CONCURRENT_PUSHES } from "./pushQueue";
-import { processPush } from "./pushProcessor";
+import { processPush, pendingPushExtras } from "./pushProcessor";
 import type { PushHistory } from "@shared/schema";
 import { sendPushCompleteNotification } from "./email";
 
@@ -1325,6 +1325,9 @@ export async function registerRoutes(
         await storage.updatePushHistory(historyId, { status: 'pending' });
       }
       
+      // Persist transient options so processQueuedPush can use them
+      pendingPushExtras.set(historyId, { skipZeroME });
+
       // Route to the correct lane and get back the position
       const { position: queuePosition, lane } = pushQueue.addToQueue(tenantId, historyId);
       const queueMsg = lane === 'tenant'
@@ -1787,6 +1790,7 @@ export async function registerRoutes(
       if (pushQueue.isActive(tenantId) || !pushQueue.canStart()) {
         const newHistory = await storage.createPushHistory({ ...historyBase, status: 'pending' });
         newHistoryId = newHistory.id;
+        pendingPushExtras.set(newHistoryId, { skipZeroME: true });
         pushQueue.addToQueue(tenantId, newHistoryId);
         queued = true;
       } else {
