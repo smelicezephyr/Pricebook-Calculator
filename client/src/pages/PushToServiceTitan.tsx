@@ -145,6 +145,9 @@ export default function PushToServiceTitan() {
   const [commissionBurdenPercent, setCommissionBurdenPercent] = useState<string>("20.00");
   const [financingFeePercent, setFinancingFeePercent] = useState<string>("6.00");
   const [roundUp, setRoundUp] = useState<boolean>(false);
+  const [skipZeroEquipment, setSkipZeroEquipment] = useState<boolean>(() => {
+    try { return localStorage.getItem("push_skipZeroEquipment") === "true"; } catch { return false; }
+  });
 
   // Initialize local settings from global settings when they load
   useEffect(() => {
@@ -910,6 +913,7 @@ export default function PushToServiceTitan() {
           commissionBurdenPercent: parseFloat(commissionBurdenPercent),
           financingFeePercent: parseFloat(financingFeePercent),
           roundUp,
+          skipZeroEquipment,
         }),
       });
       
@@ -1550,6 +1554,27 @@ export default function PushToServiceTitan() {
                         </p>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Skip Zero Equipment Toggle */}
+                  <div className="flex items-center justify-between pt-4 border-t">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="skipZeroEquipment" className="text-sm font-medium cursor-pointer">
+                        Skip services with no equipment cost
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        When on, services where equipment = $0 are skipped, even if materials have a value
+                      </p>
+                    </div>
+                    <Switch
+                      id="skipZeroEquipment"
+                      checked={skipZeroEquipment}
+                      onCheckedChange={(val) => {
+                        setSkipZeroEquipment(val);
+                        try { localStorage.setItem("push_skipZeroEquipment", String(val)); } catch {}
+                      }}
+                      data-testid="switch-skip-zero-equipment"
+                    />
                   </div>
 
                   {/* Summary Badge */}
