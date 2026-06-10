@@ -19,7 +19,7 @@ interface PushParams {
   commissionPercent: number;
   commissionBurdenPercent: number;
   financingFeePercent: number;
-  skipZeroME?: boolean;
+  skipZeroEquipment?: boolean;
 }
 
 interface PushResult {
@@ -46,7 +46,7 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
     commissionPercent,
     commissionBurdenPercent,
     financingFeePercent,
-    skipZeroME = true,
+    skipZeroEquipment = true,
   } = params;
 
   const salesTaxRate = salesTaxPercent / 100;
@@ -332,10 +332,10 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
         console.log(`[DEBUG] Service ${service.id}: rawMeCost = $${rawMeCost.toFixed(2)} (materials: $${materialsCost.toFixed(2)}, equipment: $${equipmentCost.toFixed(2)})`);
       }
 
-      // Optionally skip services with no linked M&E cost at all
-      if (skipZeroME && rawMeCost === 0) {
+      // Optionally skip services where equipment cost = $0 (regardless of materials)
+      if (skipZeroEquipment && equipmentCost === 0) {
         if (results.skipped < 10) {
-          console.log(`[Push] Skipping service ${service.id} (${service.name?.substring(0, 30)}): M&E = $0 (materials: $${materialsCost.toFixed(2)}, equipment: $${equipmentCost.toFixed(2)})`);
+          console.log(`[Push] Skipping service ${service.id} (${service.name?.substring(0, 30)}): equipment = $0 (materials: $${materialsCost.toFixed(2)})`);
         } else if (results.skipped === 10) {
           console.log(`[Push] (Suppressing further skip logs...)`);
         }
@@ -466,7 +466,7 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
 }
 
 /** Transient options stored at queue-time so processQueuedPush can use them later. */
-export const pendingPushExtras = new Map<number, { skipZeroME: boolean }>();
+export const pendingPushExtras = new Map<number, { skipZeroEquipment: boolean }>();
 
 export async function processQueuedPush(historyId: number): Promise<void> {
   const historyItem = await storage.getPushHistoryItem(historyId);
@@ -520,7 +520,7 @@ export async function processQueuedPush(historyId: number): Promise<void> {
       commissionPercent: parseFloat(historyItem.commissionPercent),
       commissionBurdenPercent: parseFloat(historyItem.commissionBurdenPercent),
       financingFeePercent: parseFloat(historyItem.financingFeePercent),
-      skipZeroME: pendingPushExtras.get(historyId)?.skipZeroME ?? true,
+      skipZeroEquipment: pendingPushExtras.get(historyId)?.skipZeroEquipment ?? true,
     }, tenant);
     pendingPushExtras.delete(historyId);
 
