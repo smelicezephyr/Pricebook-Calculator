@@ -1258,9 +1258,9 @@ export async function registerRoutes(
       commissionPercent: clientCommissionPercent,
       commissionBurdenPercent: clientCommissionBurdenPercent,
       financingFeePercent: clientFinancingFeePercent,
-      skipZeroEquipment: clientSkipZeroEquipment,
+      skipZeroME: clientSkipZeroME,
     } = req.body;
-    const skipZeroEquipment = clientSkipZeroEquipment === undefined ? true : Boolean(clientSkipZeroEquipment);
+    const skipZeroME = clientSkipZeroME === undefined ? true : Boolean(clientSkipZeroME);
     
     if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
       return res.status(400).json({ message: "No categories selected" });
@@ -1395,7 +1395,7 @@ export async function registerRoutes(
       commissionPercent,
       commissionBurdenPercent,
       financingFeePercent,
-      skipZeroEquipment,
+      skipZeroME,
     }, tenant).then(async (results) => {
       let finalStatus: 'completed' | 'cancelled' = 'completed';
       if (results.cancelled) {

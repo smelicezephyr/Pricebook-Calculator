@@ -19,7 +19,7 @@ interface PushParams {
   commissionPercent: number;
   commissionBurdenPercent: number;
   financingFeePercent: number;
-  skipZeroEquipment?: boolean;
+  skipZeroME?: boolean;
 }
 
 interface PushResult {
@@ -46,7 +46,7 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
     commissionPercent,
     commissionBurdenPercent,
     financingFeePercent,
-    skipZeroEquipment = true,
+    skipZeroME = true,
   } = params;
 
   const salesTaxRate = salesTaxPercent / 100;
@@ -332,21 +332,10 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
         console.log(`[DEBUG] Service ${service.id}: rawMeCost = $${rawMeCost.toFixed(2)} (materials: $${materialsCost.toFixed(2)}, equipment: $${equipmentCost.toFixed(2)})`);
       }
 
-      // Skip if total M&E is $0 (no cost data at all)
-      if (rawMeCost === 0) {
+      // Optionally skip services with no linked M&E cost at all
+      if (skipZeroME && rawMeCost === 0) {
         if (results.skipped < 10) {
           console.log(`[Push] Skipping service ${service.id} (${service.name?.substring(0, 30)}): M&E = $0 (materials: $${materialsCost.toFixed(2)}, equipment: $${equipmentCost.toFixed(2)})`);
-        } else if (results.skipped === 10) {
-          console.log(`[Push] (Suppressing further skip logs...)`);
-        }
-        results.skipped++;
-        continue;
-      }
-
-      // Skip if equipment = $0 and the "skip zero equipment" toggle is on
-      if (skipZeroEquipment && equipmentCost === 0) {
-        if (results.skipped < 10) {
-          console.log(`[Push] Skipping service ${service.id} (${service.name?.substring(0, 30)}): equipment = $0 (skip-zero-equipment enabled, materials: $${materialsCost.toFixed(2)})`);
         } else if (results.skipped === 10) {
           console.log(`[Push] (Suppressing further skip logs...)`);
         }

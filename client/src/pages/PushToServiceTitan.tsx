@@ -145,8 +145,8 @@ export default function PushToServiceTitan() {
   const [commissionBurdenPercent, setCommissionBurdenPercent] = useState<string>("20.00");
   const [financingFeePercent, setFinancingFeePercent] = useState<string>("6.00");
   const [roundUp, setRoundUp] = useState<boolean>(false);
-  const [skipZeroEquipment, setSkipZeroEquipment] = useState<boolean>(() => {
-    try { return localStorage.getItem("push_skipZeroEquipment") !== "false"; } catch { return true; }
+  const [skipZeroME, setSkipZeroME] = useState<boolean>(() => {
+    try { return localStorage.getItem("push_skipZeroME") !== "false"; } catch { return true; }
   });
 
   // Initialize local settings from global settings when they load
@@ -913,7 +913,7 @@ export default function PushToServiceTitan() {
           commissionBurdenPercent: parseFloat(commissionBurdenPercent),
           financingFeePercent: parseFloat(financingFeePercent),
           roundUp,
-          skipZeroEquipment,
+          skipZeroME,
         }),
       });
       
@@ -1556,24 +1556,24 @@ export default function PushToServiceTitan() {
                     </div>
                   </div>
 
-                  {/* Skip Zero Equipment Toggle */}
+                  {/* Skip Zero M&E Toggle */}
                   <div className="flex items-center justify-between pt-4 border-t">
                     <div className="space-y-0.5">
-                      <Label htmlFor="skipZeroEquipment" className="text-sm font-medium cursor-pointer">
-                        Skip services with $0 equipment cost
+                      <Label htmlFor="skipZeroME" className="text-sm font-medium cursor-pointer">
+                        Skip services with no linked M&amp;E
                       </Label>
                       <p className="text-xs text-muted-foreground">
-                        Skip any service where equipment = $0, even if it has materials cost. Turn off to price those services using materials only.
+                        When on, services where both materials and equipment are $0 are skipped. Turn off to price those services from a $0 M&amp;E base.
                       </p>
                     </div>
                     <Switch
-                      id="skipZeroEquipment"
-                      checked={skipZeroEquipment}
+                      id="skipZeroME"
+                      checked={skipZeroME}
                       onCheckedChange={(val) => {
-                        setSkipZeroEquipment(val);
-                        try { localStorage.setItem("push_skipZeroEquipment", String(val)); } catch {}
+                        setSkipZeroME(val);
+                        try { localStorage.setItem("push_skipZeroME", String(val)); } catch {}
                       }}
-                      data-testid="switch-skip-zero-equipment"
+                      data-testid="switch-skip-zero-me"
                     />
                   </div>
 
