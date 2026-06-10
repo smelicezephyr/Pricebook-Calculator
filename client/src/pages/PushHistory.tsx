@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Loader2, Clock, CheckCircle2, XCircle, AlertCircle, Trash2, ArrowLeft, History as HistoryIcon, RefreshCw, RotateCcw, RotateCw, StopCircle, Ban, Download, ListOrdered } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -590,15 +591,58 @@ export default function PushHistoryPage() {
                         })()}
 
                         <div className="flex flex-wrap gap-2 text-xs">
-                          <Badge variant="outline">M&E: {item.targetMePercent}%</Badge>
-                          <Badge variant="outline">Tax: {item.salesTaxPercent}%</Badge>
-                          <Badge variant="outline">
-                            Labor: {item.laborMode === 'percent' 
-                              ? `${item.laborPercent}%` 
-                              : `$${item.laborHourlyRate}/hr × ${item.laborHours || 8}h`}
-                          </Badge>
-                          {item.roundUp && <Badge variant="outline">Round Up</Badge>}
-                          {item.skipZeroEquipment && <Badge variant="outline">Skip Zero-Equipment</Badge>}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="cursor-default">M&E: {item.targetMePercent}%</Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Target Materials &amp; Equipment margin — the gross profit percentage applied to equipment costs when calculating the sell price.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="cursor-default">Tax: {item.salesTaxPercent}%</Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Sales tax rate added on top of equipment costs during price calculation.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="cursor-default">
+                                Labor: {item.laborMode === 'percent' 
+                                  ? `${item.laborPercent}%` 
+                                  : `$${item.laborHourlyRate}/hr × ${item.laborHours || 8}h`}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>
+                                {item.laborMode === 'percent'
+                                  ? `Labor cost calculated as ${item.laborPercent}% of the total job price.`
+                                  : `Labor cost calculated at $${item.laborHourlyRate}/hr for ${item.laborHours || 8} hours.`}
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                          {item.roundUp && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="outline" className="cursor-default">Round Up</Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Final prices were rounded up to the nearest whole dollar.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                          {item.skipZeroEquipment && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="outline" className="cursor-default">Skip Zero-Equipment</Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Items with no equipment cost ($0) were skipped and not pushed to the pricebook.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                         </div>
 
                         {(item.status === 'completed' || item.status === 'failed' || item.status === 'cancelled' || item.status === 'reverted') && (
