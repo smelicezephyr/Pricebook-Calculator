@@ -146,7 +146,10 @@ export default function PushToServiceTitan() {
   const [financingFeePercent, setFinancingFeePercent] = useState<string>("6.00");
   const [roundUp, setRoundUp] = useState<boolean>(false);
   const [skipZeroEquipment, setSkipZeroEquipment] = useState<boolean>(() => {
-    try { return localStorage.getItem("push_skipZeroEquipment") !== "false"; } catch { return true; }
+    try { return localStorage.getItem("push_skipZeroEquipment") === "true"; } catch { return false; }
+  });
+  const [zeroEquipmentSetZeroPrice, setZeroEquipmentSetZeroPrice] = useState<boolean>(() => {
+    try { return localStorage.getItem("push_zeroEquipmentSetZeroPrice") === "true"; } catch { return false; }
   });
 
   // Initialize local settings from global settings when they load
@@ -914,6 +917,7 @@ export default function PushToServiceTitan() {
           financingFeePercent: parseFloat(financingFeePercent),
           roundUp,
           skipZeroEquipment,
+          zeroEquipmentSetZeroPrice: skipZeroEquipment ? zeroEquipmentSetZeroPrice : false,
         }),
       });
       
@@ -1557,24 +1561,48 @@ export default function PushToServiceTitan() {
                   </div>
 
                   {/* Skip Zero Equipment Toggle */}
-                  <div className="flex items-center justify-between pt-4 border-t">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="skipZeroEquipment" className="text-sm font-medium cursor-pointer">
-                        Skip services with $0 equipment cost
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        When on, services where equipment = $0 are skipped, even if they have a materials cost.
-                      </p>
+                  <div className="space-y-3 pt-4 border-t">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="skipZeroEquipment" className="text-sm font-medium cursor-pointer">
+                          Skip services with $0 equipment cost
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          When on, services where equipment = $0 are skipped, even if they have a materials cost.
+                        </p>
+                      </div>
+                      <Switch
+                        id="skipZeroEquipment"
+                        checked={skipZeroEquipment}
+                        onCheckedChange={(val) => {
+                          setSkipZeroEquipment(val);
+                          if (!val) setZeroEquipmentSetZeroPrice(false);
+                          try { localStorage.setItem("push_skipZeroEquipment", String(val)); } catch {}
+                        }}
+                        data-testid="switch-skip-zero-equipment"
+                      />
                     </div>
-                    <Switch
-                      id="skipZeroEquipment"
-                      checked={skipZeroEquipment}
-                      onCheckedChange={(val) => {
-                        setSkipZeroEquipment(val);
-                        try { localStorage.setItem("push_skipZeroEquipment", String(val)); } catch {}
-                      }}
-                      data-testid="switch-skip-zero-equipment"
-                    />
+                    {skipZeroEquipment && (
+                      <div className="flex items-center justify-between pl-4 py-3 bg-muted/50 rounded-lg border-l-2 border-primary/30">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="zeroEquipmentSetZeroPrice" className="text-sm font-medium cursor-pointer">
+                            Set those services to $0 price
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Instead of skipping, push $0 as the static price for all matching services.
+                          </p>
+                        </div>
+                        <Switch
+                          id="zeroEquipmentSetZeroPrice"
+                          checked={zeroEquipmentSetZeroPrice}
+                          onCheckedChange={(val) => {
+                            setZeroEquipmentSetZeroPrice(val);
+                            try { localStorage.setItem("push_zeroEquipmentSetZeroPrice", String(val)); } catch {}
+                          }}
+                          data-testid="switch-zero-equipment-set-zero-price"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Summary Badge */}

@@ -20,6 +20,7 @@ interface PushParams {
   commissionBurdenPercent: number;
   financingFeePercent: number;
   skipZeroEquipment?: boolean;
+  zeroEquipmentSetZeroPrice?: boolean;
 }
 
 interface PushResult {
@@ -46,7 +47,8 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
     commissionPercent,
     commissionBurdenPercent,
     financingFeePercent,
-    skipZeroEquipment = true,
+    skipZeroEquipment = false,
+    zeroEquipmentSetZeroPrice = false,
   } = params;
 
   const salesTaxRate = salesTaxPercent / 100;
@@ -332,14 +334,24 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
         console.log(`[DEBUG] Service ${service.id}: rawMeCost = $${rawMeCost.toFixed(2)} (materials: $${materialsCost.toFixed(2)}, equipment: $${equipmentCost.toFixed(2)})`);
       }
 
-      // Optionally skip services where equipment cost = $0 (regardless of materials)
+      // Handle services where equipment cost = $0
       if (skipZeroEquipment && equipmentCost === 0) {
-        if (results.skipped < 10) {
-          console.log(`[Push] Skipping service ${service.id} (${service.name?.substring(0, 30)}): equipment = $0 (materials: $${materialsCost.toFixed(2)})`);
-        } else if (results.skipped === 10) {
-          console.log(`[Push] (Suppressing further skip logs...)`);
+        if (zeroEquipmentSetZeroPrice) {
+          // Actively push $0 as the static price for this service
+          const currentPrice = service.price || 0;
+          const currentCost = service.cost || 0;
+          if (currentPrice !== 0) {
+            pendingUpdates.push({ service, roundedPrice: 0, roundedCost: 0, currentPrice, currentCost });
+          }
+        } else {
+          // Skip entirely
+          if (results.skipped < 10) {
+            console.log(`[Push] Skipping service ${service.id} (${service.name?.substring(0, 30)}): equipment = $0 (materials: $${materialsCost.toFixed(2)})`);
+          } else if (results.skipped === 10) {
+            console.log(`[Push] (Suppressing further skip logs...)`);
+          }
+          results.skipped++;
         }
-        results.skipped++;
         continue;
       }
 
@@ -466,7 +478,7 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
 }
 
 /** Transient options stored at queue-time so processQueuedPush can use them later. */
-export const pendingPushExtras = new Map<number, { skipZeroEquipment: boolean }>();
+export const pendingPushExtras = new Map<number, { skipZeroEquipment: boolean; zeroEquipmentSetZeroPrice: boolean }>();
 
 export async function processQueuedPush(historyId: number): Promise<void> {
   const historyItem = await storage.getPushHistoryItem(historyId);
@@ -520,7 +532,8 @@ export async function processQueuedPush(historyId: number): Promise<void> {
       commissionPercent: parseFloat(historyItem.commissionPercent),
       commissionBurdenPercent: parseFloat(historyItem.commissionBurdenPercent),
       financingFeePercent: parseFloat(historyItem.financingFeePercent),
-      skipZeroEquipment: pendingPushExtras.get(historyId)?.skipZeroEquipment ?? true,
+      skipZeroEquipment: pendingPushExtras.get(historyId)?.skipZeroEquipment ?? false,
+      zeroEquipmentSetZeroPrice: pendingPushExtras.get(historyId)?.zeroEquipmentSetZeroPrice ?? false,
     }, tenant);
     pendingPushExtras.delete(historyId);
 

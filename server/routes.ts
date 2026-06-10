@@ -1259,8 +1259,10 @@ export async function registerRoutes(
       commissionBurdenPercent: clientCommissionBurdenPercent,
       financingFeePercent: clientFinancingFeePercent,
       skipZeroEquipment: clientSkipZeroEquipment,
+      zeroEquipmentSetZeroPrice: clientZeroEquipmentSetZeroPrice,
     } = req.body;
-    const skipZeroEquipment = clientSkipZeroEquipment === undefined ? true : Boolean(clientSkipZeroEquipment);
+    const skipZeroEquipment = Boolean(clientSkipZeroEquipment);
+    const zeroEquipmentSetZeroPrice = Boolean(clientZeroEquipmentSetZeroPrice);
     
     if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
       return res.status(400).json({ message: "No categories selected" });
@@ -1327,7 +1329,7 @@ export async function registerRoutes(
       }
       
       // Persist transient options so processQueuedPush can use them
-      pendingPushExtras.set(historyId, { skipZeroEquipment });
+      pendingPushExtras.set(historyId, { skipZeroEquipment, zeroEquipmentSetZeroPrice });
 
       // Route to the correct lane and get back the position
       const { position: queuePosition, lane } = pushQueue.addToQueue(tenantId, historyId);
@@ -1401,6 +1403,7 @@ export async function registerRoutes(
       commissionBurdenPercent,
       financingFeePercent,
       skipZeroEquipment,
+      zeroEquipmentSetZeroPrice,
     }, tenant).then(async (results) => {
       let finalStatus: 'completed' | 'cancelled' = 'completed';
       if (results.cancelled) {
@@ -1794,7 +1797,7 @@ export async function registerRoutes(
       if (pushQueue.isActive(tenantId) || !pushQueue.canStart()) {
         const newHistory = await storage.createPushHistory({ ...historyBase, status: 'pending' });
         newHistoryId = newHistory.id;
-        pendingPushExtras.set(newHistoryId, { skipZeroEquipment: true });
+        pendingPushExtras.set(newHistoryId, { skipZeroEquipment: false, zeroEquipmentSetZeroPrice: false });
         pushQueue.addToQueue(tenantId, newHistoryId);
         queued = true;
       } else {
