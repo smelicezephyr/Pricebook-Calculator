@@ -598,6 +598,7 @@ export default function PushHistoryPage() {
                               : `$${item.laborHourlyRate}/hr × ${item.laborHours || 8}h`}
                           </Badge>
                           {item.roundUp && <Badge variant="outline">Round Up</Badge>}
+                          {item.skipZeroEquipment && <Badge variant="outline">Skip Zero-Equipment</Badge>}
                         </div>
 
                         {(item.status === 'completed' || item.status === 'failed' || item.status === 'cancelled' || item.status === 'reverted') && (
