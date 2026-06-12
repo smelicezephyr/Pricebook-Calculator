@@ -158,7 +158,6 @@ export default function PushToServiceTitan() {
   const [repairUpdateSalesTaxPercent, setRepairUpdateSalesTaxPercent] = useState<string>(settings?.salesTaxPercent || "6.35");
   const [repairUpdateLaborMode, setRepairUpdateLaborMode] = useState<"hours" | "percent">("hours");
   const [repairUpdateLaborHourlyRate, setRepairUpdateLaborHourlyRate] = useState<string>("125.00");
-  const [repairUpdateLaborHours, setRepairUpdateLaborHours] = useState<string>("1");
   const [repairUpdateBurdenPercent, setRepairUpdateBurdenPercent] = useState<string>("20.00");
   const [repairUpdateCommissionPercent, setRepairUpdateCommissionPercent] = useState<string>("10.00");
   const [repairUpdateFinancingFeePercent, setRepairUpdateFinancingFeePercent] = useState<string>("4.00");
@@ -961,7 +960,6 @@ export default function PushToServiceTitan() {
           laborHourlyRate: parseFloat(repairUpdateLaborHourlyRate),
           laborBurdenPercent: parseFloat(repairUpdateBurdenPercent),
           commissionPercent: parseFloat(repairUpdateCommissionPercent),
-          laborHours: parseFloat(repairUpdateLaborHours) || 1,
           commissionBurdenPercent: parseFloat(repairUpdateBurdenPercent),
           financingFeePercent: parseFloat(repairUpdateFinancingFeePercent),
           roundUp: repairUpdateRoundUp,
@@ -2068,39 +2066,23 @@ export default function PushToServiceTitan() {
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
                         {repairUpdateLaborMode === "hours" && (
-                          <>
-                            <div className="space-y-2">
-                              <Label htmlFor="repairUpdateLaborHourlyRate">Hourly Rate</Label>
-                              <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                                <Input
-                                  id="repairUpdateLaborHourlyRate"
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  value={repairUpdateLaborHourlyRate}
-                                  onChange={(e) => setRepairUpdateLaborHourlyRate(e.target.value)}
-                                  className="pl-8"
-                                  data-testid="input-repair-update-labor-hourly-rate"
-                                />
-                              </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="repairUpdateLaborHourlyRate">Hourly Rate</Label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                              <Input
+                                id="repairUpdateLaborHourlyRate"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={repairUpdateLaborHourlyRate}
+                                onChange={(e) => setRepairUpdateLaborHourlyRate(e.target.value)}
+                                className="pl-8"
+                                data-testid="input-repair-update-labor-hourly-rate"
+                              />
                             </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="repairUpdateLaborHours">Labor Hours</Label>
-                              <div className="relative">
-                                <Input
-                                  id="repairUpdateLaborHours"
-                                  type="number"
-                                  step="0.25"
-                                  min="0"
-                                  value={repairUpdateLaborHours}
-                                  onChange={(e) => setRepairUpdateLaborHours(e.target.value)}
-                                  data-testid="input-repair-update-labor-hours"
-                                />
-                              </div>
-                              <p className="text-xs text-muted-foreground">Applied uniformly to every service</p>
-                            </div>
-                          </>
+                            <p className="text-xs text-muted-foreground">Rate × each service's hours from ServiceTitan</p>
+                          </div>
                         )}
                         {repairUpdateLaborMode === "percent" && (
                           <div className="col-span-full">
@@ -2208,7 +2190,7 @@ export default function PushToServiceTitan() {
                       <Badge variant="secondary" className="text-xs">
                         {repairUpdateLaborMode === "percent"
                           ? "Production Pay"
-                          : `$${repairUpdateLaborHourlyRate}/hr × ${repairUpdateLaborHours}h`}
+                          : `$${repairUpdateLaborHourlyRate}/hr`}
                       </Badge>
                       <Badge variant="secondary" className="text-xs">Burden: {repairUpdateBurdenPercent}%</Badge>
                       <Badge variant="secondary" className="text-xs">Commission: {repairUpdateCommissionPercent}%</Badge>

@@ -487,7 +487,6 @@ interface RepairPushParams {
   salesTaxPercent: number;
   laborMode: string;
   laborHourlyRate: number;
-  laborHours: number;
   laborBurdenPercent: number;
   commissionPercent: number;
   commissionBurdenPercent: number;
@@ -505,7 +504,6 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
     salesTaxPercent,
     laborMode,
     laborHourlyRate,
-    laborHours: fixedLaborHours,
     laborBurdenPercent,
     commissionPercent,
     financingFeePercent,
@@ -656,7 +654,9 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
 
       let subtotal3: number;
       if (laborMode === 'hours') {
-        const burdenedLabor = fixedLaborHours * laborHourlyRate * (1 + burdenRate);
+        // Hours come from the ServiceTitan service record (same as materials/equipment costs)
+        const serviceHours = service.hours || 0;
+        const burdenedLabor = serviceHours * laborHourlyRate * (1 + burdenRate);
         subtotal3 = subtotal2 + burdenedLabor;
       } else {
         subtotal3 = subtotal2;
@@ -788,7 +788,6 @@ export async function processQueuedPush(historyId: number): Promise<void> {
           salesTaxPercent: parseFloat(historyItem.salesTaxPercent),
           laborMode: historyItem.laborMode,
           laborHourlyRate: parseFloat(historyItem.laborHourlyRate),
-          laborHours: parseFloat(historyItem.laborHours ?? '1'),
           laborBurdenPercent: parseFloat(historyItem.laborBurdenPercent),
           commissionPercent: parseFloat(historyItem.commissionPercent),
           commissionBurdenPercent: parseFloat(historyItem.commissionBurdenPercent),
