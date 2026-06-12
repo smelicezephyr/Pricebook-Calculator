@@ -597,6 +597,12 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
     const equipmentCostMap = new Map<number, number>();
     for (const equip of allEquipment) equipmentCostMap.set(equip.id, equip.cost || 0);
 
+    // Pinpoint check: is skuId 172957757 ($18 capacitor) in the catalog?
+    const PIN_SKU = 172957757;
+    const pinCost = materialCostMap.get(PIN_SKU);
+    const pinMat = allMaterials.find(m => m.id === PIN_SKU);
+    console.log(`[RepairPush DEBUG] PIN_SKU ${PIN_SKU}: inMap=${materialCostMap.has(PIN_SKU)}, mapCost=${pinCost}, catalogEntry=${JSON.stringify(pinMat)}, totalMaterials=${allMaterials.length}`);
+
     const totalServices = allServices.length;
     pushProgressEmitter.startPhase(tenantId, 'updating');
     emitProgress(tenantId, 'updating', `Processing ${totalServices} services...`, 0, totalServices);
