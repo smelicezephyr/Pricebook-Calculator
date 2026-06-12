@@ -645,10 +645,12 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
 
       const rawParts = materialsCost + equipmentCost;
 
-      // Debug: log services with small parts costs (likely repair items) or priced near $300-$400
-      const isDebugTarget = (rawParts > 0 && rawParts < 30) || (service.price && service.price >= 300 && service.price <= 420);
+      // Debug: log the specific problem service + services with small parts or priced near $300-$420
+      const TARGET_SERVICE_ID = 151054153;
+      const isDebugTarget = service.id === TARGET_SERVICE_ID || (rawParts > 0 && rawParts < 30) || (service.price && service.price >= 300 && service.price <= 420);
       if (isDebugTarget) {
-        console.log(`[RepairPush DEBUG] svc=${service.id}(${service.name?.substring(0,25)}) hrs=${service.hours} rawParts=$${rawParts.toFixed(2)} matSource=${matSource} curPrice=${service.price}`);
+        const matDetail = service.serviceMaterials ? JSON.stringify(service.serviceMaterials.map(m => ({ skuId: m.skuId, qty: m.quantity, catalogCost: materialCostMap.get(m.skuId) }))) : '[]';
+        console.log(`[RepairPush DEBUG] svc=${service.id} hrs=${service.hours} rawParts=$${rawParts.toFixed(2)} matSource=${matSource} curPrice=${service.price} matDetail=${matDetail}`);
       }
 
       if (skipNoMaterials && rawParts === 0) {
