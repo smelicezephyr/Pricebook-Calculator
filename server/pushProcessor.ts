@@ -627,11 +627,14 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
 
       let materialsCost = 0;
       let equipmentCost = 0;
+      let matSource = 'none';
 
       if (service.materials && service.materials.length > 0) {
         for (const mat of service.materials) materialsCost += (mat.cost || 0) * (mat.quantity || 1);
+        matSource = `embedded(${service.materials.length},first.cost=${service.materials[0]?.cost})`;
       } else if (service.serviceMaterials && service.serviceMaterials.length > 0) {
         for (const mat of service.serviceMaterials) materialsCost += (materialCostMap.get(mat.skuId) || 0) * (mat.quantity || 1);
+        matSource = `lookup(skuId=${service.serviceMaterials[0]?.skuId},catalogCost=${materialCostMap.get(service.serviceMaterials[0]?.skuId)})`;
       }
 
       if (service.equipment && service.equipment.length > 0) {
@@ -641,6 +644,12 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
       }
 
       const rawParts = materialsCost + equipmentCost;
+
+      // Debug: log services with small parts costs (likely repair items) or priced near $300-$400
+      const isDebugTarget = (rawParts > 0 && rawParts < 30) || (service.price && service.price >= 300 && service.price <= 420);
+      if (isDebugTarget) {
+        console.log(`[RepairPush DEBUG] svc=${service.id}(${service.name?.substring(0,25)}) hrs=${service.hours} rawParts=$${rawParts.toFixed(2)} matSource=${matSource} curPrice=${service.price}`);
+      }
 
       if (skipNoMaterials && rawParts === 0) {
         results.skipped++;
@@ -658,6 +667,10 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
         const serviceHours = service.hours || 0;
         const burdenedLabor = serviceHours * laborHourlyRate * (1 + burdenRate);
         subtotal3 = subtotal2 + burdenedLabor;
+        if (isDebugTarget) {
+          const den = 1 - commissionRate * (1 + burdenRate) - financingRate;
+          console.log(`[RepairPush DEBUG] svc=${service.id} serviceHours=${serviceHours} burdenedLabor=$${burdenedLabor.toFixed(2)} subtotal2=$${subtotal2.toFixed(2)} subtotal3=$${subtotal3.toFixed(2)} den=${den.toFixed(4)} rawPrice=${(subtotal3/den).toFixed(4)}`);
+        }
       } else {
         subtotal3 = subtotal2;
       }
