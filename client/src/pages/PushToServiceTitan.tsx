@@ -2192,6 +2192,12 @@ export default function PushToServiceTitan() {
                           data-testid="switch-repair-update-skip-no-materials"
                         />
                       </div>
+                      {!repairUpdateSkipNoMaterials && (
+                        <div className="flex items-start gap-2 px-3 py-2.5 rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs" data-testid="notice-labor-only-services">
+                          <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                          <span>Please note: Any service where materials or equipment are listed at $0 will be processed as a labor-only service.</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Summary Badges */}
