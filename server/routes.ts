@@ -8,7 +8,7 @@ import { z } from "zod";
 import { ServiceTitanAPI } from "./servicetitan";
 import { pushProgressEmitter, emitProgress } from "./pushProgress";
 import { pushQueue, withRetry, MAX_CONCURRENT_PUSHES } from "./pushQueue";
-import { processPush, pendingPushExtras } from "./pushProcessor";
+import { processPush, processRepairPush, pendingPushExtras } from "./pushProcessor";
 import type { PushHistory } from "@shared/schema";
 import { sendPushCompleteNotification } from "./email";
 
@@ -1465,6 +1465,148 @@ export async function registerRoutes(
     });
   });
 
+  // Update Repairs Push — uses Repair Calculator formula
+  app.post("/api/servicetitan/:tenantId/push-repair", requireUserOrAdmin, async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    if (isNaN(tenantId)) {
+      return res.status(400).json({ message: "Invalid tenant ID" });
+    }
+
+    const {
+      categoryIds,
+      materialMarkupPercent,
+      salesTaxPercent: clientSalesTaxPercent,
+      laborMode: clientLaborMode,
+      laborHourlyRate: clientLaborHourlyRate,
+      laborBurdenPercent: clientLaborBurdenPercent,
+      commissionPercent: clientCommissionPercent,
+      commissionBurdenPercent: clientCommissionBurdenPercent,
+      financingFeePercent: clientFinancingFeePercent,
+      roundUp,
+      skipNoMaterials: clientSkipNoMaterials,
+    } = req.body;
+
+    if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
+      return res.status(400).json({ message: "No categories selected" });
+    }
+    if (typeof materialMarkupPercent !== 'number' || materialMarkupPercent < 0) {
+      return res.status(400).json({ message: "Invalid material markup percent" });
+    }
+
+    const tenant = await storage.getTenant(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+    if (!(await canAccessTenant(req, tenantId))) {
+      return res.status(403).json({ message: "You don't have access to this tenant" });
+    }
+    if (req.user?.role !== "admin" && req.user?.pushPermission === "add_new_only") {
+      return res.status(403).json({ message: "You don't have permission to reprice the pricebook" });
+    }
+
+    const salesTaxPercent = clientSalesTaxPercent ?? 6.35;
+    const laborMode = clientLaborMode || 'hours';
+    const laborHourlyRate = clientLaborHourlyRate ?? 125;
+    const laborBurdenPercent = clientLaborBurdenPercent ?? 20;
+    const commissionPercent = clientCommissionPercent ?? 10;
+    const commissionBurdenPercent = clientCommissionBurdenPercent ?? 20;
+    const financingFeePercent = clientFinancingFeePercent ?? 4;
+    const shouldRoundUp = Boolean(roundUp);
+    const skipNoMaterials = Boolean(clientSkipNoMaterials);
+
+    const historyBase = {
+      tenantId,
+      pushType: 'update_repair',
+      categoryIds: JSON.stringify(categoryIds),
+      targetMePercent: materialMarkupPercent.toString(), // repurposed: stores markup %
+      salesTaxPercent: salesTaxPercent.toString(),
+      laborMode,
+      laborHourlyRate: laborHourlyRate.toString(),
+      laborPercent: '0',
+      laborBurdenPercent: laborBurdenPercent.toString(),
+      commissionPercent: commissionPercent.toString(),
+      commissionBurdenPercent: commissionBurdenPercent.toString(),
+      financingFeePercent: financingFeePercent.toString(),
+      roundUp: shouldRoundUp,
+      skipZeroEquipment: skipNoMaterials,
+      pushedByUserId: req.user?.id ?? null,
+      pushedByName: req.user?.name ?? null,
+    };
+
+    let historyId: number;
+
+    if (pushQueue.isActive(tenantId) || !pushQueue.canStart()) {
+      const history = await storage.createPushHistory({ ...historyBase, status: 'pending' });
+      historyId = history.id;
+      pendingPushExtras.set(historyId, { skipZeroEquipment: skipNoMaterials, zeroEquipmentSetZeroPrice: false });
+      const { position: queuePosition, lane } = pushQueue.addToQueue(tenantId, historyId);
+      const queueMsg = lane === 'tenant'
+        ? `Repair push queued at position ${queuePosition} for this tenant.`
+        : `Repair push queued at position ${queuePosition}.`;
+      return res.status(202).json({ message: queueMsg, queued: true, historyId, queuePosition, activeCount: pushQueue.getActiveCount(), maxConcurrent: MAX_CONCURRENT_PUSHES });
+    }
+
+    const history = await storage.createPushHistory({ ...historyBase, status: 'in_progress' });
+    historyId = history.id;
+    await storage.updatePushHistory(historyId, { startedAt: new Date() });
+    pushQueue.startPush(tenantId, historyId);
+
+    res.json({ message: "Repair push started", historyId, queued: false });
+
+    processRepairPush({
+      tenantId,
+      historyId,
+      categoryIds,
+      materialMarkupPercent,
+      salesTaxPercent,
+      laborMode,
+      laborHourlyRate,
+      laborBurdenPercent,
+      commissionPercent,
+      commissionBurdenPercent,
+      financingFeePercent,
+      roundUp: shouldRoundUp,
+      skipNoMaterials,
+    }, tenant).then(async (results) => {
+      const finalStatus: 'completed' | 'cancelled' = results.cancelled ? 'cancelled' : 'completed';
+      await storage.updatePushHistory(historyId, {
+        status: finalStatus,
+        completedAt: new Date(),
+        processedCount: results.processed,
+        updatedCount: results.updated,
+        skippedCount: results.skipped,
+        errorCount: results.errors.length,
+        errorMessages: results.errors.length > 0 ? JSON.stringify(results.errors) : null,
+        originalValues: results.originalValues,
+      });
+      storage.getAdminEmailSubscribers().then(subscribers => {
+        if (subscribers.length > 0) {
+          sendPushCompleteNotification(subscribers.map(u => ({ email: u.email, name: u.name })), {
+            tenantName: tenant.name,
+            pushedByName: req.user?.name ?? 'Unknown',
+            status: finalStatus,
+            processedCount: results.processed,
+            updatedCount: results.updated,
+            skippedCount: results.skipped,
+            errorCount: results.errors.length,
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+      pushQueue.completePush(tenantId);
+      console.log(`[RepairPush] Completed for tenant ${tenantId} (history ${historyId}): ${results.updated} updated, ${results.skipped} skipped, ${results.errors.length} errors`);
+    }).catch(async (err: any) => {
+      await storage.updatePushHistory(historyId, {
+        status: 'failed',
+        completedAt: new Date(),
+        errorMessages: JSON.stringify([err.message || 'Repair push failed']),
+        errorCount: 1,
+      });
+      pushQueue.completePush(tenantId);
+      emitProgress(tenantId, 'error', `Repair push failed: ${err.message}`, 0, 0);
+      console.error(`[RepairPush] Failed for tenant ${tenantId} (history ${historyId}):`, err.message);
+    });
+  });
+
   // Push History API endpoints
   app.get("/api/push-history", requireUserOrAdmin, async (req, res) => {
     try {
@@ -1772,9 +1914,11 @@ export async function registerRoutes(
       const roundUp = historyItem.roundUp;
       const skipZeroEquipment = historyItem.skipZeroEquipment ?? false;
 
+      const isRepairRetry = historyItem.pushType === 'update_repair';
+
       const historyBase = {
         tenantId,
-        pushType: 'update',
+        pushType: historyItem.pushType ?? 'update',
         categoryIds: JSON.stringify(categoryIds),
         targetMePercent: targetMePercent.toString(),
         salesTaxPercent: salesTaxPercent.toString(),
@@ -1797,7 +1941,7 @@ export async function registerRoutes(
       if (pushQueue.isActive(tenantId) || !pushQueue.canStart()) {
         const newHistory = await storage.createPushHistory({ ...historyBase, status: 'pending' });
         newHistoryId = newHistory.id;
-        pendingPushExtras.set(newHistoryId, { skipZeroEquipment: false, zeroEquipmentSetZeroPrice: false });
+        pendingPushExtras.set(newHistoryId, { skipZeroEquipment, zeroEquipmentSetZeroPrice: false });
         pushQueue.addToQueue(tenantId, newHistoryId);
         queued = true;
       } else {
@@ -1806,22 +1950,40 @@ export async function registerRoutes(
         await storage.updatePushHistory(newHistoryId, { startedAt: new Date() });
         pushQueue.startPush(tenantId, newHistoryId);
 
-        processPush({
-          tenantId,
-          historyId: newHistoryId,
-          categoryIds,
-          targetMePercent,
-          roundUp,
-          salesTaxPercent,
-          laborMode,
-          laborPercent,
-          laborHourlyRate,
-          laborBurdenPercent,
-          commissionPercent,
-          commissionBurdenPercent,
-          financingFeePercent,
-          skipZeroEquipment,
-        }, tenant).then(async (results) => {
+        const retryPromise = isRepairRetry
+          ? processRepairPush({
+              tenantId,
+              historyId: newHistoryId,
+              categoryIds,
+              materialMarkupPercent: targetMePercent, // stored in targetMePercent column
+              salesTaxPercent,
+              laborMode,
+              laborHourlyRate,
+              laborBurdenPercent,
+              commissionPercent,
+              commissionBurdenPercent,
+              financingFeePercent,
+              roundUp,
+              skipNoMaterials: skipZeroEquipment,
+            }, tenant)
+          : processPush({
+              tenantId,
+              historyId: newHistoryId,
+              categoryIds,
+              targetMePercent,
+              roundUp,
+              salesTaxPercent,
+              laborMode,
+              laborPercent,
+              laborHourlyRate,
+              laborBurdenPercent,
+              commissionPercent,
+              commissionBurdenPercent,
+              financingFeePercent,
+              skipZeroEquipment,
+            }, tenant);
+
+        retryPromise.then(async (results) => {
           const finalStatus: 'completed' | 'cancelled' = results.cancelled ? 'cancelled' : 'completed';
           await storage.updatePushHistory(newHistoryId, {
             status: finalStatus,

@@ -591,12 +591,28 @@ export default function PushHistoryPage() {
                         })()}
 
                         <div className="flex flex-wrap gap-2 text-xs">
+                          {item.pushType === 'update_repair' && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="outline" className="cursor-default bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300">Update Repairs</Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Repair bulk reprice — uses the Repair Calculator formula (parts markup + labor + commission + financing).</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Badge variant="outline" className="cursor-default">M&E: {item.targetMePercent}%</Badge>
+                              <Badge variant="outline" className="cursor-default">
+                                {item.pushType === 'update_repair' ? `Markup: ${item.targetMePercent}%` : `M&E: ${item.targetMePercent}%`}
+                              </Badge>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>Target Materials &amp; Equipment margin — the gross profit percentage applied to equipment costs when calculating the sell price.</p>
+                              <p>
+                                {item.pushType === 'update_repair'
+                                  ? 'Material markup percentage applied to parts + tax in the repair pricing formula.'
+                                  : 'Target Materials & Equipment margin — the gross profit percentage applied to equipment costs when calculating the sell price.'}
+                              </p>
                             </TooltipContent>
                           </Tooltip>
                           <Tooltip>
@@ -604,22 +620,30 @@ export default function PushHistoryPage() {
                               <Badge variant="outline" className="cursor-default">Tax: {item.salesTaxPercent}%</Badge>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>Sales tax rate added on top of equipment costs during price calculation.</p>
+                              <p>Sales tax rate applied to parts/equipment costs during price calculation.</p>
                             </TooltipContent>
                           </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Badge variant="outline" className="cursor-default">
-                                Labor: {item.laborMode === 'percent' 
-                                  ? `${item.laborPercent}%` 
-                                  : `$${item.laborHourlyRate}/hr × ${item.laborHours || 8}h`}
+                                {item.pushType === 'update_repair'
+                                  ? item.laborMode === 'percent'
+                                    ? 'Labor: Production Pay'
+                                    : `Labor: $${item.laborHourlyRate}/hr`
+                                  : item.laborMode === 'percent'
+                                    ? `${item.laborPercent}%`
+                                    : `$${item.laborHourlyRate}/hr × ${item.laborHours || 8}h`}
                               </Badge>
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>
-                                {item.laborMode === 'percent'
-                                  ? `Labor cost calculated as ${item.laborPercent}% of the total job price.`
-                                  : `Labor cost calculated at $${item.laborHourlyRate}/hr for ${item.laborHours || 8} hours.`}
+                                {item.pushType === 'update_repair'
+                                  ? item.laborMode === 'percent'
+                                    ? 'Production pay mode — no direct labor added; overhead covered by commission/financing.'
+                                    : `Labor at $${item.laborHourlyRate}/hr multiplied by each service's hours field.`
+                                  : item.laborMode === 'percent'
+                                    ? `Labor cost calculated as ${item.laborPercent}% of the total job price.`
+                                    : `Labor cost calculated at $${item.laborHourlyRate}/hr for ${item.laborHours || 8} hours.`}
                               </p>
                             </TooltipContent>
                           </Tooltip>
@@ -636,10 +660,16 @@ export default function PushHistoryPage() {
                           {item.skipZeroEquipment && (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Badge variant="outline" className="cursor-default">Skip Zero-Equipment</Badge>
+                                <Badge variant="outline" className="cursor-default">
+                                  {item.pushType === 'update_repair' ? 'Skip $0 Parts' : 'Skip Zero-Equipment'}
+                                </Badge>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>Items with no equipment cost ($0) were skipped and not pushed to the pricebook.</p>
+                                <p>
+                                  {item.pushType === 'update_repair'
+                                    ? 'Services with no parts cost ($0 materials + equipment) were skipped.'
+                                    : 'Items with no equipment cost ($0) were skipped and not pushed to the pricebook.'}
+                                </p>
                               </TooltipContent>
                             </Tooltip>
                           )}

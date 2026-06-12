@@ -477,6 +477,263 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
   }
 }
 
+// ─── Repair Push ──────────────────────────────────────────────────────────────
+
+interface RepairPushParams {
+  tenantId: number;
+  historyId: number;
+  categoryIds: number[];
+  materialMarkupPercent: number;
+  salesTaxPercent: number;
+  laborMode: string;
+  laborHourlyRate: number;
+  laborBurdenPercent: number;
+  commissionPercent: number;
+  commissionBurdenPercent: number;
+  financingFeePercent: number;
+  roundUp: boolean;
+  skipNoMaterials?: boolean;
+}
+
+export async function processRepairPush(params: RepairPushParams, tenant: Tenant): Promise<PushResult> {
+  const {
+    tenantId,
+    historyId,
+    categoryIds,
+    materialMarkupPercent,
+    salesTaxPercent,
+    laborMode,
+    laborHourlyRate,
+    laborBurdenPercent,
+    commissionPercent,
+    commissionBurdenPercent,
+    financingFeePercent,
+    roundUp,
+    skipNoMaterials = false,
+  } = params;
+
+  const markupRate = materialMarkupPercent / 100;
+  const taxRate = salesTaxPercent / 100;
+  const burdenRate = laborBurdenPercent / 100;
+  const commissionRate = commissionPercent / 100;
+  const commissionBurdenRate = commissionBurdenPercent / 100;
+  const financingRate = financingFeePercent / 100;
+
+  console.log(`[RepairPush] Starting for tenant ${tenantId} (history ${historyId}), markup: ${materialMarkupPercent}%, laborMode: ${laborMode}, skipNoMaterials: ${skipNoMaterials}`);
+
+  pushProgressEmitter.startPush(tenantId);
+  pushProgressEmitter.startPhase(tenantId, 'services');
+  emitProgress(tenantId, 'services', 'Starting repair push...', 0, 100);
+
+  const stApi = new ServiceTitanAPI(tenant);
+  const results: PushResult = { processed: 0, updated: 0, skipped: 0, errors: [], originalValues: null };
+
+  try {
+    emitProgress(tenantId, 'services', 'Loading services from selected categories...', 0, categoryIds.length);
+
+    const allServices: any[] = [];
+    const selectedCategorySet = new Set(categoryIds);
+    const seenServiceIds = new Set<number>();
+
+    let allCategoriesMap = new Map<number, { id: number; parentId?: number | null }>();
+    try {
+      const allCats = await stApi.getCategories();
+      for (const cat of allCats) allCategoriesMap.set(cat.id, { id: cat.id, parentId: cat.parentId });
+    } catch (err: any) {
+      console.log(`[RepairPush] Warning: Could not fetch category tree: ${err.message}`);
+    }
+
+    const categoriesToQuery: number[] = [];
+    for (const catId of categoryIds) {
+      const hasSelectedChild = categoryIds.some(otherId => {
+        if (otherId === catId) return false;
+        let current = allCategoriesMap.get(otherId);
+        while (current && current.parentId) {
+          if (current.parentId === catId) return true;
+          current = allCategoriesMap.get(current.parentId);
+        }
+        return false;
+      });
+      if (!hasSelectedChild) categoriesToQuery.push(catId);
+    }
+
+    for (let i = 0; i < categoriesToQuery.length; i++) {
+      const categoryId = categoriesToQuery[i];
+      try {
+        const services = await stApi.getServices(categoryId);
+        for (const service of services) {
+          if (seenServiceIds.has(service.id)) continue;
+          const serviceCatId = service.categoryId
+            || (service.categories && service.categories.length > 0 ? service.categories[0].id : null);
+          if (serviceCatId && !selectedCategorySet.has(serviceCatId)) continue;
+          seenServiceIds.add(service.id);
+          allServices.push(service);
+        }
+        emitProgress(tenantId, 'services', `Loaded ${allServices.length} services from ${i + 1}/${categoriesToQuery.length} categories`, i + 1, categoriesToQuery.length);
+      } catch (err: any) {
+        results.errors.push(`Failed to fetch category ${categoryId}: ${err.message}`);
+      }
+    }
+
+    if (allServices.length === 0) {
+      emitProgress(tenantId, 'complete', 'No services found in selected categories', 0, 0);
+      return results;
+    }
+
+    pushProgressEmitter.startPhase(tenantId, 'materials');
+    emitProgress(tenantId, 'materials', 'Loading materials catalog...', 0, 100);
+    const allMaterials = await stApi.getMaterials((page) => {
+      emitProgress(tenantId, 'materials', `Loading materials catalog (page ${page})...`, page * 10, 100);
+    });
+    emitProgress(tenantId, 'materials', `Loaded ${allMaterials.length} materials`, 100, 100);
+
+    pushProgressEmitter.startPhase(tenantId, 'equipment');
+    emitProgress(tenantId, 'equipment', 'Loading equipment catalog...', 0, 100);
+    const allEquipment = await stApi.getEquipment((page) => {
+      emitProgress(tenantId, 'equipment', `Loading equipment catalog (page ${page})...`, page * 10, 100);
+    });
+    emitProgress(tenantId, 'equipment', `Loaded ${allEquipment.length} equipment`, 100, 100);
+
+    const materialCostMap = new Map<number, number>();
+    for (const mat of allMaterials) materialCostMap.set(mat.id, mat.cost || 0);
+    const equipmentCostMap = new Map<number, number>();
+    for (const equip of allEquipment) equipmentCostMap.set(equip.id, equip.cost || 0);
+
+    const totalServices = allServices.length;
+    pushProgressEmitter.startPhase(tenantId, 'updating');
+    emitProgress(tenantId, 'updating', `Processing ${totalServices} services...`, 0, totalServices);
+
+    const originalValues: Array<{ serviceId: number; serviceName?: string; originalPrice: number; originalCost: number; newPrice?: number }> = [];
+    let wasCancelled = false;
+    pushProgressEmitter.clearCancel(tenantId);
+
+    interface PendingRepairUpdate {
+      service: any;
+      roundedPrice: number;
+      currentPrice: number;
+      currentCost: number;
+    }
+    const pendingUpdates: PendingRepairUpdate[] = [];
+
+    for (const service of allServices) {
+      if (results.processed % 50 === 0 && pushProgressEmitter.isCancelled(tenantId)) {
+        wasCancelled = true;
+        break;
+      }
+
+      results.processed++;
+
+      if (results.processed % 100 === 0 || results.processed === totalServices) {
+        emitProgress(tenantId, 'updating', `Calculating ${results.processed} of ${totalServices} services...`, results.processed, totalServices);
+      }
+
+      let materialsCost = 0;
+      let equipmentCost = 0;
+
+      if (service.materials && service.materials.length > 0) {
+        for (const mat of service.materials) materialsCost += (mat.cost || 0) * (mat.quantity || 1);
+      } else if (service.serviceMaterials && service.serviceMaterials.length > 0) {
+        for (const mat of service.serviceMaterials) materialsCost += (materialCostMap.get(mat.skuId) || 0) * (mat.quantity || 1);
+      }
+
+      if (service.equipment && service.equipment.length > 0) {
+        for (const equip of service.equipment) equipmentCost += (equip.cost || 0) * (equip.quantity || 1);
+      } else if (service.serviceEquipment && service.serviceEquipment.length > 0) {
+        for (const equip of service.serviceEquipment) equipmentCost += (equipmentCostMap.get(equip.skuId) || 0) * (equip.quantity || 1);
+      }
+
+      const rawParts = materialsCost + equipmentCost;
+
+      if (skipNoMaterials && rawParts === 0) {
+        results.skipped++;
+        continue;
+      }
+
+      // Repair calculator formula
+      const salesTax = rawParts * taxRate;
+      const subtotal1 = rawParts + salesTax;
+      const subtotal2 = subtotal1 + subtotal1 * markupRate;
+
+      let subtotal3: number;
+      if (laborMode === 'hours') {
+        const serviceHours = service.hours || 0;
+        subtotal3 = subtotal2 + serviceHours * laborHourlyRate * (1 + burdenRate);
+      } else {
+        subtotal3 = subtotal2;
+      }
+
+      const denominator = 1 - commissionRate * (1 + commissionBurdenRate) - financingRate;
+      const totalPrice = denominator > 0 ? subtotal3 / denominator : subtotal3;
+      const roundedPrice = roundUp ? Math.ceil(totalPrice) : Math.round(totalPrice * 100) / 100;
+
+      const currentPrice = service.price || 0;
+      if (Math.abs(roundedPrice - currentPrice) > 0.01) {
+        pendingUpdates.push({ service, roundedPrice, currentPrice, currentCost: service.cost || 0 });
+      }
+    }
+
+    if (wasCancelled) {
+      pushProgressEmitter.clearCancel(tenantId);
+      emitProgress(tenantId, 'cancelled', 'Push cancelled during calculation. No services were updated.', 0, totalServices);
+      results.cancelled = true;
+      return results;
+    }
+
+    const CONCURRENCY = 50;
+    emitProgress(tenantId, 'updating', `Updating ${pendingUpdates.length} services (${CONCURRENCY} at a time)...`, 0, pendingUpdates.length);
+
+    for (let i = 0; i < pendingUpdates.length; i += CONCURRENCY) {
+      if (pushProgressEmitter.isCancelled(tenantId)) {
+        wasCancelled = true;
+        break;
+      }
+
+      const batch = pendingUpdates.slice(i, i + CONCURRENCY);
+      const batchResults = await Promise.allSettled(
+        batch.map(async (update) => {
+          await withRetry(() => stApi.updateService(update.service.id, { price: update.roundedPrice }), 3, 1000);
+          return update;
+        })
+      );
+
+      for (const result of batchResults) {
+        if (result.status === 'fulfilled') {
+          const u = result.value;
+          results.updated++;
+          originalValues.push({ serviceId: u.service.id, serviceName: u.service.name ?? '', originalPrice: u.currentPrice, originalCost: u.currentCost, newPrice: u.roundedPrice });
+        } else {
+          results.errors.push(`Failed to update service: ${result.reason?.message || 'Unknown error'}`);
+        }
+      }
+
+      emitProgress(tenantId, 'updating', `Updated ${Math.min(i + CONCURRENCY, pendingUpdates.length)} of ${pendingUpdates.length} services...`, Math.min(i + CONCURRENCY, pendingUpdates.length), pendingUpdates.length);
+    }
+
+    pushProgressEmitter.clearCancel(tenantId);
+
+    if (wasCancelled) {
+      emitProgress(tenantId, 'cancelled', `Push cancelled. Updated ${results.updated} services before stopping.`, results.updated, totalServices);
+      results.cancelled = true;
+      results.originalValues = originalValues.length > 0 ? JSON.stringify(originalValues) : null;
+      return results;
+    }
+
+    const msg = results.errors.length > 0
+      ? `Completed with ${results.errors.length} errors. Updated ${results.updated} of ${results.processed} services (${results.skipped} skipped).`
+      : `Successfully updated ${results.updated} of ${results.processed} services (${results.skipped} skipped).`;
+    emitProgress(tenantId, 'complete', msg, results.updated, results.processed);
+
+    results.originalValues = originalValues.length > 0 ? JSON.stringify(originalValues) : null;
+    return results;
+
+  } catch (err: any) {
+    emitProgress(tenantId, 'error', `Repair push failed: ${err.message}`, 0, 0);
+    throw err;
+  }
+}
+
+// ─── Queue helpers ─────────────────────────────────────────────────────────────
+
 /** Transient options stored at queue-time so processQueuedPush can use them later. */
 export const pendingPushExtras = new Map<number, { skipZeroEquipment: boolean; zeroEquipmentSetZeroPrice: boolean }>();
 
@@ -516,25 +773,44 @@ export async function processQueuedPush(historyId: number): Promise<void> {
   });
 
   const categoryIds = JSON.parse(historyItem.categoryIds || '[]');
+  const extras = pendingPushExtras.get(historyId);
 
   try {
-    const results = await processPush({
-      tenantId: historyItem.tenantId,
-      historyId,
-      categoryIds,
-      targetMePercent: parseFloat(historyItem.targetMePercent),
-      roundUp: historyItem.roundUp,
-      salesTaxPercent: parseFloat(historyItem.salesTaxPercent),
-      laborMode: historyItem.laborMode,
-      laborPercent: parseFloat(historyItem.laborPercent),
-      laborHourlyRate: parseFloat(historyItem.laborHourlyRate),
-      laborBurdenPercent: parseFloat(historyItem.laborBurdenPercent),
-      commissionPercent: parseFloat(historyItem.commissionPercent),
-      commissionBurdenPercent: parseFloat(historyItem.commissionBurdenPercent),
-      financingFeePercent: parseFloat(historyItem.financingFeePercent),
-      skipZeroEquipment: pendingPushExtras.get(historyId)?.skipZeroEquipment ?? false,
-      zeroEquipmentSetZeroPrice: pendingPushExtras.get(historyId)?.zeroEquipmentSetZeroPrice ?? false,
-    }, tenant);
+    const isRepairPush = historyItem.pushType === 'update_repair';
+
+    const results = isRepairPush
+      ? await processRepairPush({
+          tenantId: historyItem.tenantId,
+          historyId,
+          categoryIds,
+          materialMarkupPercent: parseFloat(historyItem.targetMePercent), // repurposed column
+          salesTaxPercent: parseFloat(historyItem.salesTaxPercent),
+          laborMode: historyItem.laborMode,
+          laborHourlyRate: parseFloat(historyItem.laborHourlyRate),
+          laborBurdenPercent: parseFloat(historyItem.laborBurdenPercent),
+          commissionPercent: parseFloat(historyItem.commissionPercent),
+          commissionBurdenPercent: parseFloat(historyItem.commissionBurdenPercent),
+          financingFeePercent: parseFloat(historyItem.financingFeePercent),
+          roundUp: historyItem.roundUp,
+          skipNoMaterials: extras?.skipZeroEquipment ?? false,
+        }, tenant)
+      : await processPush({
+          tenantId: historyItem.tenantId,
+          historyId,
+          categoryIds,
+          targetMePercent: parseFloat(historyItem.targetMePercent),
+          roundUp: historyItem.roundUp,
+          salesTaxPercent: parseFloat(historyItem.salesTaxPercent),
+          laborMode: historyItem.laborMode,
+          laborPercent: parseFloat(historyItem.laborPercent),
+          laborHourlyRate: parseFloat(historyItem.laborHourlyRate),
+          laborBurdenPercent: parseFloat(historyItem.laborBurdenPercent),
+          commissionPercent: parseFloat(historyItem.commissionPercent),
+          commissionBurdenPercent: parseFloat(historyItem.commissionBurdenPercent),
+          financingFeePercent: parseFloat(historyItem.financingFeePercent),
+          skipZeroEquipment: extras?.skipZeroEquipment ?? false,
+          zeroEquipmentSetZeroPrice: extras?.zeroEquipmentSetZeroPrice ?? false,
+        }, tenant);
     pendingPushExtras.delete(historyId);
 
     let finalStatus: 'completed' | 'cancelled' = 'completed';

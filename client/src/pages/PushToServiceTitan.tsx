@@ -152,6 +152,24 @@ export default function PushToServiceTitan() {
     try { return localStorage.getItem("push_zeroEquipmentSetZeroPrice") === "true"; } catch { return false; }
   });
 
+  // Update Repairs Tab State
+  const [selectedRepairCategories, setSelectedRepairCategories] = useState<Set<number>>(new Set());
+  const [repairUpdateMaterialMarkup, setRepairUpdateMaterialMarkup] = useState<string>("200");
+  const [repairUpdateSalesTaxPercent, setRepairUpdateSalesTaxPercent] = useState<string>(settings?.salesTaxPercent || "6.35");
+  const [repairUpdateLaborMode, setRepairUpdateLaborMode] = useState<"hours" | "percent">("hours");
+  const [repairUpdateLaborHourlyRate, setRepairUpdateLaborHourlyRate] = useState<string>("125.00");
+  const [repairUpdateBurdenPercent, setRepairUpdateBurdenPercent] = useState<string>("20.00");
+  const [repairUpdateCommissionPercent, setRepairUpdateCommissionPercent] = useState<string>("10.00");
+  const [repairUpdateCommissionBurdenPercent, setRepairUpdateCommissionBurdenPercent] = useState<string>("20.00");
+  const [repairUpdateFinancingFeePercent, setRepairUpdateFinancingFeePercent] = useState<string>("4.00");
+  const [repairUpdateRoundUp, setRepairUpdateRoundUp] = useState<boolean>(false);
+  const [repairUpdateSkipNoMaterials, setRepairUpdateSkipNoMaterials] = useState<boolean>(false);
+  const [isRepairPushing, setIsRepairPushing] = useState<boolean>(false);
+  const [repairPushSubmitted, setRepairPushSubmitted] = useState<boolean>(false);
+  const [repairPushStatusMessage, setRepairPushStatusMessage] = useState<string>("");
+  const [repairQueuedHistoryId, setRepairQueuedHistoryId] = useState<number | null>(null);
+  const [repairQueuePosition, setRepairQueuePosition] = useState<number | null>(null);
+
   // Initialize local settings from global settings when they load
   useEffect(() => {
     if (settings) {
@@ -166,7 +184,12 @@ export default function PushToServiceTitan() {
       setFinancingFeePercent(settings.financingFeePercent);
       if (!selectedTenantId) {
         setRepairSalesTaxPercent(settings.salesTaxPercent);
+        setRepairUpdateSalesTaxPercent(settings.salesTaxPercent);
       }
+      setRepairUpdateBurdenPercent(settings.laborBurdenPercent);
+      setRepairUpdateCommissionPercent(settings.commissionPercent);
+      setRepairUpdateCommissionBurdenPercent(settings.commissionBurdenPercent);
+      setRepairUpdateFinancingFeePercent(settings.financingFeePercent);
     }
   }, [settings]);
 
@@ -179,7 +202,7 @@ export default function PushToServiceTitan() {
 
   // Reconcile activeTab when pushPermission resolves (auth loads after initial render)
   useEffect(() => {
-    if (pushPermission === "add_new_only" && activeTab === "update-category") {
+    if (pushPermission === "add_new_only" && (activeTab === "update-category" || activeTab === "update-repair-category")) {
       setActiveTab("push-new-task");
     } else if (pushPermission === "reprice_only" && (activeTab === "push-new-task" || activeTab === "push-new-repair")) {
       setActiveTab("update-category");
@@ -414,9 +437,11 @@ export default function PushToServiceTitan() {
       const taxRate = loc ? loc.salesTaxPercent.toString() : fallbackTax;
       setSalesTaxPercent(taxRate);
       setRepairSalesTaxPercent(taxRate);
+      setRepairUpdateSalesTaxPercent(taxRate);
     } else {
       setSalesTaxPercent(fallbackTax);
       setRepairSalesTaxPercent(fallbackTax);
+      setRepairUpdateSalesTaxPercent(fallbackTax);
     }
 
     try {
@@ -886,10 +911,106 @@ export default function PushToServiceTitan() {
     setSelectedCategories(new Set());
   };
 
+  const repairToggleCategory = (categoryId: number) => {
+    const category = categories.find(c => c.id === categoryId);
+    if (!category) return;
+    setSelectedRepairCategories(prev => {
+      const next = new Set(prev);
+      const isSelected = next.has(categoryId);
+      if (isSelected) {
+        next.delete(categoryId);
+        getAllDescendants(categoryId).forEach(id => next.delete(id));
+      } else {
+        next.add(categoryId);
+        getAllDescendants(categoryId).filter(id => categories.find(c => c.id === id)?.active).forEach(id => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const repairSelectAll = () => {
+    setSelectedRepairCategories(new Set(categories.filter(c => c.active).map(c => c.id)));
+  };
+
+  const repairDeselectAll = () => {
+    setSelectedRepairCategories(new Set());
+  };
+
   const [pushSubmitted, setPushSubmitted] = useState(false);
   const [pushStatusMessage, setPushStatusMessage] = useState("");
   const [queuedHistoryId, setQueuedHistoryId] = useState<number | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
+
+  const handleRepairPush = async () => {
+    if (!selectedTenantId || selectedRepairCategories.size === 0) return;
+
+    setIsRepairPushing(true);
+    setRepairPushSubmitted(false);
+    setRepairQueuedHistoryId(null);
+    setRepairQueuePosition(null);
+
+    try {
+      const response = await fetch(`/api/servicetitan/${selectedTenantId}/push-repair`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          categoryIds: Array.from(selectedRepairCategories),
+          materialMarkupPercent: parseFloat(repairUpdateMaterialMarkup),
+          salesTaxPercent: parseFloat(repairUpdateSalesTaxPercent),
+          laborMode: repairUpdateLaborMode,
+          laborHourlyRate: parseFloat(repairUpdateLaborHourlyRate),
+          laborBurdenPercent: parseFloat(repairUpdateBurdenPercent),
+          commissionPercent: parseFloat(repairUpdateCommissionPercent),
+          commissionBurdenPercent: parseFloat(repairUpdateCommissionBurdenPercent),
+          financingFeePercent: parseFloat(repairUpdateFinancingFeePercent),
+          roundUp: repairUpdateRoundUp,
+          skipNoMaterials: repairUpdateSkipNoMaterials,
+        }),
+      });
+
+      if (!response.ok && response.status !== 202) {
+        let errorMessage = "Push failed";
+        try {
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const error = await response.json();
+            errorMessage = error.message || "Push failed";
+          } else {
+            errorMessage = `Server error (${response.status}): ${response.statusText}`;
+          }
+        } catch {
+          errorMessage = `Server error (${response.status}): Unable to parse response`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      const isQueued = response.status === 202;
+
+      setRepairPushSubmitted(true);
+      if (isQueued) {
+        setRepairQueuedHistoryId(data.historyId);
+        setRepairQueuePosition(data.queuePosition);
+        setRepairPushStatusMessage("");
+      } else {
+        setRepairPushStatusMessage("Your repair push is processing in the background. Track progress on the Push History page.");
+      }
+      toast({
+        title: isQueued ? "Push Queued" : "Push Submitted",
+        description: isQueued
+          ? `Queued at position ${data.queuePosition}. The indicator below will update automatically.`
+          : "Your repair push is now processing. Go to Push History to track progress.",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Push Failed",
+        description: err.message || "An error occurred while pushing to ServiceTitan.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRepairPushing(false);
+    }
+  };
 
   const handlePush = async () => {
     if (!selectedTenantId || selectedCategories.size === 0) return;
@@ -996,6 +1117,32 @@ export default function PushToServiceTitan() {
       clearInterval(interval);
     };
   }, [queuedHistoryId]);
+
+  // Queue poll for repair push
+  useEffect(() => {
+    if (!repairQueuedHistoryId) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/push-history/${repairQueuedHistoryId}/queue-position`);
+        if (!res.ok || cancelled) return;
+        const data = await res.json() as { position: number; queueLength: number };
+        if (cancelled) return;
+        if (data.position === -1) {
+          setRepairQueuePosition(-1);
+          setRepairQueuedHistoryId(null);
+          setRepairPushStatusMessage("Your repair push is now processing in the background. Track its progress on the Push History page.");
+        } else {
+          setRepairQueuePosition(data.position);
+        }
+      } catch {
+        // ignore transient errors
+      }
+    };
+    poll();
+    const interval = setInterval(poll, 3000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [repairQueuedHistoryId]);
 
   const parentCategories = categories.filter(c => !c.parentId && c.active).sort(sortByOrder);
 
@@ -1184,10 +1331,15 @@ export default function PushToServiceTitan() {
 
           {connectionStatus === 'connected' && (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className={`grid w-full h-auto ${pushPermission === "both" ? "grid-cols-3" : "grid-cols-2"}`}>
+              <TabsList className={`grid w-full h-auto ${pushPermission === "both" ? "grid-cols-4" : "grid-cols-2"}`}>
                 {pushPermission !== "add_new_only" && (
                   <TabsTrigger value="update-category" className="text-xs sm:text-sm px-1 sm:px-3 py-2 whitespace-normal" data-testid="tab-update-category">
-                    Update Pricebook
+                    Update Systems
+                  </TabsTrigger>
+                )}
+                {pushPermission !== "add_new_only" && (
+                  <TabsTrigger value="update-repair-category" className="text-xs sm:text-sm px-1 sm:px-3 py-2 whitespace-normal" data-testid="tab-update-repair-category">
+                    Update Repairs
                   </TabsTrigger>
                 )}
                 {pushPermission !== "reprice_only" && (
@@ -1730,6 +1882,418 @@ export default function PushToServiceTitan() {
                   </div>
                 </CardContent>
               </Card>
+              </TabsContent>
+
+              {/* ── Update Repairs Tab ───────────────────────────────────── */}
+              <TabsContent value="update-repair-category" className="space-y-6 mt-6">
+                {/* Section 2: Select Categories */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-lg">2. Select Repair Categories</CardTitle>
+                        <CardDescription>
+                          Choose which pricebook categories contain repair services to reprice
+                        </CardDescription>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={repairSelectAll} data-testid="button-repair-select-all">
+                          Select All
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={repairDeselectAll} data-testid="button-repair-deselect-all">
+                          Deselect All
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => selectedTenantId && loadCategories(selectedTenantId)}
+                          disabled={isLoadingCategories}
+                        >
+                          <RefreshCw className={`w-4 h-4 ${isLoadingCategories ? 'animate-spin' : ''}`} />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoadingCategories ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      </div>
+                    ) : categories.length === 0 ? (
+                      <p className="text-muted-foreground text-center py-8">
+                        No categories found in this pricebook.
+                      </p>
+                    ) : (
+                      <div className="space-y-1 max-h-[400px] overflow-y-auto pr-2">
+                        {parentCategories.map(parent => {
+                          const renderRepairCategory = (category: Category, depth: number = 0) => {
+                            const catChildren = getChildren(category.id);
+                            const hasCatChildren = catChildren.length > 0;
+                            const isCatExpanded = expandedCategories.has(category.id);
+                            return (
+                              <div key={category.id}>
+                                <div
+                                  className={`flex items-center gap-2 p-3 border-b transition-colors ${
+                                    selectedRepairCategories.has(category.id) ? 'bg-primary/5' : 'hover:bg-muted/50'
+                                  }`}
+                                  style={{ paddingLeft: `${(depth * 24) + 12}px` }}
+                                >
+                                  {hasCatChildren ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleExpanded(category.id)}
+                                      className="p-1 rounded hover:bg-muted"
+                                      data-testid={`button-repair-expand-${category.id}`}
+                                    >
+                                      {isCatExpanded ? (
+                                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                      ) : (
+                                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                                      )}
+                                    </button>
+                                  ) : (
+                                    <div className="w-6" />
+                                  )}
+                                  <Checkbox
+                                    id={`repair-category-${category.id}`}
+                                    checked={selectedRepairCategories.has(category.id)}
+                                    onCheckedChange={() => repairToggleCategory(category.id)}
+                                    data-testid={`checkbox-repair-category-${category.id}`}
+                                  />
+                                  <label
+                                    htmlFor={`repair-category-${category.id}`}
+                                    className={`flex-1 cursor-pointer ${depth === 0 ? 'font-medium' : 'text-sm'}`}
+                                  >
+                                    {category.name}
+                                  </label>
+                                  {hasCatChildren && (
+                                    <span className="text-xs text-muted-foreground mr-2">
+                                      {catChildren.length} subcategories
+                                    </span>
+                                  )}
+                                </div>
+                                {hasCatChildren && isCatExpanded && (
+                                  <div>
+                                    {catChildren.map(child => renderRepairCategory(child, depth + 1))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          };
+                          return renderRepairCategory(parent, 0);
+                        })}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Section 3: Pricing Settings */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">3. Repair Pricing Settings</CardTitle>
+                    <CardDescription>
+                      Configure the repair calculator parameters for this bulk reprice
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Material Markup and Sales Tax */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="repairUpdateMaterialMarkup" className="flex items-center gap-2">
+                          <Percent className="w-4 h-4 text-primary" />
+                          Material Markup %
+                        </Label>
+                        <select
+                          id="repairUpdateMaterialMarkup"
+                          value={repairUpdateMaterialMarkup}
+                          onChange={(e) => setRepairUpdateMaterialMarkup(e.target.value)}
+                          data-testid="select-repair-update-material-markup"
+                          className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-medium ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {[20, 30, 40, 50, 60, 70, 80, 90, 100, 125, 150, 175, 200, 225, 250, 275, 300].map(v => (
+                            <option key={v} value={v.toString()}>{v}%</option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-muted-foreground">
+                          Markup applied to parts + tax before adding labor
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="repairUpdateSalesTax" className="flex items-center gap-2">
+                          <DollarSign className="w-4 h-4 text-primary" />
+                          Sales Tax %
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            id="repairUpdateSalesTax"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            value={repairUpdateSalesTaxPercent}
+                            onChange={(e) => setRepairUpdateSalesTaxPercent(e.target.value)}
+                            className="pr-8"
+                            data-testid="input-repair-update-sales-tax"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Tax rate applied to raw parts cost
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Labor Settings */}
+                    <div className="space-y-4 pt-4 border-t">
+                      <Label className="flex items-center gap-2 text-base font-medium">
+                        <Clock className="w-4 h-4 text-primary" />
+                        Labor Calculation
+                      </Label>
+                      <RadioGroup
+                        value={repairUpdateLaborMode}
+                        onValueChange={(v) => setRepairUpdateLaborMode(v as "hours" | "percent")}
+                        className="flex gap-6"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="hours" id="repair-update-labor-hours" data-testid="radio-repair-update-labor-hours" />
+                          <Label htmlFor="repair-update-labor-hours" className="cursor-pointer">Hourly Rate</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="percent" id="repair-update-labor-percent" data-testid="radio-repair-update-labor-percent" />
+                          <Label htmlFor="repair-update-labor-percent" className="cursor-pointer">Production Pay (no direct labor)</Label>
+                        </div>
+                      </RadioGroup>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
+                        {repairUpdateLaborMode === "hours" && (
+                          <div className="space-y-2">
+                            <Label htmlFor="repairUpdateLaborHourlyRate">Hourly Rate</Label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                              <Input
+                                id="repairUpdateLaborHourlyRate"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={repairUpdateLaborHourlyRate}
+                                onChange={(e) => setRepairUpdateLaborHourlyRate(e.target.value)}
+                                className="pl-8"
+                                data-testid="input-repair-update-labor-hourly-rate"
+                              />
+                            </div>
+                            <p className="text-xs text-muted-foreground">Multiplied by service hours field in ST</p>
+                          </div>
+                        )}
+                        {repairUpdateLaborMode === "percent" && (
+                          <div className="col-span-full">
+                            <p className="text-sm text-muted-foreground py-1">
+                              Production pay mode: labor is not added directly. Commission + financing cover all overhead.
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="space-y-2">
+                          <Label htmlFor="repairUpdateBurdenPercent">Labor Burden %</Label>
+                          <div className="relative">
+                            <Input
+                              id="repairUpdateBurdenPercent"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              value={repairUpdateBurdenPercent}
+                              onChange={(e) => setRepairUpdateBurdenPercent(e.target.value)}
+                              className="pr-8"
+                              data-testid="input-repair-update-burden-percent"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Commission & Financing */}
+                    <div className="space-y-4 pt-4 border-t">
+                      <Label className="flex items-center gap-2 text-base font-medium">
+                        <Percent className="w-4 h-4 text-primary" />
+                        Commission &amp; Financing
+                      </Label>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
+                        <div className="space-y-2">
+                          <Label htmlFor="repairUpdateCommissionPercent">Commission %</Label>
+                          <div className="relative">
+                            <Input
+                              id="repairUpdateCommissionPercent"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              value={repairUpdateCommissionPercent}
+                              onChange={(e) => setRepairUpdateCommissionPercent(e.target.value)}
+                              className="pr-8"
+                              data-testid="input-repair-update-commission-percent"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="repairUpdateCommissionBurdenPercent">Commission Burden %</Label>
+                          <div className="relative">
+                            <Input
+                              id="repairUpdateCommissionBurdenPercent"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              value={repairUpdateCommissionBurdenPercent}
+                              onChange={(e) => setRepairUpdateCommissionBurdenPercent(e.target.value)}
+                              className="pr-8"
+                              data-testid="input-repair-update-commission-burden-percent"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="repairUpdateFinancingFeePercent">Finance Fee %</Label>
+                          <div className="relative">
+                            <Input
+                              id="repairUpdateFinancingFeePercent"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              value={repairUpdateFinancingFeePercent}
+                              onChange={(e) => setRepairUpdateFinancingFeePercent(e.target.value)}
+                              className="pr-8"
+                              data-testid="input-repair-update-financing-fee-percent"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Skip No-M&E Toggle */}
+                    <div className="space-y-3 pt-4 border-t">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="repairUpdateSkipNoMaterials" className="text-sm font-medium cursor-pointer">
+                            Skip services with $0 parts cost
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            When on, services where materials + equipment = $0 are skipped entirely.
+                          </p>
+                        </div>
+                        <Switch
+                          id="repairUpdateSkipNoMaterials"
+                          checked={repairUpdateSkipNoMaterials}
+                          onCheckedChange={setRepairUpdateSkipNoMaterials}
+                          data-testid="switch-repair-update-skip-no-materials"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Summary Badges */}
+                    <div className="flex flex-wrap gap-2 pt-4 border-t">
+                      <Badge variant="secondary" className="text-xs">Markup: {repairUpdateMaterialMarkup}%</Badge>
+                      <Badge variant="secondary" className="text-xs">Tax: {repairUpdateSalesTaxPercent}%</Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        Labor: {repairUpdateLaborMode === "percent" ? "Production Pay" : `$${repairUpdateLaborHourlyRate}/hr`}
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs">Burden: {repairUpdateBurdenPercent}%</Badge>
+                      <Badge variant="secondary" className="text-xs">Commission: {repairUpdateCommissionPercent}%</Badge>
+                      <Badge variant="secondary" className="text-xs">Comm. Burden: {repairUpdateCommissionBurdenPercent}%</Badge>
+                      <Badge variant="secondary" className="text-xs">Financing: {repairUpdateFinancingFeePercent}%</Badge>
+                      {repairUpdateRoundUp && (
+                        <Badge variant="secondary" className="text-xs">Round Up: On</Badge>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Section 4: Push */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">4. Push Repair Updates</CardTitle>
+                    <CardDescription>
+                      Updates <span className="font-medium">Static Price</span> using the Repair Calculator formula (parts markup + labor + commission + financing).
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <ArrowUp className="w-4 h-4 text-primary" />
+                        <div>
+                          <Label htmlFor="repairUpdateRoundUp" className="cursor-pointer font-medium">Round Up Prices</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Round all prices up to the nearest whole dollar
+                          </p>
+                        </div>
+                      </div>
+                      <Switch
+                        id="repairUpdateRoundUp"
+                        checked={repairUpdateRoundUp}
+                        onCheckedChange={setRepairUpdateRoundUp}
+                        data-testid="switch-repair-update-round-up"
+                      />
+                    </div>
+
+                    {repairPushSubmitted && repairQueuedHistoryId && (
+                      <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800" data-testid="repair-push-queue-indicator">
+                        <div className="flex items-center gap-2 mb-2">
+                          <ListOrdered className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                          <span className="text-sm font-medium text-amber-800 dark:text-amber-200">Waiting in Queue</span>
+                          <Loader2 className="w-3 h-3 animate-spin text-amber-500 ml-auto" />
+                        </div>
+                        <p className="text-sm text-amber-700 dark:text-amber-300 mb-3" data-testid="repair-queue-position-text">
+                          {repairQueuePosition && repairQueuePosition > 0
+                            ? `Your repair push is at position ${repairQueuePosition} in the queue. It will start automatically.`
+                            : "Your repair push is in the queue and will start automatically."}
+                        </p>
+                        <Button variant="outline" size="sm" onClick={() => setLocation("/push-history")} data-testid="button-repair-go-to-push-history-queue">
+                          Go to Push History
+                        </Button>
+                      </div>
+                    )}
+
+                    {repairPushSubmitted && !repairQueuedHistoryId && repairPushStatusMessage && (
+                      <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-200 dark:border-emerald-800" data-testid="repair-push-submitted-banner">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Push Submitted</span>
+                        </div>
+                        <p className="text-sm text-emerald-700 dark:text-emerald-300 mb-3">
+                          {repairPushStatusMessage}
+                        </p>
+                        <Button variant="outline" size="sm" onClick={() => setLocation("/push-history")} data-testid="button-repair-go-to-push-history">
+                          Go to Push History
+                        </Button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedRepairCategories.size} categories selected
+                        </p>
+                      </div>
+                      <Button
+                        onClick={handleRepairPush}
+                        disabled={!selectedTenantId || selectedRepairCategories.size === 0 || isRepairPushing}
+                        className="gap-2"
+                        data-testid="button-push-repairs-to-servicetitan"
+                      >
+                        {isRepairPushing ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Upload className="w-4 h-4" />
+                        )}
+                        Push Repairs to ServiceTitan
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               </TabsContent>
 
               <TabsContent value="push-new-task" className="space-y-6 mt-6">
