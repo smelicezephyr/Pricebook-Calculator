@@ -204,9 +204,18 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
     console.log(`[Push] Equipment fetched in ${Date.now() - equipmentStart}ms: ${allEquipment.length} items`);
     emitProgress(tenantId, 'equipment', `Loaded ${allEquipment.length} equipment`, 100, 100);
 
+    // Use primaryVendor.primarySubAccount.cost when available — this matches what
+    // ServiceTitan's UI displays as "Cost" for the material. The top-level mat.cost
+    // is the base catalog cost which may differ from the vendor sub-account price.
+    const effectiveMaterialCost = (mat: any): number => {
+      const subCost = mat.primaryVendor?.primarySubAccount?.cost;
+      if (typeof subCost === 'number' && subCost > 0) return subCost;
+      return mat.cost || 0;
+    };
+
     const materialCostMap = new Map<number, number>();
     for (const mat of allMaterials) {
-      materialCostMap.set(mat.id, mat.cost || 0);
+      materialCostMap.set(mat.id, effectiveMaterialCost(mat));
     }
 
     const equipmentCostMap = new Map<number, number>();
@@ -592,16 +601,17 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
     });
     emitProgress(tenantId, 'equipment', `Loaded ${allEquipment.length} equipment`, 100, 100);
 
+    // Use primaryVendor.primarySubAccount.cost when available — matches ST UI "Cost" display
+    const effectiveMaterialCost = (mat: any): number => {
+      const subCost = mat.primaryVendor?.primarySubAccount?.cost;
+      if (typeof subCost === 'number' && subCost > 0) return subCost;
+      return mat.cost || 0;
+    };
+
     const materialCostMap = new Map<number, number>();
-    for (const mat of allMaterials) materialCostMap.set(mat.id, mat.cost || 0);
+    for (const mat of allMaterials) materialCostMap.set(mat.id, effectiveMaterialCost(mat));
     const equipmentCostMap = new Map<number, number>();
     for (const equip of allEquipment) equipmentCostMap.set(equip.id, equip.cost || 0);
-
-    // Pinpoint check: is skuId 172957757 ($18 capacitor) in the catalog?
-    const PIN_SKU = 172957757;
-    const pinCost = materialCostMap.get(PIN_SKU);
-    const pinMat = allMaterials.find(m => m.id === PIN_SKU);
-    console.log(`[RepairPush DEBUG] PIN_SKU ${PIN_SKU}: inMap=${materialCostMap.has(PIN_SKU)}, mapCost=${pinCost}, catalogEntry=${JSON.stringify(pinMat)}, totalMaterials=${allMaterials.length}`);
 
     const totalServices = allServices.length;
     pushProgressEmitter.startPhase(tenantId, 'updating');
@@ -633,14 +643,11 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
 
       let materialsCost = 0;
       let equipmentCost = 0;
-      let matSource = 'none';
 
       if (service.materials && service.materials.length > 0) {
         for (const mat of service.materials) materialsCost += (mat.cost || 0) * (mat.quantity || 1);
-        matSource = `embedded(${service.materials.length},first.cost=${service.materials[0]?.cost})`;
       } else if (service.serviceMaterials && service.serviceMaterials.length > 0) {
         for (const mat of service.serviceMaterials) materialsCost += (materialCostMap.get(mat.skuId) || 0) * (mat.quantity || 1);
-        matSource = `lookup(skuId=${service.serviceMaterials[0]?.skuId},catalogCost=${materialCostMap.get(service.serviceMaterials[0]?.skuId)})`;
       }
 
       if (service.equipment && service.equipment.length > 0) {
@@ -650,14 +657,6 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
       }
 
       const rawParts = materialsCost + equipmentCost;
-
-      // Debug: log the specific problem service + services with small parts or priced near $300-$420
-      const TARGET_SERVICE_ID = 151054153;
-      const isDebugTarget = service.id === TARGET_SERVICE_ID || (rawParts > 0 && rawParts < 30) || (service.price && service.price >= 300 && service.price <= 420);
-      if (isDebugTarget) {
-        const matDetail = service.serviceMaterials ? JSON.stringify(service.serviceMaterials.map(m => ({ skuId: m.skuId, qty: m.quantity, catalogCost: materialCostMap.get(m.skuId) }))) : '[]';
-        console.log(`[RepairPush DEBUG] svc=${service.id} hrs=${service.hours} rawParts=$${rawParts.toFixed(2)} matSource=${matSource} curPrice=${service.price} matDetail=${matDetail}`);
-      }
 
       if (skipNoMaterials && rawParts === 0) {
         results.skipped++;
@@ -671,14 +670,9 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
 
       let subtotal3: number;
       if (laborMode === 'hours') {
-        // Hours come from the ServiceTitan service record (same as materials/equipment costs)
         const serviceHours = service.hours || 0;
         const burdenedLabor = serviceHours * laborHourlyRate * (1 + burdenRate);
         subtotal3 = subtotal2 + burdenedLabor;
-        if (isDebugTarget) {
-          const den = 1 - commissionRate * (1 + burdenRate) - financingRate;
-          console.log(`[RepairPush DEBUG] svc=${service.id} serviceHours=${serviceHours} burdenedLabor=$${burdenedLabor.toFixed(2)} subtotal2=$${subtotal2.toFixed(2)} subtotal3=$${subtotal3.toFixed(2)} den=${den.toFixed(4)} rawPrice=${(subtotal3/den).toFixed(4)}`);
-        }
       } else {
         subtotal3 = subtotal2;
       }

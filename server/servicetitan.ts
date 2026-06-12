@@ -56,6 +56,19 @@ interface PricebookService {
   }>;
 }
 
+interface PricebookVendorSubAccount {
+  id?: number;
+  cost?: number;
+  accountName?: string;
+}
+
+interface PricebookVendor {
+  id?: number;
+  vendorName?: string;
+  cost?: number;
+  primarySubAccount?: PricebookVendorSubAccount;
+}
+
 interface PricebookMaterial {
   id: number;
   name: string;
@@ -64,6 +77,7 @@ interface PricebookMaterial {
   price: number;
   active: boolean;
   categoryId?: number;
+  primaryVendor?: PricebookVendor;
 }
 
 interface PricebookEquipment {
@@ -74,6 +88,7 @@ interface PricebookEquipment {
   price: number;
   active: boolean;
   categoryId?: number;
+  primaryVendor?: PricebookVendor;
 }
 
 const tokenCache: Map<number, { token: string; expiresAt: number }> = new Map();
