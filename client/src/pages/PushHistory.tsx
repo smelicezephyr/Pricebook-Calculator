@@ -629,7 +629,7 @@ export default function PushHistoryPage() {
                                 {item.pushType === 'update_repair'
                                   ? item.laborMode === 'percent'
                                     ? 'Labor: Production Pay'
-                                    : `Labor: $${item.laborHourlyRate}/hr`
+                                    : `Labor: $${item.laborHourlyRate}/hr × ${item.laborHours || 1}h`
                                   : item.laborMode === 'percent'
                                     ? `${item.laborPercent}%`
                                     : `$${item.laborHourlyRate}/hr × ${item.laborHours || 8}h`}

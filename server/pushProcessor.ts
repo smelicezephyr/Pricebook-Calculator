@@ -487,6 +487,7 @@ interface RepairPushParams {
   salesTaxPercent: number;
   laborMode: string;
   laborHourlyRate: number;
+  laborHours: number;
   laborBurdenPercent: number;
   commissionPercent: number;
   commissionBurdenPercent: number;
@@ -504,9 +505,9 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
     salesTaxPercent,
     laborMode,
     laborHourlyRate,
+    laborHours: fixedLaborHours,
     laborBurdenPercent,
     commissionPercent,
-    commissionBurdenPercent,
     financingFeePercent,
     roundUp,
     skipNoMaterials = false,
@@ -516,7 +517,6 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
   const taxRate = salesTaxPercent / 100;
   const burdenRate = laborBurdenPercent / 100;
   const commissionRate = commissionPercent / 100;
-  const commissionBurdenRate = commissionBurdenPercent / 100;
   const financingRate = financingFeePercent / 100;
 
   console.log(`[RepairPush] Starting for tenant ${tenantId} (history ${historyId}), markup: ${materialMarkupPercent}%, laborMode: ${laborMode}, skipNoMaterials: ${skipNoMaterials}`);
@@ -649,20 +649,21 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
         continue;
       }
 
-      // Repair calculator formula
+      // Repair calculator formula — matches RepairCalculator.tsx exactly
       const salesTax = rawParts * taxRate;
       const subtotal1 = rawParts + salesTax;
       const subtotal2 = subtotal1 + subtotal1 * markupRate;
 
       let subtotal3: number;
       if (laborMode === 'hours') {
-        const serviceHours = service.hours || 0;
-        subtotal3 = subtotal2 + serviceHours * laborHourlyRate * (1 + burdenRate);
+        const burdenedLabor = fixedLaborHours * laborHourlyRate * (1 + burdenRate);
+        subtotal3 = subtotal2 + burdenedLabor;
       } else {
         subtotal3 = subtotal2;
       }
 
-      const denominator = 1 - commissionRate * (1 + commissionBurdenRate) - financingRate;
+      // Same denominator as RepairCalculator.tsx: burden applies to both labor and commission
+      const denominator = 1 - commissionRate * (1 + burdenRate) - financingRate;
       const totalPrice = denominator > 0 ? subtotal3 / denominator : subtotal3;
       const roundedPrice = roundUp ? Math.ceil(totalPrice) : Math.round(totalPrice * 100) / 100;
 
@@ -787,6 +788,7 @@ export async function processQueuedPush(historyId: number): Promise<void> {
           salesTaxPercent: parseFloat(historyItem.salesTaxPercent),
           laborMode: historyItem.laborMode,
           laborHourlyRate: parseFloat(historyItem.laborHourlyRate),
+          laborHours: parseFloat(historyItem.laborHours ?? '1'),
           laborBurdenPercent: parseFloat(historyItem.laborBurdenPercent),
           commissionPercent: parseFloat(historyItem.commissionPercent),
           commissionBurdenPercent: parseFloat(historyItem.commissionBurdenPercent),

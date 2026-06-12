@@ -158,9 +158,9 @@ export default function PushToServiceTitan() {
   const [repairUpdateSalesTaxPercent, setRepairUpdateSalesTaxPercent] = useState<string>(settings?.salesTaxPercent || "6.35");
   const [repairUpdateLaborMode, setRepairUpdateLaborMode] = useState<"hours" | "percent">("hours");
   const [repairUpdateLaborHourlyRate, setRepairUpdateLaborHourlyRate] = useState<string>("125.00");
+  const [repairUpdateLaborHours, setRepairUpdateLaborHours] = useState<string>("1");
   const [repairUpdateBurdenPercent, setRepairUpdateBurdenPercent] = useState<string>("20.00");
   const [repairUpdateCommissionPercent, setRepairUpdateCommissionPercent] = useState<string>("10.00");
-  const [repairUpdateCommissionBurdenPercent, setRepairUpdateCommissionBurdenPercent] = useState<string>("20.00");
   const [repairUpdateFinancingFeePercent, setRepairUpdateFinancingFeePercent] = useState<string>("4.00");
   const [repairUpdateRoundUp, setRepairUpdateRoundUp] = useState<boolean>(false);
   const [repairUpdateSkipNoMaterials, setRepairUpdateSkipNoMaterials] = useState<boolean>(false);
@@ -961,7 +961,8 @@ export default function PushToServiceTitan() {
           laborHourlyRate: parseFloat(repairUpdateLaborHourlyRate),
           laborBurdenPercent: parseFloat(repairUpdateBurdenPercent),
           commissionPercent: parseFloat(repairUpdateCommissionPercent),
-          commissionBurdenPercent: parseFloat(repairUpdateCommissionBurdenPercent),
+          laborHours: parseFloat(repairUpdateLaborHours) || 1,
+          commissionBurdenPercent: parseFloat(repairUpdateBurdenPercent),
           financingFeePercent: parseFloat(repairUpdateFinancingFeePercent),
           roundUp: repairUpdateRoundUp,
           skipNoMaterials: repairUpdateSkipNoMaterials,
@@ -2067,23 +2068,39 @@ export default function PushToServiceTitan() {
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
                         {repairUpdateLaborMode === "hours" && (
-                          <div className="space-y-2">
-                            <Label htmlFor="repairUpdateLaborHourlyRate">Hourly Rate</Label>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                              <Input
-                                id="repairUpdateLaborHourlyRate"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={repairUpdateLaborHourlyRate}
-                                onChange={(e) => setRepairUpdateLaborHourlyRate(e.target.value)}
-                                className="pl-8"
-                                data-testid="input-repair-update-labor-hourly-rate"
-                              />
+                          <>
+                            <div className="space-y-2">
+                              <Label htmlFor="repairUpdateLaborHourlyRate">Hourly Rate</Label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                                <Input
+                                  id="repairUpdateLaborHourlyRate"
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={repairUpdateLaborHourlyRate}
+                                  onChange={(e) => setRepairUpdateLaborHourlyRate(e.target.value)}
+                                  className="pl-8"
+                                  data-testid="input-repair-update-labor-hourly-rate"
+                                />
+                              </div>
                             </div>
-                            <p className="text-xs text-muted-foreground">Multiplied by service hours field in ST</p>
-                          </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="repairUpdateLaborHours">Labor Hours</Label>
+                              <div className="relative">
+                                <Input
+                                  id="repairUpdateLaborHours"
+                                  type="number"
+                                  step="0.25"
+                                  min="0"
+                                  value={repairUpdateLaborHours}
+                                  onChange={(e) => setRepairUpdateLaborHours(e.target.value)}
+                                  data-testid="input-repair-update-labor-hours"
+                                />
+                              </div>
+                              <p className="text-xs text-muted-foreground">Applied uniformly to every service</p>
+                            </div>
+                          </>
                         )}
                         {repairUpdateLaborMode === "percent" && (
                           <div className="col-span-full">
@@ -2094,7 +2111,7 @@ export default function PushToServiceTitan() {
                         )}
 
                         <div className="space-y-2">
-                          <Label htmlFor="repairUpdateBurdenPercent">Labor Burden %</Label>
+                          <Label htmlFor="repairUpdateBurdenPercent">Burden %</Label>
                           <div className="relative">
                             <Input
                               id="repairUpdateBurdenPercent"
@@ -2109,6 +2126,7 @@ export default function PushToServiceTitan() {
                             />
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
                           </div>
+                          <p className="text-xs text-muted-foreground">Applied to labor &amp; commission</p>
                         </div>
                       </div>
                     </div>
@@ -2119,7 +2137,7 @@ export default function PushToServiceTitan() {
                         <Percent className="w-4 h-4 text-primary" />
                         Commission &amp; Financing
                       </Label>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
                         <div className="space-y-2">
                           <Label htmlFor="repairUpdateCommissionPercent">Commission %</Label>
                           <div className="relative">
@@ -2133,23 +2151,6 @@ export default function PushToServiceTitan() {
                               onChange={(e) => setRepairUpdateCommissionPercent(e.target.value)}
                               className="pr-8"
                               data-testid="input-repair-update-commission-percent"
-                            />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="repairUpdateCommissionBurdenPercent">Commission Burden %</Label>
-                          <div className="relative">
-                            <Input
-                              id="repairUpdateCommissionBurdenPercent"
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              max="100"
-                              value={repairUpdateCommissionBurdenPercent}
-                              onChange={(e) => setRepairUpdateCommissionBurdenPercent(e.target.value)}
-                              className="pr-8"
-                              data-testid="input-repair-update-commission-burden-percent"
                             />
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
                           </div>
@@ -2205,11 +2206,12 @@ export default function PushToServiceTitan() {
                       <Badge variant="secondary" className="text-xs">Markup: {repairUpdateMaterialMarkup}%</Badge>
                       <Badge variant="secondary" className="text-xs">Tax: {repairUpdateSalesTaxPercent}%</Badge>
                       <Badge variant="secondary" className="text-xs">
-                        Labor: {repairUpdateLaborMode === "percent" ? "Production Pay" : `$${repairUpdateLaborHourlyRate}/hr`}
+                        {repairUpdateLaborMode === "percent"
+                          ? "Production Pay"
+                          : `$${repairUpdateLaborHourlyRate}/hr × ${repairUpdateLaborHours}h`}
                       </Badge>
                       <Badge variant="secondary" className="text-xs">Burden: {repairUpdateBurdenPercent}%</Badge>
                       <Badge variant="secondary" className="text-xs">Commission: {repairUpdateCommissionPercent}%</Badge>
-                      <Badge variant="secondary" className="text-xs">Comm. Burden: {repairUpdateCommissionBurdenPercent}%</Badge>
                       <Badge variant="secondary" className="text-xs">Financing: {repairUpdateFinancingFeePercent}%</Badge>
                       {repairUpdateRoundUp && (
                         <Badge variant="secondary" className="text-xs">Round Up: On</Badge>

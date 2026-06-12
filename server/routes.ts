@@ -1478,6 +1478,7 @@ export async function registerRoutes(
       salesTaxPercent: clientSalesTaxPercent,
       laborMode: clientLaborMode,
       laborHourlyRate: clientLaborHourlyRate,
+      laborHours: clientLaborHours,
       laborBurdenPercent: clientLaborBurdenPercent,
       commissionPercent: clientCommissionPercent,
       commissionBurdenPercent: clientCommissionBurdenPercent,
@@ -1507,9 +1508,11 @@ export async function registerRoutes(
     const salesTaxPercent = clientSalesTaxPercent ?? 6.35;
     const laborMode = clientLaborMode || 'hours';
     const laborHourlyRate = clientLaborHourlyRate ?? 125;
+    const laborHours = clientLaborHours ?? 1;
     const laborBurdenPercent = clientLaborBurdenPercent ?? 20;
     const commissionPercent = clientCommissionPercent ?? 10;
-    const commissionBurdenPercent = clientCommissionBurdenPercent ?? 20;
+    // commissionBurdenPercent uses the same burden rate as labor (matching RepairCalculator.tsx)
+    const commissionBurdenPercent = clientCommissionBurdenPercent ?? laborBurdenPercent;
     const financingFeePercent = clientFinancingFeePercent ?? 4;
     const shouldRoundUp = Boolean(roundUp);
     const skipNoMaterials = Boolean(clientSkipNoMaterials);
@@ -1522,6 +1525,7 @@ export async function registerRoutes(
       salesTaxPercent: salesTaxPercent.toString(),
       laborMode,
       laborHourlyRate: laborHourlyRate.toString(),
+      laborHours: laborHours.toString(),
       laborPercent: '0',
       laborBurdenPercent: laborBurdenPercent.toString(),
       commissionPercent: commissionPercent.toString(),
@@ -1561,6 +1565,7 @@ export async function registerRoutes(
       salesTaxPercent,
       laborMode,
       laborHourlyRate,
+      laborHours,
       laborBurdenPercent,
       commissionPercent,
       commissionBurdenPercent,
@@ -1959,6 +1964,7 @@ export async function registerRoutes(
               salesTaxPercent,
               laborMode,
               laborHourlyRate,
+              laborHours: parseFloat(historyItem.laborHours ?? '1'),
               laborBurdenPercent,
               commissionPercent,
               commissionBurdenPercent,
