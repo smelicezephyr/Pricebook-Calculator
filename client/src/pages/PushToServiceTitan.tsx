@@ -187,7 +187,6 @@ export default function PushToServiceTitan() {
       }
       setRepairUpdateBurdenPercent(settings.laborBurdenPercent);
       setRepairUpdateCommissionPercent(settings.commissionPercent);
-      setRepairUpdateCommissionBurdenPercent(settings.commissionBurdenPercent);
       setRepairUpdateFinancingFeePercent(settings.financingFeePercent);
     }
   }, [settings]);
