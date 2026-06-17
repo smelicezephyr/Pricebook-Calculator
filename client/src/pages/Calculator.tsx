@@ -9,6 +9,7 @@ import { Save, RefreshCw, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { toPng } from "html-to-image";
 import { useToast } from "@/hooks/use-toast";
 
@@ -21,10 +22,11 @@ export default function Calculator() {
   const [hasInitialized, setHasInitialized] = useState(false);
 
   // Destructure calculator state for easier access
-  const { materials, equipment, laborHours, numTechs, laborPercent, targetMe, discount, discountMode, subcontractor, crane, permit, roundUp, oemRebate, utilityRebate } = calcState;
+  const { materials, equipment, laborMode, laborHours, numTechs, laborPercent, targetMe, discount, discountMode, subcontractor, crane, permit, roundUp, oemRebate, utilityRebate } = calcState;
 
   const setMaterials = (v: string) => setCalcState({ materials: v });
   const setEquipment = (v: string) => setCalcState({ equipment: v });
+  const setLaborMode = (v: "hours" | "percent") => setCalcState({ laborMode: v });
   const setLaborHours = (v: string) => setCalcState({ laborHours: v });
   const setNumTechs = (v: string) => setCalcState({ numTechs: v });
   const setLaborPercent = (v: string) => setCalcState({ laborPercent: v });
@@ -48,6 +50,7 @@ export default function Calculator() {
       if (!calcState.laborPercent) {
         setCalcState({ laborPercent: settings.laborPercent || "" });
       }
+      setCalcState({ laborMode: (settings.laborMode as "hours" | "percent") || "percent" });
       setHasInitialized(true);
     }
   }, [settings, hasInitialized, calcState.targetMe, calcState.laborPercent, setCalcState]);
@@ -128,7 +131,6 @@ export default function Calculator() {
 
     // 6. Labor Cost (For Margin Calculation)
     let laborCost = 0;
-    const laborMode = settings.laborMode || 'percent';
     const laborBurdenRate = parseFloat(settings.laborBurdenPercent) / 100;
 
     if (laborMode === 'hours') {
@@ -174,7 +176,7 @@ export default function Calculator() {
       }
     });
 
-  }, [matVal, equipVal, hoursVal, numTechsVal, laborPercent, discount, discountMode, targetMe, subVal, craneVal, permitVal, settings, roundUp, oemRebate, utilityRebate]);
+  }, [matVal, equipVal, hoursVal, numTechsVal, laborPercent, laborMode, discount, discountMode, targetMe, subVal, craneVal, permitVal, settings, roundUp, oemRebate, utilityRebate]);
 
   const downloadImage = async () => {
     if (resultsRef.current === null) return;
@@ -206,7 +208,7 @@ export default function Calculator() {
       title: quoteTitle || "Untitled Quote",
       materialsCost: matVal.toString(),
       equipmentCost: equipVal.toString(),
-      laborHoursInput: settings.laborMode === 'hours' ? hoursVal.toString() : laborPercent,
+      laborHoursInput: laborMode === 'hours' ? hoursVal.toString() : laborPercent,
       calculatedPrice: results.price.toFixed(2),
       calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
       calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
@@ -228,6 +230,7 @@ export default function Calculator() {
       resetState({
         targetMe: parseFloat(settings.targetMePercent).toFixed(1),
         laborPercent: settings.laborPercent || "",
+        laborMode: (settings.laborMode as "hours" | "percent") || "percent",
       });
     }
   };
@@ -404,9 +407,20 @@ export default function Calculator() {
             <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
               <span className="w-5 h-5 rounded bg-blue-500/10 text-blue-600 flex items-center justify-center text-[10px] font-bold">2</span>
               <h2 className="font-display font-semibold text-sm">Labor</h2>
+              <div className="ml-auto flex items-center gap-2">
+                <Label htmlFor="calc-labor-mode" className="text-xs font-medium cursor-pointer text-muted-foreground">
+                  Hourly
+                </Label>
+                <Switch
+                  id="calc-labor-mode"
+                  checked={laborMode === 'hours'}
+                  onCheckedChange={(checked) => setLaborMode(checked ? 'hours' : 'percent')}
+                  data-testid="switch-labor-mode"
+                />
+              </div>
             </div>
 
-            {(settings.laborMode || 'percent') === 'hours' ? (
+            {laborMode === 'hours' ? (
               <div className="space-y-2">
                 <InputMoney
                   label="Labor Hours"
