@@ -3,6 +3,7 @@ import { createContext, useContext, useState, ReactNode } from "react";
 interface CalculatorState {
   materials: string;
   equipment: string;
+  salesTaxPercent: string;
   laborMode: "hours" | "percent";
   laborHours: string;
   numTechs: string;
@@ -35,7 +36,7 @@ interface RepairCalculatorState {
 interface CalculatorContextType {
   state: CalculatorState;
   setState: (state: Partial<CalculatorState>) => void;
-  resetState: (defaults: { targetMe: string; laborPercent: string; laborMode: "hours" | "percent" }) => void;
+  resetState: (defaults: { targetMe: string; salesTaxPercent: string; laborPercent: string; laborMode: "hours" | "percent" }) => void;
   repairState: RepairCalculatorState;
   setRepairState: (state: Partial<RepairCalculatorState>) => void;
 }
@@ -43,6 +44,7 @@ interface CalculatorContextType {
 const defaultState: CalculatorState = {
   materials: "",
   equipment: "",
+  salesTaxPercent: "6.35",
   laborMode: "percent",
   laborHours: "",
   numTechs: "1",
@@ -82,10 +84,11 @@ export function CalculatorProvider({ children }: { children: ReactNode }) {
     setStateInternal(prev => ({ ...prev, ...newState }));
   };
 
-  const resetState = (defaults: { targetMe: string; laborPercent: string; laborMode: "hours" | "percent" }) => {
+  const resetState = (defaults: { targetMe: string; salesTaxPercent: string; laborPercent: string; laborMode: "hours" | "percent" }) => {
     setStateInternal({
       ...defaultState,
       targetMe: defaults.targetMe,
+      salesTaxPercent: defaults.salesTaxPercent,
       laborPercent: defaults.laborPercent,
       laborMode: defaults.laborMode,
     });

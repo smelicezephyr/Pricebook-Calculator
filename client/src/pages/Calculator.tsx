@@ -22,10 +22,11 @@ export default function Calculator() {
   const [hasInitialized, setHasInitialized] = useState(false);
 
   // Destructure calculator state for easier access
-  const { materials, equipment, laborMode, laborHours, numTechs, laborPercent, targetMe, discount, discountMode, subcontractor, crane, permit, roundUp, oemRebate, utilityRebate } = calcState;
+  const { materials, equipment, salesTaxPercent, laborMode, laborHours, numTechs, laborPercent, targetMe, discount, discountMode, subcontractor, crane, permit, roundUp, oemRebate, utilityRebate } = calcState;
 
   const setMaterials = (v: string) => setCalcState({ materials: v });
   const setEquipment = (v: string) => setCalcState({ equipment: v });
+  const setSalesTaxPercent = (v: string) => setCalcState({ salesTaxPercent: v });
   const setLaborMode = (v: "hours" | "percent") => setCalcState({ laborMode: v });
   const setLaborHours = (v: string) => setCalcState({ laborHours: v });
   const setNumTechs = (v: string) => setCalcState({ numTechs: v });
@@ -50,7 +51,10 @@ export default function Calculator() {
       if (!calcState.laborPercent) {
         setCalcState({ laborPercent: settings.laborPercent || "" });
       }
-      setCalcState({ laborMode: (settings.laborMode as "hours" | "percent") || "percent" });
+      setCalcState({
+        laborMode: (settings.laborMode as "hours" | "percent") || "percent",
+        salesTaxPercent: settings.salesTaxPercent || "6.35",
+      });
       setHasInitialized(true);
     }
   }, [settings, hasInitialized, calcState.targetMe, calcState.laborPercent, setCalcState]);
@@ -95,7 +99,7 @@ export default function Calculator() {
     if (!settings) return;
 
     // 1. Calculate Tax & M&E
-    const salesTaxRate = parseFloat(settings.salesTaxPercent) / 100;
+    const salesTaxRate = parseFloat(salesTaxPercent) / 100;
     const tax = (matVal + equipVal) * salesTaxRate;
     const totalMe = matVal + equipVal + tax;
 
@@ -176,7 +180,7 @@ export default function Calculator() {
       }
     });
 
-  }, [matVal, equipVal, hoursVal, numTechsVal, laborPercent, laborMode, discount, discountMode, targetMe, subVal, craneVal, permitVal, settings, roundUp, oemRebate, utilityRebate]);
+  }, [matVal, equipVal, hoursVal, numTechsVal, laborPercent, laborMode, salesTaxPercent, discount, discountMode, targetMe, subVal, craneVal, permitVal, settings, roundUp, oemRebate, utilityRebate]);
 
   const downloadImage = async () => {
     if (resultsRef.current === null) return;
@@ -229,6 +233,7 @@ export default function Calculator() {
     if (settings) {
       resetState({
         targetMe: parseFloat(settings.targetMePercent).toFixed(1),
+        salesTaxPercent: settings.salesTaxPercent || "6.35",
         laborPercent: settings.laborPercent || "",
         laborMode: (settings.laborMode as "hours" | "percent") || "percent",
       });
@@ -399,6 +404,25 @@ export default function Calculator() {
                 onChange={(e) => setEquipment(e.target.value)}
                 data-testid="input-equipment"
               />
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Sales Tax %
+                </Label>
+                <div className="relative group">
+                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none group-focus-within:text-primary transition-colors">
+                    <span className="text-xs font-mono">%</span>
+                  </div>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={salesTaxPercent}
+                    onChange={(e) => setSalesTaxPercent(e.target.value)}
+                    data-testid="input-sales-tax"
+                    className="pl-8 h-9 text-sm font-medium bg-background border-border shadow-sm transition-all focus:ring-primary/20"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
