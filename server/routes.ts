@@ -1254,6 +1254,7 @@ export async function registerRoutes(
       laborMode: clientLaborMode,
       laborPercent: clientLaborPercent,
       laborHourlyRate: clientLaborHourlyRate,
+      numTechs: clientNumTechs,
       laborBurdenPercent: clientLaborBurdenPercent,
       commissionPercent: clientCommissionPercent,
       commissionBurdenPercent: clientCommissionBurdenPercent,
@@ -1289,6 +1290,7 @@ export async function registerRoutes(
     const laborMode = clientLaborMode || 'percent';
     const laborPercent = clientLaborPercent ?? 7;
     const laborHourlyRate = clientLaborHourlyRate ?? 125;
+    const numTechs = (typeof clientNumTechs === 'number' && clientNumTechs >= 1) ? clientNumTechs : 1;
     const laborBurdenPercent = clientLaborBurdenPercent ?? 20;
     const commissionPercent = clientCommissionPercent ?? 10;
     const commissionBurdenPercent = clientCommissionBurdenPercent ?? 20;
@@ -1398,6 +1400,7 @@ export async function registerRoutes(
       laborMode,
       laborPercent,
       laborHourlyRate,
+      numTechs,
       laborBurdenPercent,
       commissionPercent,
       commissionBurdenPercent,
@@ -1478,6 +1481,7 @@ export async function registerRoutes(
       salesTaxPercent: clientSalesTaxPercent,
       laborMode: clientLaborMode,
       laborHourlyRate: clientLaborHourlyRate,
+      numTechs: clientRepairNumTechs,
       laborBurdenPercent: clientLaborBurdenPercent,
       commissionPercent: clientCommissionPercent,
       commissionBurdenPercent: clientCommissionBurdenPercent,
@@ -1507,6 +1511,7 @@ export async function registerRoutes(
     const salesTaxPercent = clientSalesTaxPercent ?? 6.35;
     const laborMode = clientLaborMode || 'hours';
     const laborHourlyRate = clientLaborHourlyRate ?? 125;
+    const repairNumTechs = (typeof clientRepairNumTechs === 'number' && clientRepairNumTechs >= 1) ? clientRepairNumTechs : 1;
     const laborBurdenPercent = clientLaborBurdenPercent ?? 20;
     const commissionPercent = clientCommissionPercent ?? 10;
     // commissionBurdenPercent uses the same burden rate as labor (matching RepairCalculator.tsx)
@@ -1562,6 +1567,7 @@ export async function registerRoutes(
       salesTaxPercent,
       laborMode,
       laborHourlyRate,
+      numTechs: repairNumTechs,
       laborBurdenPercent,
       commissionPercent,
       commissionBurdenPercent,

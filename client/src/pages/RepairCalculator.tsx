@@ -26,6 +26,7 @@ export default function RepairCalculator() {
   const [materialMarkup, setMaterialMarkup] = useState("200");
   const [laborRate, setLaborRate] = useState("175.00");
   const [laborHours, setLaborHours] = useState("");
+  const [numTechs, setNumTechs] = useState("1");
   const [burdenPercent, setBurdenPercent] = useState("20.00");
   const [salesTaxPercent, setSalesTaxPercent] = useState("6.35");
   const [commissionPercent, setCommissionPercent] = useState("10.00");
@@ -52,6 +53,7 @@ export default function RepairCalculator() {
       materialMarkup,
       laborRate,
       laborHours,
+      numTechs,
       burdenPercent,
       salesTaxPercent,
       commissionPercent,
@@ -59,12 +61,13 @@ export default function RepairCalculator() {
       highestTechRate,
       laborMode,
     });
-  }, [partsCost, materialMarkup, laborRate, laborHours, burdenPercent, salesTaxPercent, commissionPercent, financingFeePercent, highestTechRate, laborMode, setRepairState]);
+  }, [partsCost, materialMarkup, laborRate, laborHours, numTechs, burdenPercent, salesTaxPercent, commissionPercent, financingFeePercent, highestTechRate, laborMode, setRepairState]);
 
   const partsTotal = parseFloat(partsCost) || 0;
   const markupRate = (parseFloat(materialMarkup) || 200) / 100;
   const laborRateVal = parseFloat(laborRate) || 0;
   const laborHoursVal = parseFloat(laborHours) || 0;
+  const numTechsVal = Math.max(1, parseFloat(numTechs) || 1);
   const burdenRate = (parseFloat(burdenPercent) || 0) / 100;
   const taxRate = (parseFloat(salesTaxPercent) || 0) / 100;
   const commissionRate = (parseFloat(commissionPercent) || 0) / 100;
@@ -103,7 +106,7 @@ export default function RepairCalculator() {
     subtotal4 = subtotal3 + burdenedCommission;
     totalBeforeRounding = subtotal4 + financingFee;
   } else {
-    directLaborCost = laborRateVal * laborHoursVal;
+    directLaborCost = laborRateVal * laborHoursVal * numTechsVal;
     laborBurden = directLaborCost * burdenRate;
     burdenedLaborCost = directLaborCost + laborBurden;
     subtotal3 = subtotal2 + burdenedLaborCost;
@@ -124,7 +127,7 @@ export default function RepairCalculator() {
   const highestTechRateVal = parseFloat(highestTechRate) || 0;
   const techLaborCost = laborMode === "percent"
     ? 0
-    : highestTechRateVal * laborHoursVal;
+    : highestTechRateVal * laborHoursVal * numTechsVal;
   const burdenedTechLabor = techLaborCost * (1 + burdenRate);
   const cogs = partsTotal + burdenedTechLabor + burdenedCommission;
   const grossMargin = totalPrice - cogs;
@@ -147,6 +150,7 @@ export default function RepairCalculator() {
     setPartsCost("");
     setMaterialMarkup("200");
     setLaborHours("");
+    setNumTechs("1");
     setLaborMode("dollars");
     setSalesTaxPercent(settings?.salesTaxPercent || "6.35");
     setCommissionPercent(settings?.commissionPercent || "10.00");
@@ -348,7 +352,7 @@ export default function RepairCalculator() {
               ) : (
                 <>
                   <InputMoney
-                    label="Labor Rate"
+                    label="Labor Rate (per tech)"
                     placeholder="125.00"
                     value={laborRate}
                     onChange={(e) => setLaborRate(e.target.value)}
@@ -362,6 +366,15 @@ export default function RepairCalculator() {
                     value={laborHours}
                     onChange={(e) => setLaborHours(e.target.value)}
                     data-testid="input-labor-hours"
+                  />
+
+                  <InputMoney
+                    label="# of Technicians"
+                    type="number"
+                    placeholder="1"
+                    value={numTechs}
+                    onChange={(e) => setNumTechs(e.target.value)}
+                    data-testid="input-num-techs"
                   />
 
                   <InputMoney
@@ -549,7 +562,7 @@ export default function RepairCalculator() {
                     </div>
                     <div className="ml-5 space-y-0.5 pt-1 border-l-2 border-emerald-100/50 dark:border-emerald-900/30 pl-3">
                       {[
-                        { label: `Labor (${laborHoursVal} hrs × ${formatCurrency(laborRateVal)}/hr)`, value: directLaborCost },
+                        { label: numTechsVal > 1 ? `Labor (${numTechsVal} techs × ${laborHoursVal} hrs × ${formatCurrency(laborRateVal)}/hr)` : `Labor (${laborHoursVal} hrs × ${formatCurrency(laborRateVal)}/hr)`, value: directLaborCost },
                         { label: `Labor Burden (${burdenPercent}%)`, value: laborBurden },
                       ].map((sub) => (
                         <div key={sub.label} className="flex justify-between items-center py-0.5">

@@ -21,11 +21,12 @@ export default function Calculator() {
   const [hasInitialized, setHasInitialized] = useState(false);
 
   // Destructure calculator state for easier access
-  const { materials, equipment, laborHours, laborPercent, targetMe, discount, discountMode, subcontractor, crane, permit, roundUp, oemRebate, utilityRebate } = calcState;
+  const { materials, equipment, laborHours, numTechs, laborPercent, targetMe, discount, discountMode, subcontractor, crane, permit, roundUp, oemRebate, utilityRebate } = calcState;
 
   const setMaterials = (v: string) => setCalcState({ materials: v });
   const setEquipment = (v: string) => setCalcState({ equipment: v });
   const setLaborHours = (v: string) => setCalcState({ laborHours: v });
+  const setNumTechs = (v: string) => setCalcState({ numTechs: v });
   const setLaborPercent = (v: string) => setCalcState({ laborPercent: v });
   const setTargetMe = (v: string) => setCalcState({ targetMe: v });
   const setDiscount = (v: string) => setCalcState({ discount: v });
@@ -59,6 +60,7 @@ export default function Calculator() {
   const matVal = parseFloat(materials) || 0;
   const equipVal = parseFloat(equipment) || 0;
   const hoursVal = parseFloat(laborHours) || 0;
+  const numTechsVal = Math.max(1, parseFloat(numTechs) || 1);
   const subVal = parseFloat(subcontractor) || 0;
   const craneVal = parseFloat(crane) || 0;
   const permitVal = parseFloat(permit) || 0;
@@ -131,7 +133,7 @@ export default function Calculator() {
 
     if (laborMode === 'hours') {
       const hourlyRate = parseFloat(settings.laborHourlyRate);
-      laborCost = (hoursVal * hourlyRate) * (1 + laborBurdenRate);
+      laborCost = (hoursVal * numTechsVal * hourlyRate) * (1 + laborBurdenRate);
     } else {
       const laborPercentRate = (parseFloat(laborPercent) || 0) / 100;
       // Apply burden to the percentage-based labor as well
@@ -172,7 +174,7 @@ export default function Calculator() {
       }
     });
 
-  }, [matVal, equipVal, hoursVal, laborPercent, discount, discountMode, targetMe, subVal, craneVal, permitVal, settings, roundUp, oemRebate, utilityRebate]);
+  }, [matVal, equipVal, hoursVal, numTechsVal, laborPercent, discount, discountMode, targetMe, subVal, craneVal, permitVal, settings, roundUp, oemRebate, utilityRebate]);
 
   const downloadImage = async () => {
     if (resultsRef.current === null) return;
@@ -414,8 +416,16 @@ export default function Calculator() {
                   onChange={(e) => setLaborHours(e.target.value)}
                   data-testid="input-labor-hours"
                 />
+                <InputMoney
+                  label="# of Technicians"
+                  type="number"
+                  placeholder="1"
+                  value={numTechs}
+                  onChange={(e) => setNumTechs(e.target.value)}
+                  data-testid="input-num-techs"
+                />
                 <p className="text-xs text-muted-foreground">
-                  Using rate of ${parseFloat(settings.laborHourlyRate).toFixed(2)}/hr
+                  ${parseFloat(settings.laborHourlyRate).toFixed(2)}/hr per technician
                 </p>
               </div>
             ) : (

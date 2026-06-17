@@ -15,6 +15,7 @@ interface PushParams {
   laborMode: string;
   laborPercent: number;
   laborHourlyRate: number;
+  numTechs?: number;
   laborBurdenPercent: number;
   commissionPercent: number;
   commissionBurdenPercent: number;
@@ -43,6 +44,7 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
     laborMode,
     laborPercent,
     laborHourlyRate,
+    numTechs = 1,
     laborBurdenPercent,
     commissionPercent,
     commissionBurdenPercent,
@@ -371,7 +373,7 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
       let laborCost = 0;
       if (laborMode === 'hours') {
         const hours = service.hours || 0;
-        laborCost = (hours * laborHourlyRate) * (1 + laborBurdenRate);
+        laborCost = (hours * numTechs * laborHourlyRate) * (1 + laborBurdenRate);
       } else {
         laborCost = (newPrice * laborPercentRate) * (1 + laborBurdenRate);
       }
@@ -496,6 +498,7 @@ interface RepairPushParams {
   salesTaxPercent: number;
   laborMode: string;
   laborHourlyRate: number;
+  numTechs?: number;
   laborBurdenPercent: number;
   commissionPercent: number;
   commissionBurdenPercent: number;
@@ -513,6 +516,7 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
     salesTaxPercent,
     laborMode,
     laborHourlyRate,
+    numTechs = 1,
     laborBurdenPercent,
     commissionPercent,
     financingFeePercent,
@@ -671,7 +675,7 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
       let subtotal3: number;
       if (laborMode === 'hours') {
         const serviceHours = service.hours || 0;
-        const burdenedLabor = serviceHours * laborHourlyRate * (1 + burdenRate);
+        const burdenedLabor = serviceHours * numTechs * laborHourlyRate * (1 + burdenRate);
         subtotal3 = subtotal2 + burdenedLabor;
       } else {
         subtotal3 = subtotal2;

@@ -4,6 +4,7 @@ interface CalculatorState {
   materials: string;
   equipment: string;
   laborHours: string;
+  numTechs: string;
   laborPercent: string;
   targetMe: string;
   discount: string;
@@ -21,6 +22,7 @@ interface RepairCalculatorState {
   materialMarkup: string;
   laborRate: string;
   laborHours: string;
+  numTechs: string;
   burdenPercent: string;
   salesTaxPercent: string;
   commissionPercent: string;
@@ -41,6 +43,7 @@ const defaultState: CalculatorState = {
   materials: "",
   equipment: "",
   laborHours: "",
+  numTechs: "1",
   laborPercent: "",
   targetMe: "23.0",
   discount: "",
@@ -58,6 +61,7 @@ const defaultRepairState: RepairCalculatorState = {
   materialMarkup: "200",
   laborRate: "175.00",
   laborHours: "",
+  numTechs: "1",
   burdenPercent: "20.00",
   salesTaxPercent: "6.35",
   commissionPercent: "10.00",

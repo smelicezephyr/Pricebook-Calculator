@@ -172,8 +172,8 @@ export default function Settings() {
                               <RadioGroupItem value="hours" />
                             </FormControl>
                             <FormLabel className="font-normal cursor-pointer flex-1">
-                              Hourly Rate
-                              <span className="block text-xs text-muted-foreground mt-1">Based on input hours × hourly rate</span>
+                              Hourly Rate (per technician)
+                              <span className="block text-xs text-muted-foreground mt-1">Based on hours × rate per technician × # of techs</span>
                             </FormLabel>
                           </FormItem>
                         </RadioGroup>
@@ -189,7 +189,7 @@ export default function Settings() {
                     name="laborHourlyRate"
                     render={({ field }) => (
                       <FormItem className={form.watch("laborMode") !== "hours" ? "hidden" : ""}>
-                        <FormLabel>Hourly Rate ($)</FormLabel>
+                        <FormLabel>Hourly Rate per Technician ($)</FormLabel>
                         <FormControl>
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">$</span>
