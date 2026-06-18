@@ -42,6 +42,8 @@ export default function ReverseCalculator() {
   const [equipment, setEquipment] = useState("");
   const [laborHours, setLaborHours] = useState("");
   const [laborPercent, setLaborPercent] = useState("");
+  const [laborMode, setLaborMode] = useState<"hours" | "percent">("percent");
+  const [numTechs, setNumTechs] = useState("1");
   const [subcontractor, setSubcontractor] = useState("");
   const [crane, setCrane] = useState("");
   const [permit, setPermit] = useState("");
@@ -68,6 +70,7 @@ export default function ReverseCalculator() {
       if (!laborPercent) {
         setLaborPercent(settings.laborPercent || "");
       }
+      setLaborMode((settings.laborMode as "hours" | "percent") || "percent");
       setRepairSalesTaxPercent(settings.salesTaxPercent || "6.35");
       setRepairCommissionPercent(settings.commissionPercent || "10.00");
       setRepairBurdenPercent(settings.laborBurdenPercent || "20.00");
@@ -111,12 +114,12 @@ export default function ReverseCalculator() {
     const financingCost = price * financingRate;
 
     let laborCost = 0;
-    const laborMode = settings.laborMode || 'percent';
     const laborBurdenRate = parseFloat(settings.laborBurdenPercent) / 100;
+    const numTechsVal = Math.max(1, parseFloat(numTechs) || 1);
 
     if (laborMode === 'hours') {
       const hourlyRate = parseFloat(settings.laborHourlyRate);
-      laborCost = (hoursVal * hourlyRate) * (1 + laborBurdenRate);
+      laborCost = (hoursVal * numTechsVal * hourlyRate) * (1 + laborBurdenRate);
     } else {
       const laborPercentRate = (parseFloat(laborPercent) || 0) / 100;
       laborCost = (price * laborPercentRate) * (1 + laborBurdenRate);
@@ -136,7 +139,7 @@ export default function ReverseCalculator() {
       breakdown: { materials: matVal, equipment: equipVal, tax, commission: commissionCost, financing: financingCost, laborCost, subcontractor: subVal, crane: craneVal, permit: permitVal, oemRebate: oemRebateVal, utilityRebate: utilityRebateVal },
       metrics: { grossMarginPercent, grossMarginAmount, mePercent, estimatedLabor }
     });
-  }, [priceVal, matVal, equipVal, hoursVal, laborPercent, discount, discountMode, subVal, craneVal, permitVal, oemRebate, utilityRebate, settings]);
+  }, [priceVal, matVal, equipVal, hoursVal, numTechs, laborPercent, laborMode, discount, discountMode, subVal, craneVal, permitVal, oemRebate, utilityRebate, settings]);
 
   const repairPriceVal = parseFloat(repairSellingPrice) || 0;
   const repairPartsTotal = parseFloat(repairPartsCost) || 0;
@@ -235,6 +238,8 @@ export default function ReverseCalculator() {
     setEquipment(calcState.equipment || "");
     setLaborHours(calcState.laborHours || "");
     setLaborPercent(calcState.laborPercent || "");
+    setLaborMode(calcState.laborMode || "percent");
+    setNumTechs(calcState.numTechs || "1");
     setSubcontractor(calcState.subcontractor || "");
     setCrane(calcState.crane || "");
     setPermit(calcState.permit || "");
@@ -264,6 +269,8 @@ export default function ReverseCalculator() {
     setEquipment("");
     setLaborHours("");
     setLaborPercent(settings?.laborPercent || "");
+    setLaborMode((settings?.laborMode as "hours" | "percent") || "percent");
+    setNumTechs("1");
     setSubcontractor("");
     setCrane("");
     setPermit("");
@@ -442,11 +449,21 @@ export default function ReverseCalculator() {
                 <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-border">
                   <span className="w-5 h-5 rounded bg-emerald-500/10 text-emerald-600 flex items-center justify-center text-[10px] font-bold">3</span>
                   <h2 className="font-display font-semibold text-sm">Labor</h2>
+                  <div className="ml-auto flex items-center gap-2">
+                    <Label htmlFor="rev-labor-mode" className="text-xs font-medium cursor-pointer text-muted-foreground">Hourly</Label>
+                    <Switch
+                      id="rev-labor-mode"
+                      checked={laborMode === 'hours'}
+                      onCheckedChange={(checked) => setLaborMode(checked ? 'hours' : 'percent')}
+                      data-testid="switch-reverse-labor-mode"
+                    />
+                  </div>
                 </div>
-                {(settings.laborMode || 'percent') === 'hours' ? (
+                {laborMode === 'hours' ? (
                   <div className="space-y-1.5">
                     <InputMoney label="Labor Hours" type="number" placeholder="10" value={laborHours} onChange={(e) => setLaborHours(e.target.value)} data-testid="input-reverse-labor-hours" />
-                    <p className="text-xs text-muted-foreground">Using rate of ${parseFloat(settings.laborHourlyRate).toFixed(2)}/hr</p>
+                    <InputMoney label="# of Technicians" type="number" placeholder="1" value={numTechs} onChange={(e) => setNumTechs(e.target.value)} data-testid="input-reverse-num-techs" />
+                    <p className="text-xs text-muted-foreground">${parseFloat(settings.laborHourlyRate).toFixed(2)}/hr per technician</p>
                   </div>
                 ) : (
                   <div className="space-y-1">
