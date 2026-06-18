@@ -632,6 +632,12 @@ export default function Calculator() {
               grossMarginMinPercent={parseFloat(settings.grossMarginMinPercent || "45")}
               oemRebate={parseFloat(oemRebate) || 0}
               utilityRebate={parseFloat(utilityRebate) || 0}
+              laborBreakdown={laborMode === 'hours' ? {
+                hours: hoursVal,
+                numTechs: numTechsVal,
+                hourlyRate: parseFloat(settings.laborHourlyRate),
+                burdenPercent: parseFloat(settings.laborBurdenPercent),
+              } : undefined}
             />
           </div>
         </div>

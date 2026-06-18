@@ -724,21 +724,49 @@ export default function ReverseCalculator() {
                       <div className="space-y-1.5">
                         <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">Direct Labor</h4>
                         <div className="space-y-1">
-                          {[
-                            { label: "Burdened Labor", value: systemResults.breakdown.laborCost, color: "bg-emerald-500", highlight: true },
-                            { label: "Burdened Commission", value: systemResults.breakdown.commission, color: "bg-amber-500" },
-                          ].map((item) => (
-                            <div key={item.label} className={`flex items-center justify-between p-2.5 rounded-lg ${item.highlight ? 'bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30' : 'hover:bg-muted/50'}`}>
-                              <div className="flex items-center gap-2">
-                                <div className={`w-2.5 h-2.5 rounded-full ${item.color}`} />
-                                <span className={`text-sm ${item.highlight ? 'font-semibold text-emerald-900 dark:text-emerald-300' : 'text-foreground'}`}>{item.label}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] text-muted-foreground font-medium">({formatPercent(systemEffectiveRevenue > 0 ? (item.value / systemEffectiveRevenue) * 100 : 0)})</span>
-                                <span className={`font-mono text-sm font-medium ${item.highlight ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'}`}>{formatCurrency(item.value)}</span>
-                              </div>
+                          <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                              <span className="text-sm font-semibold text-emerald-900 dark:text-emerald-300">Burdened Labor</span>
                             </div>
-                          ))}
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-muted-foreground font-medium">({formatPercent(systemEffectiveRevenue > 0 ? (systemResults.breakdown.laborCost / systemEffectiveRevenue) * 100 : 0)})</span>
+                              <span className="font-mono text-sm font-medium text-emerald-700 dark:text-emerald-400">{formatCurrency(systemResults.breakdown.laborCost)}</span>
+                            </div>
+                          </div>
+                          {laborMode === 'hours' && hoursVal > 0 && (() => {
+                            const numTechsVal = Math.max(1, parseFloat(numTechs) || 1);
+                            const totalHours = hoursVal * numTechsVal;
+                            const hourlyRate = parseFloat(settings.laborHourlyRate);
+                            const burdenRate = parseFloat(settings.laborBurdenPercent) / 100;
+                            const directLabor = totalHours * hourlyRate;
+                            const burden = directLabor * burdenRate;
+                            const rows = [
+                              ...(numTechsVal > 1 ? [{ label: `${numTechsVal} techs × ${hoursVal} hrs = ${totalHours} total hrs` }] : [{ label: `${hoursVal} hrs` }]),
+                              { label: `${formatCurrency(hourlyRate)}/hr × ${totalHours} hrs`, value: directLabor },
+                              { label: `Labor Burden (${settings.laborBurdenPercent}%)`, value: burden },
+                            ];
+                            return (
+                              <div className="ml-5 space-y-0.5 pt-1 border-l-2 border-emerald-100/50 dark:border-emerald-900/30 pl-3">
+                                {rows.map((row) => (
+                                  <div key={row.label} className="flex justify-between items-center py-0.5">
+                                    <span className="text-xs text-muted-foreground">{row.label}</span>
+                                    {row.value !== undefined && <span className="text-xs font-mono text-muted-foreground">{formatCurrency(row.value)}</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })()}
+                          <div className="flex items-center justify-between p-2.5 rounded-lg hover:bg-muted/50">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                              <span className="text-sm text-foreground">Burdened Commission</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-muted-foreground font-medium">({formatPercent(systemEffectiveRevenue > 0 ? (systemResults.breakdown.commission / systemEffectiveRevenue) * 100 : 0)})</span>
+                              <span className="font-mono text-sm font-medium text-muted-foreground">{formatCurrency(systemResults.breakdown.commission)}</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                       <div className="space-y-1.5">
