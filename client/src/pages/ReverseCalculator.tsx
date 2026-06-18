@@ -40,6 +40,7 @@ export default function ReverseCalculator() {
   const [sellingPrice, setSellingPrice] = useState("");
   const [materials, setMaterials] = useState("");
   const [equipment, setEquipment] = useState("");
+  const [salesTaxPercent, setSalesTaxPercent] = useState("6.35");
   const [laborHours, setLaborHours] = useState("");
   const [laborPercent, setLaborPercent] = useState("");
   const [laborMode, setLaborMode] = useState<"hours" | "percent">("percent");
@@ -71,6 +72,7 @@ export default function ReverseCalculator() {
         setLaborPercent(settings.laborPercent || "");
       }
       setLaborMode((settings.laborMode as "hours" | "percent") || "percent");
+      setSalesTaxPercent(settings.salesTaxPercent || "6.35");
       setRepairSalesTaxPercent(settings.salesTaxPercent || "6.35");
       setRepairCommissionPercent(settings.commissionPercent || "10.00");
       setRepairBurdenPercent(settings.laborBurdenPercent || "20.00");
@@ -97,7 +99,7 @@ export default function ReverseCalculator() {
   useEffect(() => {
     if (!settings) return;
 
-    const salesTaxRate = parseFloat(settings.salesTaxPercent) / 100;
+    const salesTaxRate = parseFloat(salesTaxPercent) / 100;
     const tax = (matVal + equipVal) * salesTaxRate;
     const totalMe = matVal + equipVal + tax;
     const totalOtherCogs = subVal + craneVal + permitVal;
@@ -139,7 +141,7 @@ export default function ReverseCalculator() {
       breakdown: { materials: matVal, equipment: equipVal, tax, commission: commissionCost, financing: financingCost, laborCost, subcontractor: subVal, crane: craneVal, permit: permitVal, oemRebate: oemRebateVal, utilityRebate: utilityRebateVal },
       metrics: { grossMarginPercent, grossMarginAmount, mePercent, estimatedLabor }
     });
-  }, [priceVal, matVal, equipVal, hoursVal, numTechs, laborPercent, laborMode, discount, discountMode, subVal, craneVal, permitVal, oemRebate, utilityRebate, settings]);
+  }, [priceVal, matVal, equipVal, hoursVal, numTechs, laborPercent, laborMode, salesTaxPercent, discount, discountMode, subVal, craneVal, permitVal, oemRebate, utilityRebate, settings]);
 
   const repairPriceVal = parseFloat(repairSellingPrice) || 0;
   const repairPartsTotal = parseFloat(repairPartsCost) || 0;
@@ -240,6 +242,7 @@ export default function ReverseCalculator() {
     setLaborPercent(calcState.laborPercent || "");
     setLaborMode(calcState.laborMode || "percent");
     setNumTechs(calcState.numTechs || "1");
+    setSalesTaxPercent(calcState.salesTaxPercent || "6.35");
     setSubcontractor(calcState.subcontractor || "");
     setCrane(calcState.crane || "");
     setPermit(calcState.permit || "");
@@ -271,6 +274,7 @@ export default function ReverseCalculator() {
     setLaborPercent(settings?.laborPercent || "");
     setLaborMode((settings?.laborMode as "hours" | "percent") || "percent");
     setNumTechs("1");
+    setSalesTaxPercent(settings?.salesTaxPercent || "6.35");
     setSubcontractor("");
     setCrane("");
     setPermit("");
@@ -442,6 +446,15 @@ export default function ReverseCalculator() {
                 <div className="space-y-1.5">
                   <InputMoney label="Materials Cost" placeholder="0.00" value={materials} onChange={(e) => setMaterials(e.target.value)} data-testid="input-reverse-materials" />
                   <InputMoney label="Equipment Cost" placeholder="0.00" value={equipment} onChange={(e) => setEquipment(e.target.value)} data-testid="input-reverse-equipment" />
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sales Tax %</Label>
+                    <div className="relative group">
+                      <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none group-focus-within:text-primary transition-colors">
+                        <span className="text-xs font-mono">%</span>
+                      </div>
+                      <Input type="number" step="0.01" min="0" value={salesTaxPercent} onChange={(e) => setSalesTaxPercent(e.target.value)} data-testid="input-reverse-sales-tax" className="pl-8 h-9 text-sm font-medium bg-background border-border shadow-sm transition-all focus:ring-primary/20" />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -698,7 +711,7 @@ export default function ReverseCalculator() {
                             {[
                               { label: "Materials", value: systemResults.breakdown.materials },
                               { label: "Equipment", value: systemResults.breakdown.equipment },
-                              { label: `Sales Tax (${settings.salesTaxPercent || "6.35"}%)`, value: systemResults.breakdown.tax },
+                              { label: `Sales Tax (${salesTaxPercent || "6.35"}%)`, value: systemResults.breakdown.tax },
                             ].map((sub) => (
                               <div key={sub.label} className="flex justify-between items-center py-0.5">
                                 <span className="text-xs text-muted-foreground">{sub.label}</span>
