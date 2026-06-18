@@ -30,7 +30,7 @@ Preferred communication style: Simple, everyday language.
 - **ORM**: Drizzle ORM with drizzle-zod
 - **Core Tables**:
   - `users` — Google OAuth profiles, roles (`admin` / `user` / `everyone`), and per-user push permission
-  - `settings` — Per-user calculator defaults (labor, burden, commission, target M&E %)
+  - `settings` — Per-user calculator defaults: labor mode (`hours` / `percent`), hourly rate, burden %, commission %, target M&E %, sales tax %, and gross margin minimum
   - `quotes` — Saved calculation snapshots from the System and Repair calculators
   - `tenants` — ServiceTitan API credentials (API key, Client ID/Secret, app key) per business unit
   - `user_tenant_access` — Many-to-many: which users can see which tenants
@@ -62,10 +62,18 @@ Preferred communication style: Simple, everyday language.
 - Push permission is a separate flag on `users`: `reprice_and_add`, `add_new_only`, or `none`.
 
 ### Calculators
-- **System Calculator**: Materials + equipment + labor (hours or % of price) + tax + commission + financing → target M&E % → selling price. Supports OEM and utility rebates. PNG export via `html-to-image`.
-- **Repair Calculator**: Material markup + production pay (% of commission) or hourly labor → repair price.
-- **Reverse Calculator**: Enter a target selling price → back-calculate gross margin and cost breakdown.
-- Settings are per-user (stored in `settings` table with `user_id` FK); localStorage overrides for session defaults.
+- **System Calculator**: Materials + equipment + labor + tax + commission + financing → target M&E % → selling price. Supports OEM and utility rebates. PNG export via `html-to-image`.
+  - **Labor mode toggle** (Hourly / % of price): initializes from the user's saved Settings; overridable per session. Switching to hourly reveals `# of Technicians` and hours-per-tech inputs.
+  - **Hourly labor formula**: `numTechs × hoursPerTech × hourlyRate × (1 + burdenPercent)` = burdened labor cost.
+  - **Sales Tax %**: per-calculation override field (defaults to the value saved in Settings).
+- **Repair Calculator**: Material markup + production pay (% of commission) or hourly labor → repair price. Supports a `# of Technicians` field in hourly mode.
+- **Reverse Calculator**: Enter a target selling price → back-calculate gross margin and cost breakdown. The system section mirrors the System Calculator's labor mode toggle, `# of Technicians`, and sales tax fields. A "Copy from System Calculator" button syncs all those values across.
+- **Hourly labor cost breakdown sub-rows**: When hourly mode is active, the "Burdened Labor" row in the cost breakdown expands to show:
+  - `N techs × H hrs = T total hrs` (tech count line only shown when numTechs > 1)
+  - `$rate/hr × T hrs` → direct labor amount
+  - `Labor Burden (X%)` → burden amount
+  - Implemented via an optional `laborBreakdown` prop on `ResultsCard` (System Calculator) and inline in the Reverse Calculator's system breakdown panel.
+- Settings are per-user (stored in `settings` table with `user_id` FK); individual calculator fields override the saved defaults for the duration of the session.
 
 ### ServiceTitan Push Engine
 - Fetches all services in selected pricebook categories, maps material/equipment costs from the ST catalog into in-memory lookup maps, calculates new prices against the configured M&E target %, and updates ServiceTitan via batch API calls.
