@@ -208,6 +208,7 @@ export default function PushToServiceTitan() {
       setActiveTab("update-category");
     }
   }, [pushPermission]);
+  const [newTaskPrefix, setNewTaskPrefix] = useState<"SYS^" | "BOIL^">("SYS^");
   const [newTaskCode, setNewTaskCode] = useState("");
   const [newTaskCodeError, setNewTaskCodeError] = useState<string | null>(null);
   const [newTaskName, setNewTaskName] = useState("");
@@ -514,7 +515,7 @@ export default function PushToServiceTitan() {
   const handleCreateTask = async () => {
     if (!selectedTenantId) return;
     
-    const code = "SYS^" + newTaskCode.trim();
+    const code = newTaskPrefix + newTaskCode.trim();
     const name = newTaskName.trim();
     
     if (!newTaskCode.trim()) {
@@ -2560,16 +2561,27 @@ export default function PushToServiceTitan() {
                       <div className="space-y-2">
                         <Label htmlFor="newTaskCode" className={newTaskCodeError ? "text-destructive" : ""}>Code *</Label>
                         <div className={`flex items-center rounded-md border overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0 ${newTaskCodeError ? "border-destructive focus-within:ring-destructive" : "border-input"}`}>
-                          <span className="px-3 py-2 text-sm font-mono bg-muted text-muted-foreground border-r border-input select-none shrink-0">SYS^</span>
+                          <Select value={newTaskPrefix} onValueChange={(v) => {
+                            setNewTaskPrefix(v as "SYS^" | "BOIL^");
+                            setNewTaskCode(prev => prev.slice(0, 31 - v.length));
+                          }}>
+                            <SelectTrigger className="border-0 border-r border-input rounded-none shadow-none focus:ring-0 w-auto gap-1 font-mono text-sm bg-muted text-muted-foreground px-3 h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="SYS^" className="font-mono">SYS^</SelectItem>
+                              <SelectItem value="BOIL^" className="font-mono">BOIL^</SelectItem>
+                            </SelectContent>
+                          </Select>
                           <input
                             id="newTaskCode"
                             value={newTaskCode}
                             onChange={(e) => {
-                              setNewTaskCode(e.target.value.slice(0, 27));
+                              setNewTaskCode(e.target.value.slice(0, 31 - newTaskPrefix.length));
                               if (newTaskCodeError) setNewTaskCodeError(null);
                             }}
                             placeholder="e.g., 10015"
-                            maxLength={27}
+                            maxLength={31 - newTaskPrefix.length}
                             className="flex-1 px-3 py-2 text-sm bg-background outline-none placeholder:text-muted-foreground"
                             data-testid="input-new-task-code"
                           />
@@ -2577,7 +2589,7 @@ export default function PushToServiceTitan() {
                         {newTaskCodeError ? (
                           <p className="text-sm text-destructive">{newTaskCodeError}</p>
                         ) : (
-                          <p className="text-xs text-muted-foreground">{4 + newTaskCode.length}/31 characters</p>
+                          <p className="text-xs text-muted-foreground">{newTaskPrefix.length + newTaskCode.length}/31 characters</p>
                         )}
                       </div>
                       <div className="space-y-2">
