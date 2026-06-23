@@ -79,6 +79,9 @@ Preferred communication style: Simple, everyday language.
 ### ServiceTitan Push Engine
 - Fetches all services in selected pricebook categories, maps material/equipment costs from the ST catalog into in-memory lookup maps, calculates new prices against the configured M&E target %, and updates ServiceTitan via batch API calls.
 - **Push types**: `update` (reprice existing), `new_system` (create new system task), `new_repair` (create new repair task).
+- **Service code prefixes**: codes created via the push page carry mandatory prefixes that count toward the 31-character ServiceTitan limit.
+  - *Add New System*: prefix is selectable — `SYS^` (default) or `BOIL^` — via a dropdown embedded in the code input field. The suffix max length adjusts automatically (`31 − prefix.length`). Submitted code = selected prefix + suffix.
+  - *Add New Repair*: prefix is fixed at `SVC^` (4 chars), giving 27 characters for the suffix. Both prefixes are visually displayed as a locked badge / dropdown left of the editable suffix input.
 - **Labor settings flow**: the push page forwards `laborMode`, `laborHourlyRate`, `numTechs`, and `laborBurdenPercent` from the user's settings into `processPush` / `processRepairPush`. In hourly mode the processor computes `service.hours × numTechs × laborHourlyRate × (1 + burdenRate)` per service; in percent mode it uses `price × laborPercentRate × (1 + burdenRate)`. This mirrors the in-calculator formula exactly.
 - **Settings snapshot** (`push_history`): every push records the full parameter set used — `laborMode`, `laborHourlyRate`, `laborHours`, `laborBurdenPercent`, `salesTaxPercent`, `commissionPercent`, `commissionBurdenPercent`, `financingFeePercent`, `targetMePercent`, `roundUp`, `pushedByUserId`, `pushedByName` — enabling accurate audit trails and revert context.
 - **Zero-equipment handling** (configurable per push, stored in `push_history.skip_zero_equipment`):
