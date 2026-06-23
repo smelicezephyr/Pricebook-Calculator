@@ -514,15 +514,11 @@ export default function PushToServiceTitan() {
   const handleCreateTask = async () => {
     if (!selectedTenantId) return;
     
-    const code = newTaskCode.trim();
+    const code = "SYS^" + newTaskCode.trim();
     const name = newTaskName.trim();
     
-    if (!code) {
+    if (!newTaskCode.trim()) {
       toast({ title: "Error", description: "Code is required", variant: "destructive" });
-      return;
-    }
-    if (code.length > 31) {
-      toast({ title: "Error", description: "Code must be 31 characters or less", variant: "destructive" });
       return;
     }
     if (!name) {
@@ -701,15 +697,11 @@ export default function PushToServiceTitan() {
   const handleCreateRepair = async () => {
     if (!selectedTenantId) return;
     
-    const code = repairCode.trim();
+    const code = "SVC^" + repairCode.trim();
     const name = repairName.trim();
     
-    if (!code) {
+    if (!repairCode.trim()) {
       toast({ title: "Error", description: "Code is required", variant: "destructive" });
-      return;
-    }
-    if (code.length > 31) {
-      toast({ title: "Error", description: "Code must be 31 characters or less", variant: "destructive" });
       return;
     }
     if (!name) {
@@ -2567,22 +2559,25 @@ export default function PushToServiceTitan() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="newTaskCode" className={newTaskCodeError ? "text-destructive" : ""}>Code *</Label>
-                        <Input
-                          id="newTaskCode"
-                          value={newTaskCode}
-                          onChange={(e) => {
-                            setNewTaskCode(e.target.value.slice(0, 31));
-                            if (newTaskCodeError) setNewTaskCodeError(null);
-                          }}
-                          placeholder="e.g., 10015"
-                          maxLength={31}
-                          className={newTaskCodeError ? "border-destructive focus-visible:ring-destructive" : ""}
-                          data-testid="input-new-task-code"
-                        />
+                        <div className={`flex items-center rounded-md border overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0 ${newTaskCodeError ? "border-destructive focus-within:ring-destructive" : "border-input"}`}>
+                          <span className="px-3 py-2 text-sm font-mono bg-muted text-muted-foreground border-r border-input select-none shrink-0">SYS^</span>
+                          <input
+                            id="newTaskCode"
+                            value={newTaskCode}
+                            onChange={(e) => {
+                              setNewTaskCode(e.target.value.slice(0, 27));
+                              if (newTaskCodeError) setNewTaskCodeError(null);
+                            }}
+                            placeholder="e.g., 10015"
+                            maxLength={27}
+                            className="flex-1 px-3 py-2 text-sm bg-background outline-none placeholder:text-muted-foreground"
+                            data-testid="input-new-task-code"
+                          />
+                        </div>
                         {newTaskCodeError ? (
                           <p className="text-sm text-destructive">{newTaskCodeError}</p>
                         ) : (
-                          <p className="text-xs text-muted-foreground">{newTaskCode.length}/31 characters</p>
+                          <p className="text-xs text-muted-foreground">{4 + newTaskCode.length}/31 characters</p>
                         )}
                       </div>
                       <div className="space-y-2">
@@ -3105,20 +3100,25 @@ export default function PushToServiceTitan() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="repairCode" className={repairCodeError ? "text-destructive" : ""}>Code *</Label>
-                        <Input
-                          id="repairCode"
-                          value={repairCode}
-                          onChange={(e) => {
-                            setRepairCode(e.target.value);
-                            if (repairCodeError) setRepairCodeError(null);
-                          }}
-                          placeholder="e.g., RPR-001"
-                          maxLength={31}
-                          className={repairCodeError ? "border-destructive focus-visible:ring-destructive" : ""}
-                          data-testid="input-repair-code"
-                        />
-                        {repairCodeError && (
+                        <div className={`flex items-center rounded-md border overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0 ${repairCodeError ? "border-destructive focus-within:ring-destructive" : "border-input"}`}>
+                          <span className="px-3 py-2 text-sm font-mono bg-muted text-muted-foreground border-r border-input select-none shrink-0">SVC^</span>
+                          <input
+                            id="repairCode"
+                            value={repairCode}
+                            onChange={(e) => {
+                              setRepairCode(e.target.value.slice(0, 27));
+                              if (repairCodeError) setRepairCodeError(null);
+                            }}
+                            placeholder="e.g., RPR-001"
+                            maxLength={27}
+                            className="flex-1 px-3 py-2 text-sm bg-background outline-none placeholder:text-muted-foreground"
+                            data-testid="input-repair-code"
+                          />
+                        </div>
+                        {repairCodeError ? (
                           <p className="text-sm text-destructive">{repairCodeError}</p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">{4 + repairCode.length}/31 characters</p>
                         )}
                       </div>
                       <div className="space-y-2">
