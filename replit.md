@@ -59,7 +59,8 @@ Preferred communication style: Simple, everyday language.
 - Google OAuth only (no passwords). Callback URL configured via `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
 - Three roles: `admin` (full access), `user` (calculators + push), `everyone` (limbo — no data access until promoted).
 - Tenant access is scoped per user via `user_tenant_access`; admins see all tenants.
-- Push permission is a separate flag on `users`: `reprice_and_add`, `add_new_only`, or `none`.
+- Push permission is a separate flag on `users`: `both` (reprice + add new), `reprice_only`, or `add_new_only`.
+- `emailNotifications` boolean on `users` controls whether the user receives an email when a push they initiated completes.
 
 ### Calculators
 - **System Calculator**: Materials + equipment + labor + tax + commission + financing → target M&E % → selling price. Supports OEM and utility rebates. PNG export via `html-to-image`.
@@ -78,10 +79,13 @@ Preferred communication style: Simple, everyday language.
 ### ServiceTitan Push Engine
 - Fetches all services in selected pricebook categories, maps material/equipment costs from the ST catalog into in-memory lookup maps, calculates new prices against the configured M&E target %, and updates ServiceTitan via batch API calls.
 - **Push types**: `update` (reprice existing), `new_system` (create new system task), `new_repair` (create new repair task).
+- **Labor settings flow**: the push page forwards `laborMode`, `laborHourlyRate`, `numTechs`, and `laborBurdenPercent` from the user's settings into `processPush` / `processRepairPush`. In hourly mode the processor computes `service.hours × numTechs × laborHourlyRate × (1 + burdenRate)` per service; in percent mode it uses `price × laborPercentRate × (1 + burdenRate)`. This mirrors the in-calculator formula exactly.
+- **Settings snapshot** (`push_history`): every push records the full parameter set used — `laborMode`, `laborHourlyRate`, `laborHours`, `laborBurdenPercent`, `salesTaxPercent`, `commissionPercent`, `commissionBurdenPercent`, `financingFeePercent`, `targetMePercent`, `roundUp`, `pushedByUserId`, `pushedByName` — enabling accurate audit trails and revert context.
 - **Zero-equipment handling** (configurable per push, stored in `push_history.skip_zero_equipment`):
   - Toggle OFF (default): all services are priced normally.
   - Toggle ON: services with equipment cost = $0 are skipped — even if they have materials cost.
   - Sub-option "Set those services to $0 price": instead of skipping, actively pushes $0 as the static price to ServiceTitan for matching services.
+- **Repair push `skipNoMaterials`**: when enabled, repair push skips services that have no materials cost in the ST catalog.
 - **Revert**: Every push stores original prices in `push_history.original_values` (JSON). A revert call restores them via the ST API.
 - Transient per-push options (`skipZeroEquipment`, `zeroEquipmentSetZeroPrice`) are carried through the queue via an in-memory `pendingPushExtras` map (keyed by `historyId`) without requiring additional DB columns.
 
