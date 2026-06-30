@@ -29,6 +29,8 @@ export default function AutoMECalculator() {
   const [oemRebate, setOemRebate] = useState("");
   const [utilityRebate, setUtilityRebate] = useState("");
   const [targetGm, setTargetGm] = useState("");
+  const [commissionPercent, setCommissionPercent] = useState("");
+  const [financingFeePercent, setFinancingFeePercent] = useState("");
   const [roundUp, setRoundUp] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
 
@@ -38,6 +40,8 @@ export default function AutoMECalculator() {
       setLaborMode((settings.laborMode as "hours" | "percent") || "percent");
       setLaborPercent(settings.laborPercent || "");
       setTargetGm(parseFloat(settings.grossMarginMinPercent || "52").toFixed(1));
+      setCommissionPercent(parseFloat(settings.commissionPercent).toFixed(2));
+      setFinancingFeePercent(parseFloat(settings.financingFeePercent).toFixed(2));
       setHasInitialized(true);
     }
   }, [settings, hasInitialized]);
@@ -56,6 +60,8 @@ export default function AutoMECalculator() {
     setSalesTaxPercent(settings?.salesTaxPercent || "6.35");
     setLaborMode((settings?.laborMode as "hours" | "percent") || "percent");
     setTargetGm(parseFloat(settings?.grossMarginMinPercent || "52").toFixed(1));
+    setCommissionPercent(parseFloat(settings?.commissionPercent || "10").toFixed(2));
+    setFinancingFeePercent(parseFloat(settings?.financingFeePercent || "4").toFixed(2));
     setRoundUp(false);
   };
 
@@ -99,11 +105,11 @@ export default function AutoMECalculator() {
     const tax = (matVal + equipVal) * salesTaxRate;
     const totalMe = matVal + equipVal + tax;
 
-    const commissionRate = parseFloat(settings.commissionPercent) / 100;
+    const commissionRate = parseFloat(commissionPercent) / 100;
     const commissionBurdenRate = parseFloat(settings.commissionBurdenPercent) / 100;
     const c = commissionRate * (1 + commissionBurdenRate);
 
-    const f = parseFloat(settings.financingFeePercent) / 100;
+    const f = parseFloat(financingFeePercent) / 100;
     const laborBurdenRate = parseFloat(settings.laborBurdenPercent) / 100;
 
     const otherCogs = subVal + craneVal + permitVal;
@@ -163,7 +169,7 @@ export default function AutoMECalculator() {
   }, [
     matVal, equipVal, salesTaxPercent, laborMode, hoursVal, numTechsVal,
     laborPercent, subVal, craneVal, permitVal, oemRebateVal, utilityRebateVal,
-    targetGmVal, settings, roundUp,
+    targetGmVal, settings, roundUp, commissionPercent, financingFeePercent,
   ]);
 
   if (settingsLoading || !settings) return null;
@@ -326,10 +332,35 @@ export default function AutoMECalculator() {
             </div>
           </div>
 
+          {/* Fees */}
+          <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
+            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+              <span className="w-5 h-5 rounded bg-violet-500/10 text-violet-600 flex items-center justify-center text-[10px] font-bold">4</span>
+              <h2 className="font-display font-semibold text-sm">Fees</h2>
+            </div>
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Commission %</Label>
+                <div className="relative group">
+                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"><span className="text-xs font-mono">%</span></div>
+                  <Input type="number" step="0.01" min="0" value={commissionPercent} onChange={(e) => setCommissionPercent(e.target.value)} data-testid="input-commission-percent" className="pl-8 h-9 text-sm font-medium bg-background border-border shadow-sm" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Financing Fee %</Label>
+                <div className="relative group">
+                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"><span className="text-xs font-mono">%</span></div>
+                  <Input type="number" step="0.01" min="0" value={financingFeePercent} onChange={(e) => setFinancingFeePercent(e.target.value)} data-testid="input-financing-fee-percent" className="pl-8 h-9 text-sm font-medium bg-background border-border shadow-sm" />
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground">Burden % stays in Settings</p>
+            </div>
+          </div>
+
           {/* Rebates */}
           <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
             <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
-              <span className="w-5 h-5 rounded bg-teal-500/10 text-teal-600 flex items-center justify-center text-[10px] font-bold">4</span>
+              <span className="w-5 h-5 rounded bg-teal-500/10 text-teal-600 flex items-center justify-center text-[10px] font-bold">5</span>
               <h2 className="font-display font-semibold text-sm">Rebates</h2>
             </div>
             <div className="space-y-2">

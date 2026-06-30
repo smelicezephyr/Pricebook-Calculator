@@ -41,6 +41,9 @@ export default function Calculator() {
   const setOemRebate = (v: string) => setCalcState({ oemRebate: v });
   const setUtilityRebate = (v: string) => setCalcState({ utilityRebate: v });
 
+  const [commissionPercent, setCommissionPercent] = useState("");
+  const [financingFeePercent, setFinancingFeePercent] = useState("");
+
   // Initialize defaults from settings only once on first load (not on every settings change)
   useEffect(() => {
     if (settings && !hasInitialized) {
@@ -55,6 +58,8 @@ export default function Calculator() {
         laborMode: (settings.laborMode as "hours" | "percent") || "percent",
         salesTaxPercent: settings.salesTaxPercent || "6.35",
       });
+      setCommissionPercent(parseFloat(settings.commissionPercent).toFixed(2));
+      setFinancingFeePercent(parseFloat(settings.financingFeePercent).toFixed(2));
       setHasInitialized(true);
     }
   }, [settings, hasInitialized, calcState.targetMe, calcState.laborPercent, setCalcState]);
@@ -125,12 +130,12 @@ export default function Calculator() {
     const price = Math.max(0, basePrice + totalOtherCogs - discountVal);
 
     // 4. Calculate Commission Cost
-    const commissionRate = parseFloat(settings.commissionPercent) / 100;
+    const commissionRate = parseFloat(commissionPercent) / 100;
     const commissionBurdenRate = parseFloat(settings.commissionBurdenPercent) / 100;
     const commissionCost = (price * commissionRate) * (1 + commissionBurdenRate);
 
     // 5. Calculate Financing Cost
-    const financingRate = parseFloat(settings.financingFeePercent) / 100;
+    const financingRate = parseFloat(financingFeePercent) / 100;
     const financingCost = price * financingRate;
 
     // 6. Labor Cost (For Margin Calculation)
@@ -180,7 +185,7 @@ export default function Calculator() {
       }
     });
 
-  }, [matVal, equipVal, hoursVal, numTechsVal, laborPercent, laborMode, salesTaxPercent, discount, discountMode, targetMe, subVal, craneVal, permitVal, settings, roundUp, oemRebate, utilityRebate]);
+  }, [matVal, equipVal, hoursVal, numTechsVal, laborPercent, laborMode, salesTaxPercent, discount, discountMode, targetMe, subVal, craneVal, permitVal, settings, roundUp, oemRebate, utilityRebate, commissionPercent, financingFeePercent]);
 
   const downloadImage = async () => {
     if (resultsRef.current === null) return;
@@ -237,6 +242,8 @@ export default function Calculator() {
         laborPercent: settings.laborPercent || "",
         laborMode: (settings.laborMode as "hours" | "percent") || "percent",
       });
+      setCommissionPercent(parseFloat(settings.commissionPercent).toFixed(2));
+      setFinancingFeePercent(parseFloat(settings.financingFeePercent).toFixed(2));
     }
   };
 
@@ -520,10 +527,35 @@ export default function Calculator() {
             </div>
           </div>
 
+          {/* Fees Section */}
+          <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
+            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+              <span className="w-5 h-5 rounded bg-violet-500/10 text-violet-600 flex items-center justify-center text-[10px] font-bold">4</span>
+              <h2 className="font-display font-semibold text-sm">Fees</h2>
+            </div>
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Commission %</Label>
+                <div className="relative group">
+                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"><span className="text-xs font-mono">%</span></div>
+                  <Input type="number" step="0.01" min="0" value={commissionPercent} onChange={(e) => setCommissionPercent(e.target.value)} data-testid="input-commission-percent" className="pl-8 h-9 text-sm font-medium bg-background border-border shadow-sm" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Financing Fee %</Label>
+                <div className="relative group">
+                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"><span className="text-xs font-mono">%</span></div>
+                  <Input type="number" step="0.01" min="0" value={financingFeePercent} onChange={(e) => setFinancingFeePercent(e.target.value)} data-testid="input-financing-fee-percent" className="pl-8 h-9 text-sm font-medium bg-background border-border shadow-sm" />
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground">Burden % stays in Settings</p>
+            </div>
+          </div>
+
           {/* Discounts Section */}
           <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
             <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
-              <span className="w-5 h-5 rounded bg-red-500/10 text-red-600 flex items-center justify-center text-[10px] font-bold">4</span>
+              <span className="w-5 h-5 rounded bg-red-500/10 text-red-600 flex items-center justify-center text-[10px] font-bold">5</span>
               <h2 className="font-display font-semibold text-sm">Discounts</h2>
             </div>
 
@@ -595,7 +627,7 @@ export default function Calculator() {
           {/* Rebates Section */}
           <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
             <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
-              <span className="w-5 h-5 rounded bg-teal-500/10 text-teal-600 flex items-center justify-center text-[10px] font-bold">5</span>
+              <span className="w-5 h-5 rounded bg-teal-500/10 text-teal-600 flex items-center justify-center text-[10px] font-bold">6</span>
               <h2 className="font-display font-semibold text-sm">Rebates</h2>
             </div>
             <div className="space-y-2">
