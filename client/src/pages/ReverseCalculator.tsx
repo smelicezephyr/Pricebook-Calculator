@@ -52,6 +52,8 @@ export default function ReverseCalculator() {
   const [discountMode, setDiscountMode] = useState<"dollar" | "percent">("dollar");
   const [oemRebate, setOemRebate] = useState("");
   const [utilityRebate, setUtilityRebate] = useState("");
+  const [commissionPercent, setCommissionPercent] = useState("");
+  const [financingFeePercent, setFinancingFeePercent] = useState("");
 
   const [repairSellingPrice, setRepairSellingPrice] = useState("");
   const [repairPartsCost, setRepairPartsCost] = useState("");
@@ -74,6 +76,8 @@ export default function ReverseCalculator() {
       setLaborMode((settings.laborMode as "hours" | "percent") || "percent");
       setSalesTaxPercent(settings.salesTaxPercent || "6.35");
       setRepairSalesTaxPercent(settings.salesTaxPercent || "6.35");
+      setCommissionPercent(parseFloat(settings.commissionPercent).toFixed(2));
+      setFinancingFeePercent(parseFloat(settings.financingFeePercent).toFixed(2));
       setRepairCommissionPercent(settings.commissionPercent || "10.00");
       setRepairBurdenPercent(settings.laborBurdenPercent || "20.00");
       setRepairFinancingFeePercent(settings.financingFeePercent || "4.00");
@@ -108,11 +112,11 @@ export default function ReverseCalculator() {
     const discountVal = discountMode === 'percent' ? priceVal * discountInput / 100 : discountInput;
     const price = Math.max(0, priceVal - discountVal);
 
-    const commissionRate = parseFloat(settings.commissionPercent) / 100;
+    const commissionRate = parseFloat(commissionPercent) / 100;
     const commissionBurdenRate = parseFloat(settings.commissionBurdenPercent) / 100;
     const commissionCost = (price * commissionRate) * (1 + commissionBurdenRate);
 
-    const financingRate = parseFloat(settings.financingFeePercent) / 100;
+    const financingRate = parseFloat(financingFeePercent) / 100;
     const financingCost = price * financingRate;
 
     let laborCost = 0;
@@ -141,7 +145,7 @@ export default function ReverseCalculator() {
       breakdown: { materials: matVal, equipment: equipVal, tax, commission: commissionCost, financing: financingCost, laborCost, subcontractor: subVal, crane: craneVal, permit: permitVal, oemRebate: oemRebateVal, utilityRebate: utilityRebateVal },
       metrics: { grossMarginPercent, grossMarginAmount, mePercent, estimatedLabor }
     });
-  }, [priceVal, matVal, equipVal, hoursVal, numTechs, laborPercent, laborMode, salesTaxPercent, discount, discountMode, subVal, craneVal, permitVal, oemRebate, utilityRebate, settings]);
+  }, [priceVal, matVal, equipVal, hoursVal, numTechs, laborPercent, laborMode, salesTaxPercent, discount, discountMode, subVal, craneVal, permitVal, oemRebate, utilityRebate, settings, commissionPercent, financingFeePercent]);
 
   const repairPriceVal = parseFloat(repairSellingPrice) || 0;
   const repairPartsTotal = parseFloat(repairPartsCost) || 0;
@@ -282,6 +286,8 @@ export default function ReverseCalculator() {
     setDiscountMode("dollar");
     setOemRebate("");
     setUtilityRebate("");
+    setCommissionPercent(parseFloat(settings?.commissionPercent || "10").toFixed(2));
+    setFinancingFeePercent(parseFloat(settings?.financingFeePercent || "4").toFixed(2));
   };
 
   const resetRepairInputs = () => {
@@ -529,7 +535,31 @@ export default function ReverseCalculator() {
 
               <div className="bg-card rounded-lg p-2.5 shadow-sm border border-border">
                 <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-border">
-                  <span className="w-5 h-5 rounded bg-green-500/10 text-green-600 flex items-center justify-center text-[10px] font-bold">6</span>
+                  <span className="w-5 h-5 rounded bg-violet-500/10 text-violet-600 flex items-center justify-center text-[10px] font-bold">6</span>
+                  <h2 className="font-display font-semibold text-sm">Fees</h2>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Commission %</Label>
+                    <div className="relative group">
+                      <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"><span className="text-xs font-mono">%</span></div>
+                      <Input type="number" step="0.01" min="0" value={commissionPercent} onChange={(e) => setCommissionPercent(e.target.value)} data-testid="input-reverse-commission-percent" className="pl-8 h-9 text-sm font-medium bg-background border-border shadow-sm" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Financing Fee %</Label>
+                    <div className="relative group">
+                      <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"><span className="text-xs font-mono">%</span></div>
+                      <Input type="number" step="0.01" min="0" value={financingFeePercent} onChange={(e) => setFinancingFeePercent(e.target.value)} data-testid="input-reverse-financing-fee-percent" className="pl-8 h-9 text-sm font-medium bg-background border-border shadow-sm" />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Burden % stays in Settings</p>
+                </div>
+              </div>
+
+              <div className="bg-card rounded-lg p-2.5 shadow-sm border border-border">
+                <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-border">
+                  <span className="w-5 h-5 rounded bg-green-500/10 text-green-600 flex items-center justify-center text-[10px] font-bold">7</span>
                   <h2 className="font-display font-semibold text-sm">Rebates</h2>
                 </div>
                 <div className="space-y-1.5">
