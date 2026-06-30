@@ -11,6 +11,7 @@ import { InactivityTimeout } from "@/components/InactivityTimeout";
 import { Loader2 } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import Calculator from "@/pages/Calculator";
+import AutoMECalculator from "@/pages/AutoMECalculator";
 import RepairCalculator from "@/pages/RepairCalculator";
 import ReverseCalculator from "@/pages/ReverseCalculator";
 import Settings from "@/pages/Settings";
@@ -34,6 +35,7 @@ function AppRouter() {
       <main className="flex-1 w-full p-4 md:p-8 lg:p-12 overflow-y-auto h-screen">
         <Switch>
           <Route path="/" component={Calculator} />
+          <Route path="/system-auto" component={AutoMECalculator} />
           <Route path="/reverse" component={ReverseCalculator} />
           <Route path="/repair" component={RepairCalculator} />
           <Route path="/history" component={History} />

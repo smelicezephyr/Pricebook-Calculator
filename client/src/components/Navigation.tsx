@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Clock, Wrench, Shield, MapPin, ArrowLeftRight, LogOut, Users, ScrollText, BarChart2, type LucideIcon } from "lucide-react";
+import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Clock, Wrench, Shield, MapPin, ArrowLeftRight, LogOut, Users, ScrollText, BarChart2, Target, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 import clsx from "clsx";
 import horizontalLogo from "@assets/Logo_-_Horizontal_1772750848213.png";
@@ -103,6 +103,7 @@ export function Navigation() {
           <div className="space-y-2 flex-1 overflow-y-auto">
             {/* Calculator pages — all roles */}
             {navLink("/", "System Calculator", Calculator)}
+            {navLink("/system-auto", "Auto M&E Calculator", Target)}
             {navLink("/repair", "Repair Calculator", Wrench)}
             {navLink("/reverse", "Reverse Calculator", ArrowLeftRight)}
             {navLink("/history", "Saved Quotes", History)}
