@@ -89,6 +89,9 @@ interface PricebookEquipment {
   active: boolean;
   categoryId?: number;
   primaryVendor?: PricebookVendor;
+  // Linked materials on the equipment catalog item (returned when expand=materials is used)
+  equipmentMaterials?: Array<{ skuId: number; quantity: number }>;
+  materials?: Array<{ id: number; name?: string; cost: number; quantity: number }>;
 }
 
 const tokenCache: Map<number, { token: string; expiresAt: number }> = new Map();
@@ -346,7 +349,7 @@ export class ServiceTitanAPI {
     console.log(`[ServiceTitan] Starting equipment fetch (all categories)...`);
     
     while (hasMore) {
-      const url = `/pricebook/v2/tenant/${this.tenant.tenantId}/equipment?pageSize=500&page=${page}`;
+      const url = `/pricebook/v2/tenant/${this.tenant.tenantId}/equipment?pageSize=500&page=${page}&expand=materials`;
       console.log(`[ServiceTitan] Fetching equipment page ${page}...`);
       const response = await this.request<{ 
         data: PricebookEquipment[]; 

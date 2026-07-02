@@ -221,11 +221,30 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
     }
 
     const equipmentCostMap = new Map<number, number>();
+    // equipmentMaterialsMap: for each equipment skuId, stores its linked material skuIds + quantities
+    const equipmentMaterialsMap = new Map<number, Array<{ skuId: number; qty: number }>>();
     for (const equip of allEquipment) {
       equipmentCostMap.set(equip.id, equip.cost || 0);
+
+      // Build linked-materials list for this equipment item.
+      // ST returns them as equipmentMaterials [{skuId, quantity}] when expand=materials is used.
+      // Some API versions return them as an embedded materials [{id, cost, quantity}] instead.
+      const linkedMats: Array<{ skuId: number; qty: number }> = [];
+      if (equip.equipmentMaterials && equip.equipmentMaterials.length > 0) {
+        for (const em of equip.equipmentMaterials) {
+          linkedMats.push({ skuId: em.skuId, qty: em.quantity || 1 });
+        }
+      } else if (equip.materials && equip.materials.length > 0) {
+        for (const em of equip.materials) {
+          linkedMats.push({ skuId: em.id, qty: em.quantity || 1 });
+        }
+      }
+      if (linkedMats.length > 0) {
+        equipmentMaterialsMap.set(equip.id, linkedMats);
+      }
     }
 
-    console.log(`[Push] Built cost maps: ${materialCostMap.size} materials, ${equipmentCostMap.size} equipment`);
+    console.log(`[Push] Built cost maps: ${materialCostMap.size} materials, ${equipmentCostMap.size} equipment, ${equipmentMaterialsMap.size} equipment items with linked materials`);
     
     // Debug: Check if specific material IDs exist in the map (for service 54655766)
     const debugMaterialIds = [20129943, 178703978, 178846076, 178859067, 178859124, 178859580];
@@ -289,17 +308,11 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
       let materialsCost = 0;
       let equipmentCost = 0;
 
-      // First try embedded materials array (has cost directly)
-      if (service.materials && service.materials.length > 0) {
-        for (const mat of service.materials) {
-          materialsCost += (mat.cost || 0) * (mat.quantity || 1);
-        }
-        if (isDebugService) {
-          console.log(`[DEBUG] Service ${service.id}: Using embedded materials array, cost = $${materialsCost.toFixed(2)}`);
-        }
-      }
-      // Fall back to serviceMaterials with skuId lookup
-      else if (service.serviceMaterials && service.serviceMaterials.length > 0) {
+      // --- Materials linked directly to the service ---
+      // Always use the explicit serviceMaterials link list (skuId + qty) with catalog cost lookup.
+      // This is the only source of truth for which materials are actually linked; the expanded
+      // service.materials array can contain false positives (items not truly linked to this service).
+      if (service.serviceMaterials && service.serviceMaterials.length > 0) {
         for (const mat of service.serviceMaterials) {
           const cost = materialCostMap.get(mat.skuId) || 0;
           materialsCost += cost * (mat.quantity || 1);
@@ -308,35 +321,46 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
           }
         }
         if (isDebugService) {
-          console.log(`[DEBUG] Service ${service.id}: Using serviceMaterials lookup, total = $${materialsCost.toFixed(2)}`);
+          console.log(`[DEBUG] Service ${service.id}: Direct materials total = $${materialsCost.toFixed(2)}`);
         }
       } else if (isDebugService) {
-        console.log(`[DEBUG] Service ${service.id}: No materials or serviceMaterials found`);
+        console.log(`[DEBUG] Service ${service.id}: No serviceMaterials found`);
       }
 
-      // First try embedded equipment array (has cost directly)
-      if (service.equipment && service.equipment.length > 0) {
-        for (const equip of service.equipment) {
-          equipmentCost += (equip.cost || 0) * (equip.quantity || 1);
-        }
-        if (isDebugService) {
-          console.log(`[DEBUG] Service ${service.id}: Using embedded equipment array, cost = $${equipmentCost.toFixed(2)}`);
-        }
-      }
-      // Fall back to serviceEquipment with skuId lookup
-      else if (service.serviceEquipment && service.serviceEquipment.length > 0) {
+      // --- Equipment linked directly to the service ---
+      // Use the explicit serviceEquipment link list (skuId + qty) with catalog cost lookup.
+      // For each linked equipment, also add the cost of any materials that are linked to that
+      // equipment item in the catalog (equipment's own bill-of-materials).
+      if (service.serviceEquipment && service.serviceEquipment.length > 0) {
         for (const equip of service.serviceEquipment) {
+          const equipQty = equip.quantity || 1;
           const cost = equipmentCostMap.get(equip.skuId) || 0;
-          equipmentCost += cost * (equip.quantity || 1);
+          equipmentCost += cost * equipQty;
           if (isDebugService) {
-            console.log(`[DEBUG] Service ${service.id}: serviceEquipment skuId=${equip.skuId}, qty=${equip.quantity}, lookupCost=${cost}`);
+            console.log(`[DEBUG] Service ${service.id}: serviceEquipment skuId=${equip.skuId}, qty=${equipQty}, lookupCost=${cost}`);
+          }
+
+          // Add materials linked to this equipment item (equipment's own linked materials)
+          const equipLinkedMats = equipmentMaterialsMap.get(equip.skuId);
+          if (equipLinkedMats && equipLinkedMats.length > 0) {
+            for (const linkedMat of equipLinkedMats) {
+              const matCost = materialCostMap.get(linkedMat.skuId) || 0;
+              const matTotal = matCost * linkedMat.qty * equipQty;
+              materialsCost += matTotal;
+              if (isDebugService) {
+                console.log(`[DEBUG] Service ${service.id}: equipment ${equip.skuId} linked material skuId=${linkedMat.skuId}, matQty=${linkedMat.qty}, equipQty=${equipQty}, matCost=${matCost}, total=${matTotal}`);
+              }
+            }
+            if (isDebugService) {
+              console.log(`[DEBUG] Service ${service.id}: equipment ${equip.skuId} contributed ${equipLinkedMats.length} linked material(s)`);
+            }
           }
         }
         if (isDebugService) {
-          console.log(`[DEBUG] Service ${service.id}: Using serviceEquipment lookup, total = $${equipmentCost.toFixed(2)}`);
+          console.log(`[DEBUG] Service ${service.id}: Equipment total = $${equipmentCost.toFixed(2)}, materials after equipment = $${materialsCost.toFixed(2)}`);
         }
       } else if (isDebugService) {
-        console.log(`[DEBUG] Service ${service.id}: No equipment or serviceEquipment found`);
+        console.log(`[DEBUG] Service ${service.id}: No serviceEquipment found`);
       }
 
       const rawMeCost = materialsCost + equipmentCost;
@@ -614,8 +638,19 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
 
     const materialCostMap = new Map<number, number>();
     for (const mat of allMaterials) materialCostMap.set(mat.id, effectiveMaterialCost(mat));
+
     const equipmentCostMap = new Map<number, number>();
-    for (const equip of allEquipment) equipmentCostMap.set(equip.id, equip.cost || 0);
+    const equipmentMaterialsMap = new Map<number, Array<{ skuId: number; qty: number }>>();
+    for (const equip of allEquipment) {
+      equipmentCostMap.set(equip.id, equip.cost || 0);
+      const linkedMats: Array<{ skuId: number; qty: number }> = [];
+      if (equip.equipmentMaterials && equip.equipmentMaterials.length > 0) {
+        for (const em of equip.equipmentMaterials) linkedMats.push({ skuId: em.skuId, qty: em.quantity || 1 });
+      } else if (equip.materials && equip.materials.length > 0) {
+        for (const em of equip.materials) linkedMats.push({ skuId: em.id, qty: em.quantity || 1 });
+      }
+      if (linkedMats.length > 0) equipmentMaterialsMap.set(equip.id, linkedMats);
+    }
 
     const totalServices = allServices.length;
     pushProgressEmitter.startPhase(tenantId, 'updating');
@@ -648,16 +683,26 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
       let materialsCost = 0;
       let equipmentCost = 0;
 
-      if (service.materials && service.materials.length > 0) {
-        for (const mat of service.materials) materialsCost += (mat.cost || 0) * (mat.quantity || 1);
-      } else if (service.serviceMaterials && service.serviceMaterials.length > 0) {
-        for (const mat of service.serviceMaterials) materialsCost += (materialCostMap.get(mat.skuId) || 0) * (mat.quantity || 1);
+      // Direct service materials — use serviceMaterials skuId lookup only (no false positives from embedded array)
+      if (service.serviceMaterials && service.serviceMaterials.length > 0) {
+        for (const mat of service.serviceMaterials) {
+          materialsCost += (materialCostMap.get(mat.skuId) || 0) * (mat.quantity || 1);
+        }
       }
 
-      if (service.equipment && service.equipment.length > 0) {
-        for (const equip of service.equipment) equipmentCost += (equip.cost || 0) * (equip.quantity || 1);
-      } else if (service.serviceEquipment && service.serviceEquipment.length > 0) {
-        for (const equip of service.serviceEquipment) equipmentCost += (equipmentCostMap.get(equip.skuId) || 0) * (equip.quantity || 1);
+      // Service equipment — use serviceEquipment skuId lookup; also add materials linked to that equipment
+      if (service.serviceEquipment && service.serviceEquipment.length > 0) {
+        for (const equip of service.serviceEquipment) {
+          const equipQty = equip.quantity || 1;
+          equipmentCost += (equipmentCostMap.get(equip.skuId) || 0) * equipQty;
+          // Equipment's own linked materials
+          const equipLinkedMats = equipmentMaterialsMap.get(equip.skuId);
+          if (equipLinkedMats) {
+            for (const lm of equipLinkedMats) {
+              materialsCost += (materialCostMap.get(lm.skuId) || 0) * lm.qty * equipQty;
+            }
+          }
+        }
       }
 
       const rawParts = materialsCost + equipmentCost;
