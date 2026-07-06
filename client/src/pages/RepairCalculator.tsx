@@ -129,7 +129,7 @@ export default function RepairCalculator() {
     ? 0
     : highestTechRateVal * laborHoursVal * numTechsVal;
   const burdenedTechLabor = techLaborCost * (1 + burdenRate);
-  const cogs = partsTotal + burdenedTechLabor + burdenedCommission;
+  const cogs = subtotal1 + burdenedTechLabor + burdenedCommission;
   const grossMargin = totalPrice - cogs;
   const grossMarginPercent = totalPrice > 0 ? (grossMargin / totalPrice) * 100 : 0;
 
