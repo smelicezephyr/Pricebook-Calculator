@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { useSettings } from "@/hooks/use-settings";
 import { useCreateQuote } from "@/hooks/use-quotes";
 import { useCalculatorState } from "@/contexts/CalculatorContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { InputMoney } from "@/components/InputMoney";
 import { ResultsCard } from "@/components/ResultsCard";
+import { RevealPriceGate } from "@/components/RevealPriceGate";
 import { TenantTaxSelector } from "@/components/TenantTaxSelector";
 import { Button } from "@/components/ui/button";
 import { Save, RefreshCw, Loader2 } from "lucide-react";
@@ -18,10 +20,12 @@ export default function Calculator() {
   const { settings, isLoading: settingsLoading } = useSettings();
   const createQuote = useCreateQuote();
   const { toast } = useToast();
+  const { isPriceGated } = useAuth();
   const resultsRef = useRef<HTMLDivElement>(null);
   const { state: calcState, setState: setCalcState, resetState } = useCalculatorState();
   const [hasInitialized, setHasInitialized] = useState(false);
   const [selectedTenantId, setSelectedTenantId] = useState<number | null>(null);
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
 
   // Destructure calculator state for easier access
   const { materials, equipment, salesTaxPercent, laborMode, laborHours, numTechs, laborPercent, targetMe, discount, discountMode, subcontractor, crane, permit, roundUp, oemRebate, utilityRebate } = calcState;
@@ -259,6 +263,27 @@ export default function Calculator() {
 
   if (!settings) return null;
 
+  const priceKey = results.price.toFixed(2);
+  const locked = isPriceGated && revealedKey !== priceKey;
+
+  const handleReveal = async (jobNumber: string, customerName: string) => {
+    await createQuote.mutateAsync({
+      title: jobNumber,
+      customerName: customerName || null,
+      materialsCost: matVal.toString(),
+      equipmentCost: equipVal.toString(),
+      laborHoursInput: laborMode === 'hours' ? hoursVal.toString() : laborPercent,
+      calculatedPrice: results.price.toFixed(2),
+      calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
+      calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
+      calculatedMePercent: targetMe,
+      subcontractorCost: subVal.toString(),
+      craneCost: craneVal.toString(),
+      permitCost: permitVal.toString(),
+    });
+    setRevealedKey(priceKey);
+  };
+
   // Generate target M&E options: 15% to 30% with 0.5% intervals
   const targetMeOptions = [];
   for (let i = 15; i <= 30; i += 0.5) {
@@ -310,12 +335,14 @@ export default function Calculator() {
           </Button>
 
           <Dialog open={isSaveOpen} onOpenChange={setIsSaveOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30">
-                <Save size={16} />
-                Save Calc
-              </Button>
-            </DialogTrigger>
+            {!isPriceGated && (
+              <DialogTrigger asChild>
+                <Button className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30">
+                  <Save size={16} />
+                  Save Calc
+                </Button>
+              </DialogTrigger>
+            )}
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Save Quote</DialogTitle>
@@ -662,25 +689,27 @@ export default function Calculator() {
         {/* Results Column */}
         <div className="lg:col-span-9" ref={resultsRef}>
           <div className="space-y-3 bg-background p-2 rounded-lg">
-            <ResultsCard
-              price={results.price}
-              estimatedLabor={results.estimatedLabor}
-              breakdown={results.breakdown}
-              metrics={results.metrics}
-              salesTaxRate={settings.salesTaxPercent}
-              discount={discountDollarValue}
-              roundUp={roundUp}
-              onRoundUpChange={setRoundUp}
-              grossMarginMinPercent={parseFloat(settings.grossMarginMinPercent || "45")}
-              oemRebate={parseFloat(oemRebate) || 0}
-              utilityRebate={parseFloat(utilityRebate) || 0}
-              laborBreakdown={laborMode === 'hours' ? {
-                hours: hoursVal,
-                numTechs: numTechsVal,
-                hourlyRate: parseFloat(settings.laborHourlyRate),
-                burdenPercent: parseFloat(settings.laborBurdenPercent),
-              } : undefined}
-            />
+            <RevealPriceGate locked={locked} onReveal={handleReveal} isSaving={createQuote.isPending}>
+              <ResultsCard
+                price={results.price}
+                estimatedLabor={results.estimatedLabor}
+                breakdown={results.breakdown}
+                metrics={results.metrics}
+                salesTaxRate={settings.salesTaxPercent}
+                discount={discountDollarValue}
+                roundUp={roundUp}
+                onRoundUpChange={setRoundUp}
+                grossMarginMinPercent={parseFloat(settings.grossMarginMinPercent || "45")}
+                oemRebate={parseFloat(oemRebate) || 0}
+                utilityRebate={parseFloat(utilityRebate) || 0}
+                laborBreakdown={laborMode === 'hours' ? {
+                  hours: hoursVal,
+                  numTechs: numTechsVal,
+                  hourlyRate: parseFloat(settings.laborHourlyRate),
+                  burdenPercent: parseFloat(settings.laborBurdenPercent),
+                } : undefined}
+              />
+            </RevealPriceGate>
           </div>
         </div>
       </div>

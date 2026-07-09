@@ -127,6 +127,7 @@ export const quotes = pgTable("quotes", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
   title: text("title").notNull().default("Untitled Quote"),
+  customerName: text("customer_name"),
   materialsCost: numeric("materials_cost").notNull(),
   equipmentCost: numeric("equipment_cost").notNull(),
   laborHoursInput: numeric("labor_hours_input").default("10"),

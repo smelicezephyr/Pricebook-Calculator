@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { useSettings } from "@/hooks/use-settings";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCreateQuote } from "@/hooks/use-quotes";
 import { InputMoney } from "@/components/InputMoney";
 import { ResultsCard } from "@/components/ResultsCard";
+import { RevealPriceGate } from "@/components/RevealPriceGate";
 import { TenantTaxSelector } from "@/components/TenantTaxSelector";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -16,6 +19,9 @@ const formatPercent = (val: number) => `${val.toFixed(2)}%`;
 
 export default function AutoMECalculator() {
   const { settings, isLoading: settingsLoading } = useSettings();
+  const { isPriceGated } = useAuth();
+  const createQuote = useCreateQuote();
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
 
   const [materials, setMaterials] = useState("");
   const [equipment, setEquipment] = useState("");
@@ -175,6 +181,27 @@ export default function AutoMECalculator() {
   ]);
 
   if (settingsLoading || !settings) return null;
+
+  const priceKey = results.price.toFixed(2);
+  const locked = isPriceGated && revealedKey !== priceKey;
+
+  const handleReveal = async (jobNumber: string, customerName: string) => {
+    await createQuote.mutateAsync({
+      title: jobNumber,
+      customerName: customerName || null,
+      materialsCost: matVal.toString(),
+      equipmentCost: equipVal.toString(),
+      laborHoursInput: laborMode === "hours" ? hoursVal.toString() : "0",
+      calculatedPrice: results.price.toFixed(2),
+      calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
+      calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
+      calculatedMePercent: results.computedMePercent.toFixed(2),
+      subcontractorCost: subVal.toString(),
+      craneCost: craneVal.toString(),
+      permitCost: permitVal.toString(),
+    });
+    setRevealedKey(priceKey);
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
@@ -384,56 +411,58 @@ export default function AutoMECalculator() {
 
         {/* Results Column */}
         <div className="lg:col-span-9 space-y-3">
-          {/* Computed M&E% callout */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="col-span-2 bg-primary/5 border border-primary/20 rounded-xl p-4 flex flex-col justify-center">
-              <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-1">Computed M&E %</p>
-              <p className="text-3xl font-bold text-primary" data-testid="text-computed-me-percent">
-                {results.price > 0 ? formatPercent(results.computedMePercent) : "—"}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">Required to hit {targetGm || "—"}% GM</p>
+          <RevealPriceGate locked={locked} onReveal={handleReveal} isSaving={createQuote.isPending}>
+            {/* Computed M&E% callout */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="col-span-2 bg-primary/5 border border-primary/20 rounded-xl p-4 flex flex-col justify-center">
+                <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-1">Computed M&E %</p>
+                <p className="text-3xl font-bold text-primary" data-testid="text-computed-me-percent">
+                  {results.price > 0 ? formatPercent(results.computedMePercent) : "—"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Required to hit {targetGm || "—"}% GM</p>
+              </div>
+              <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Selling Price</p>
+                <p className="text-2xl font-bold text-foreground" data-testid="text-selling-price">
+                  {results.price > 0 ? formatCurrency(results.price) : "—"}
+                </p>
+              </div>
+              <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">M&E Cost</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {formatCurrency(
+                    (parseFloat(materials) || 0) +
+                    (parseFloat(equipment) || 0) +
+                    ((parseFloat(materials) || 0) + (parseFloat(equipment) || 0)) * (parseFloat(salesTaxPercent) / 100)
+                  )}
+                </p>
+              </div>
             </div>
-            <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-center">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Selling Price</p>
-              <p className="text-2xl font-bold text-foreground" data-testid="text-selling-price">
-                {results.price > 0 ? formatCurrency(results.price) : "—"}
-              </p>
-            </div>
-            <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-center">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">M&E Cost</p>
-              <p className="text-2xl font-bold text-foreground">
-                {formatCurrency(
-                  (parseFloat(materials) || 0) +
-                  (parseFloat(equipment) || 0) +
-                  ((parseFloat(materials) || 0) + (parseFloat(equipment) || 0)) * (parseFloat(salesTaxPercent) / 100)
-                )}
-              </p>
-            </div>
-          </div>
 
-          {/* Full breakdown */}
-          <ResultsCard
-            price={results.price}
-            estimatedLabor={results.estimatedLabor}
-            breakdown={results.breakdown}
-            metrics={results.metrics}
-            salesTaxRate={salesTaxPercent}
-            roundUp={roundUp}
-            onRoundUpChange={setRoundUp}
-            grossMarginMinPercent={targetGmVal}
-            oemRebate={oemRebateVal}
-            utilityRebate={utilityRebateVal}
-            laborBreakdown={
-              laborMode === "hours" && hoursVal > 0
-                ? {
-                    hours: hoursVal,
-                    numTechs: numTechsVal,
-                    hourlyRate: parseFloat(settings.laborHourlyRate),
-                    burdenPercent: parseFloat(settings.laborBurdenPercent),
-                  }
-                : undefined
-            }
-          />
+            {/* Full breakdown */}
+            <ResultsCard
+              price={results.price}
+              estimatedLabor={results.estimatedLabor}
+              breakdown={results.breakdown}
+              metrics={results.metrics}
+              salesTaxRate={salesTaxPercent}
+              roundUp={roundUp}
+              onRoundUpChange={setRoundUp}
+              grossMarginMinPercent={targetGmVal}
+              oemRebate={oemRebateVal}
+              utilityRebate={utilityRebateVal}
+              laborBreakdown={
+                laborMode === "hours" && hoursVal > 0
+                  ? {
+                      hours: hoursVal,
+                      numTechs: numTechsVal,
+                      hourlyRate: parseFloat(settings.laborHourlyRate),
+                      burdenPercent: parseFloat(settings.laborBurdenPercent),
+                    }
+                  : undefined
+              }
+            />
+          </RevealPriceGate>
         </div>
       </div>
     </div>

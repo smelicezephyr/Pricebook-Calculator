@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useSettings } from "@/hooks/use-settings";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCreateQuote } from "@/hooks/use-quotes";
 import { InputMoney } from "@/components/InputMoney";
 import { ResultsCard } from "@/components/ResultsCard";
+import { RevealPriceGate } from "@/components/RevealPriceGate";
 import { TenantTaxSelector } from "@/components/TenantTaxSelector";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -14,6 +17,9 @@ import { useToast } from "@/hooks/use-toast";
 export default function RepairGMCalculator() {
   const { settings, isLoading: settingsLoading } = useSettings();
   const { toast } = useToast();
+  const { isPriceGated } = useAuth();
+  const createQuote = useCreateQuote();
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const [partsCost, setPartsCost] = useState("");
@@ -158,6 +164,27 @@ export default function RepairGMCalculator() {
       </div>
     );
   }
+
+  const priceKey = results.price.toFixed(2);
+  const locked = isPriceGated && revealedKey !== priceKey;
+
+  const handleReveal = async (jobNumber: string, customerName: string) => {
+    await createQuote.mutateAsync({
+      title: jobNumber,
+      customerName: customerName || null,
+      materialsCost: partsVal.toString(),
+      equipmentCost: "0",
+      laborHoursInput: laborMode === "dollars" ? hoursVal.toString() : "0",
+      calculatedPrice: results.price.toFixed(2),
+      calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
+      calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
+      calculatedMePercent: results.metrics.mePercent.toFixed(2),
+      subcontractorCost: "0",
+      craneCost: "0",
+      permitCost: "0",
+    });
+    setRevealedKey(priceKey);
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
@@ -331,48 +358,50 @@ export default function RepairGMCalculator() {
 
         {/* Results Column */}
         <div className="lg:col-span-9 space-y-3" ref={resultsRef}>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="col-span-2 bg-primary/5 border border-primary/20 rounded-xl p-4 flex flex-col justify-center">
-              <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-1">Selling Price</p>
-              <p className="text-3xl font-bold text-primary" data-testid="text-selling-price">
-                {results.price > 0 ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(results.price) : "—"}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">Solved to hit {targetGm || "—"}% GM</p>
+          <RevealPriceGate locked={locked} onReveal={handleReveal} isSaving={createQuote.isPending}>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="col-span-2 bg-primary/5 border border-primary/20 rounded-xl p-4 flex flex-col justify-center">
+                <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-1">Selling Price</p>
+                <p className="text-3xl font-bold text-primary" data-testid="text-selling-price">
+                  {results.price > 0 ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(results.price) : "—"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Solved to hit {targetGm || "—"}% GM</p>
+              </div>
+              <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Achieved GM %</p>
+                <p className="text-2xl font-bold text-foreground" data-testid="text-achieved-gm">
+                  {results.price > 0 ? `${results.metrics.grossMarginPercent.toFixed(2)}%` : "—"}
+                </p>
+              </div>
+              <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Parts + Tax</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(partsVal + partsVal * taxRate)}
+                </p>
+              </div>
             </div>
-            <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-center">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Achieved GM %</p>
-              <p className="text-2xl font-bold text-foreground" data-testid="text-achieved-gm">
-                {results.price > 0 ? `${results.metrics.grossMarginPercent.toFixed(2)}%` : "—"}
-              </p>
-            </div>
-            <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-center">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Parts + Tax</p>
-              <p className="text-2xl font-bold text-foreground">
-                {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(partsVal + partsVal * taxRate)}
-              </p>
-            </div>
-          </div>
 
-          <ResultsCard
-            price={results.price}
-            estimatedLabor={results.estimatedLabor}
-            breakdown={results.breakdown}
-            metrics={results.metrics}
-            salesTaxRate={salesTaxPercent}
-            roundUp={roundUp}
-            onRoundUpChange={setRoundUp}
-            grossMarginMinPercent={targetGmVal}
-            laborBreakdown={
-              laborMode === "dollars" && hoursVal > 0
-                ? {
-                    hours: hoursVal,
-                    numTechs: numTechsVal,
-                    hourlyRate: laborRateVal,
-                    burdenPercent: parseFloat(burdenPercent) || 0,
-                  }
-                : undefined
-            }
-          />
+            <ResultsCard
+              price={results.price}
+              estimatedLabor={results.estimatedLabor}
+              breakdown={results.breakdown}
+              metrics={results.metrics}
+              salesTaxRate={salesTaxPercent}
+              roundUp={roundUp}
+              onRoundUpChange={setRoundUp}
+              grossMarginMinPercent={targetGmVal}
+              laborBreakdown={
+                laborMode === "dollars" && hoursVal > 0
+                  ? {
+                      hours: hoursVal,
+                      numTechs: numTechsVal,
+                      hourlyRate: laborRateVal,
+                      burdenPercent: parseFloat(burdenPercent) || 0,
+                    }
+                  : undefined
+              }
+            />
+          </RevealPriceGate>
         </div>
       </div>
     </div>

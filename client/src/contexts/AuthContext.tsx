@@ -21,6 +21,7 @@ interface AuthContextType {
   isManager: boolean;
   isUserOrAdmin: boolean;
   isReporting: boolean;
+  isPriceGated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -50,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isManager: resolvedUser?.role === "manager",
         isUserOrAdmin: resolvedUser?.role === "user" || resolvedUser?.role === "manager" || resolvedUser?.role === "admin",
         isReporting: resolvedUser?.role === "admin" || resolvedUser?.role === "manager",
+        isPriceGated: resolvedUser?.role === "everyone" || resolvedUser?.role === "user",
       }}
     >
       {children}

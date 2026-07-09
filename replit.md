@@ -76,6 +76,7 @@ Preferred communication style: Simple, everyday language.
   - `Labor Burden (X%)` → burden amount
   - Implemented via an optional `laborBreakdown` prop on `ResultsCard` (System Calculator) and inline in the Reverse Calculator's system breakdown panel.
 - Settings are per-user (stored in `settings` table with `user_id` FK); individual calculator fields override the saved defaults for the duration of the session.
+- **Reveal Price gating**: for roles `everyone` and `user` (not `manager`/`admin`), the calculated price/results on System GM, System M&E, Repair, and Repair GM calculators are hidden behind a "Reveal Price" button (`RevealPriceGate` component). Clicking it opens a dialog for Job Number (required) and Customer Name (optional); confirming saves a quote (title = job number, `customerName` field) to Saved Quotes without generating/downloading a PNG, then reveals the results. Re-locks automatically if the calculated price changes after being revealed. The Reverse Calculator is excluded — the user enters the price directly there, so there's no computed price to hide.
 
 ### ServiceTitan Push Engine
 - Fetches all services in selected pricebook categories, maps material/equipment costs from the ST catalog into in-memory lookup maps, calculates new prices against the configured M&E target %, and updates ServiceTitan via batch API calls.

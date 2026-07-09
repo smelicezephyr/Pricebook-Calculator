@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { useSettings } from "@/hooks/use-settings";
 import { useCalculatorState } from "@/contexts/CalculatorContext";
 import { useCreateQuote } from "@/hooks/use-quotes";
+import { useAuth } from "@/contexts/AuthContext";
 import { InputMoney } from "@/components/InputMoney";
+import { RevealPriceGate } from "@/components/RevealPriceGate";
 import { TenantTaxSelector } from "@/components/TenantTaxSelector";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -18,6 +20,8 @@ export default function RepairCalculator() {
   const { setRepairState } = useCalculatorState();
   const createQuote = useCreateQuote();
   const { toast } = useToast();
+  const { isPriceGated } = useAuth();
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const [isSaveOpen, setIsSaveOpen] = useState(false);
@@ -202,6 +206,27 @@ export default function RepairCalculator() {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
 
+  const priceKey = totalPrice.toFixed(2);
+  const locked = isPriceGated && revealedKey !== priceKey;
+
+  const handleReveal = async (jobNumber: string, customerName: string) => {
+    await createQuote.mutateAsync({
+      title: jobNumber,
+      customerName: customerName || null,
+      materialsCost: partsTotal.toString(),
+      equipmentCost: "0",
+      laborHoursInput: laborMode === "percent" ? "0" : laborHoursVal.toString(),
+      calculatedPrice: totalPrice.toFixed(2),
+      calculatedGrossMargin: grossMarginPercent.toFixed(2),
+      calculatedEstimatedLabor: burdenedLaborCost.toFixed(2),
+      calculatedMePercent: materialMarkup,
+      subcontractorCost: "0",
+      craneCost: "0",
+      permitCost: "0",
+    });
+    setRevealedKey(priceKey);
+  };
+
   if (settingsLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -225,12 +250,14 @@ export default function RepairCalculator() {
           </Button>
 
           <Dialog open={isSaveOpen} onOpenChange={setIsSaveOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30" data-testid="button-save-repair">
-                <Save size={16} />
-                Save Calc
-              </Button>
-            </DialogTrigger>
+            {!isPriceGated && (
+              <DialogTrigger asChild>
+                <Button className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30" data-testid="button-save-repair">
+                  <Save size={16} />
+                  Save Calc
+                </Button>
+              </DialogTrigger>
+            )}
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Save Repair Quote</DialogTitle>
@@ -450,6 +477,7 @@ export default function RepairCalculator() {
         </div>
 
         <div className="lg:col-span-9 space-y-4" ref={resultsRef}>
+        <RevealPriceGate locked={locked} onReveal={handleReveal} isSaving={createQuote.isPending}>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="md:col-span-3 bg-primary text-primary-foreground rounded-xl p-5 shadow-xl shadow-primary/20 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -637,6 +665,7 @@ export default function RepairCalculator() {
               </div>
             </div>
           </div>
+        </RevealPriceGate>
         </div>
       </div>
     </div>
