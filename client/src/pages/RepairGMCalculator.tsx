@@ -43,7 +43,7 @@ export default function RepairGMCalculator() {
       setBurdenPercent(settings.laborBurdenPercent || "20.00");
       setCommissionPercent(settings.commissionPercent || "10.00");
       setFinancingFeePercent(settings.financingFeePercent || "4.00");
-      setTargetGm(parseFloat(settings.grossMarginMinPercent || "52").toFixed(1));
+      setTargetGm((parseFloat(settings.grossMarginMinPercent || "52") + 10).toFixed(1));
       setHasInitialized(true);
     }
   }, [settings, hasInitialized]);
@@ -58,7 +58,7 @@ export default function RepairGMCalculator() {
     setBurdenPercent(settings?.laborBurdenPercent || "20.00");
     setCommissionPercent(settings?.commissionPercent || "10.00");
     setFinancingFeePercent(settings?.financingFeePercent || "4.00");
-    setTargetGm(parseFloat(settings?.grossMarginMinPercent || "52").toFixed(1));
+    setTargetGm((parseFloat(settings?.grossMarginMinPercent || "52") + 10).toFixed(1));
     setRoundUp(false);
   };
 
