@@ -63,7 +63,11 @@ export function TenantTaxSelector({
     if (autoAppliedRef.current || selectedTenantId != null || tenants.length === 0) return;
     autoAppliedRef.current = true;
 
-    const match = tenants.length === 1 ? tenants[0] : guessTenantByEmail(tenants, user?.email);
+    const match =
+      tenants.length === 1
+        ? tenants[0]
+        : guessTenantByEmail(tenants, user?.email) ||
+          [...tenants].sort((a, b) => a.name.localeCompare(b.name))[0];
     if (match) {
       onTenantChange(match.id);
       applyTenantTax(match);
