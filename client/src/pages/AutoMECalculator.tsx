@@ -127,28 +127,33 @@ export default function AutoMECalculator() {
     let price = 0;
     let laborCost = 0;
 
+    // Other COGS (subcontractor/crane/permit) are pass-through costs added
+    // after the margin solve — they do not factor into the target GM% math.
     if (laborMode === "hours") {
       const hourlyRate = parseFloat(settings.laborHourlyRate) || 0;
       laborCost = hoursVal * numTechsVal * hourlyRate * (1 + laborBurdenRate);
-      // price × (1 - g - c - f) = M + L + O - R×(1-g)
+      // price × (1 - g - c - f) = M + L - R×(1-g)
       const denom = 1 - g - c - f;
       if (denom > 0) {
-        price = (totalMe + laborCost + otherCogs - rebates * (1 - g)) / denom;
+        price = (totalMe + laborCost - rebates * (1 - g)) / denom;
       }
     } else {
       const lp = ((parseFloat(laborPercent) || 0) / 100) * (1 + laborBurdenRate);
-      // price × (1 - g - c - f - lp) = M + O - R×(1-g)
+      // price × (1 - g - c - f - lp) = M - R×(1-g)
       const denom = 1 - g - c - f - lp;
       if (denom > 0) {
-        price = (totalMe + otherCogs - rebates * (1 - g)) / denom;
+        price = (totalMe - rebates * (1 - g)) / denom;
       }
       laborCost = price * lp;
     }
 
-    if (roundUp) price = Math.ceil(price);
-
     const commissionCost = price * c;
     const financingCost = price * f;
+
+    price += otherCogs;
+
+    if (roundUp) price = Math.ceil(price);
+
     const estimatedLabor = laborCost + commissionCost + tax + financingCost;
 
     const effectiveRevenue = price + rebates;
