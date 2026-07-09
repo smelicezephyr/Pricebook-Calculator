@@ -32,7 +32,7 @@ export const users = pgTable("users", {
   email: text("email").notNull(),
   name: text("name").notNull(),
   avatarUrl: text("avatar_url"),
-  role: text("role", { enum: ["everyone", "user", "admin"] }).notNull().default("everyone"),
+  role: text("role", { enum: ["everyone", "user", "manager", "admin"] }).notNull().default("everyone"),
   pushPermission: text("push_permission", { enum: ["both", "reprice_only", "add_new_only"] }).notNull().default("both"),
   emailNotifications: boolean("email_notifications").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),

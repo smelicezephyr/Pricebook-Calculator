@@ -15,6 +15,7 @@ import type { Tenant } from "@shared/schema";
 
 function roleBadgeVariant(role: string) {
   if (role === "admin") return "default";
+  if (role === "manager") return "secondary";
   if (role === "user") return "secondary";
   return "outline";
 }
@@ -38,7 +39,7 @@ export default function AdminUsers() {
     enabled: isAdmin,
   });
 
-  const roleOrder = { admin: 0, user: 1, everyone: 2 } as const;
+  const roleOrder = { admin: 0, manager: 1, user: 2, everyone: 3 } as const;
   const sortedUsers = [...users].sort((a, b) => roleOrder[a.role] - roleOrder[b.role]);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -246,7 +247,7 @@ export default function AdminUsers() {
             </Button>
           </CardTitle>
           <CardDescription>
-            New sign-ins default to the <strong>everyone</strong> role (calculator only). Promote to <strong>user</strong> and assign tenants to grant ServiceTitan access, or promote to <strong>admin</strong> for full access.
+            New sign-ins default to the <strong>everyone</strong> role (calculator only). Promote to <strong>user</strong> and assign tenants to grant ServiceTitan access, to <strong>manager</strong> for the same access plus read-only Reporting on their tenant(s), or to <strong>admin</strong> for full access.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -262,7 +263,7 @@ export default function AdminUsers() {
               {sortedUsers.map((u) => {
                 const isRoleSaving = savingRoles.has(u.id);
                 const isTenantSaving = savingTenants.has(u.id);
-                const isUser = u.role === "user";
+                const isUser = u.role === "user" || u.role === "manager";
                 const tenantIds = resolvedTenantIds(u.id);
                 const expanded = expandedUsers.has(u.id);
                 const dirty = isDirty(u.id);
@@ -310,6 +311,7 @@ export default function AdminUsers() {
                           <SelectContent>
                             <SelectItem value="everyone">Everyone</SelectItem>
                             <SelectItem value="user">User</SelectItem>
+                            <SelectItem value="manager">Manager</SelectItem>
                             <SelectItem value="admin">Admin</SelectItem>
                           </SelectContent>
                         </Select>

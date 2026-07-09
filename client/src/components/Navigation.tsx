@@ -17,7 +17,7 @@ function getInitials(name: string) {
 export function Navigation() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const { user, isAdmin, isUserOrAdmin } = useAuth();
+  const { user, isAdmin, isManager, isUserOrAdmin, isReporting } = useAuth();
   const { toast } = useToast();
 
   const isServiceTitanPath =
@@ -26,6 +26,7 @@ export function Navigation() {
     location.startsWith("/locations");
   const [stExpanded, setStExpanded] = useState(() => isServiceTitanPath);
   const [adminExpanded, setAdminExpanded] = useState(() => location.startsWith("/admin"));
+  const [reportingExpanded, setReportingExpanded] = useState(() => location.startsWith("/reporting"));
 
   const handleSignOut = async () => {
     try {
@@ -163,6 +164,69 @@ export function Navigation() {
               </div>
             )}
 
+            {/* Reporting section — admin or manager */}
+            {isReporting && (
+              <div className="pt-2">
+                <button
+                  onClick={() => setReportingExpanded(!reportingExpanded)}
+                  className={clsx(
+                    "w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer font-medium",
+                    location.startsWith("/reporting")
+                      ? "bg-primary/10 text-primary shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  )}
+                  data-testid="button-reporting-section"
+                >
+                  <div className="flex items-center gap-3">
+                    <BarChart2 size={20} className={location.startsWith("/reporting") ? "stroke-[2.5px]" : "stroke-2"} />
+                    Reporting
+                  </div>
+                  <ChevronDown
+                    size={16}
+                    className={clsx(
+                      "transition-transform duration-200",
+                      reportingExpanded ? "rotate-180" : ""
+                    )}
+                  />
+                </button>
+
+                {reportingExpanded && (
+                  <div className="ml-4 mt-1 space-y-1 border-l-2 border-border pl-4">
+                    <Link href="/reporting/dashboard">
+                      <div
+                        className={clsx(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer text-sm",
+                          location === "/reporting/dashboard"
+                            ? "bg-primary/10 text-primary font-medium"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        )}
+                        onClick={close}
+                        data-testid="link-reporting-dashboard"
+                      >
+                        <BarChart2 size={16} />
+                        Dashboard
+                      </div>
+                    </Link>
+                    <Link href="/reporting/activity">
+                      <div
+                        className={clsx(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer text-sm",
+                          location === "/reporting/activity"
+                            ? "bg-primary/10 text-primary font-medium"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        )}
+                        onClick={close}
+                        data-testid="link-reporting-activity"
+                      >
+                        <ScrollText size={16} />
+                        Activity Log
+                      </div>
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Admin section */}
             {isAdmin && (
               <div className="pt-2">
@@ -191,21 +255,6 @@ export function Navigation() {
 
                 {adminExpanded && (
                   <div className="ml-4 mt-1 space-y-1 border-l-2 border-border pl-4">
-                    <Link href="/admin/dashboard">
-                      <div
-                        className={clsx(
-                          "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer text-sm",
-                          location === "/admin/dashboard"
-                            ? "bg-primary/10 text-primary font-medium"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                        )}
-                        onClick={close}
-                        data-testid="link-admin-dashboard"
-                      >
-                        <BarChart2 size={16} />
-                        Dashboard
-                      </div>
-                    </Link>
                     <Link href="/admin/users">
                       <div
                         className={clsx(
@@ -219,21 +268,6 @@ export function Navigation() {
                       >
                         <Users size={16} />
                         Manage Users
-                      </div>
-                    </Link>
-                    <Link href="/admin/history">
-                      <div
-                        className={clsx(
-                          "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer text-sm",
-                          location === "/admin/history"
-                            ? "bg-primary/10 text-primary font-medium"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                        )}
-                        onClick={close}
-                        data-testid="link-admin-history"
-                      >
-                        <ScrollText size={16} />
-                        Activity Log
                       </div>
                     </Link>
                   </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -7,10 +7,29 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Loader2, ScrollText, LogIn, Upload, AlertTriangle, ChevronDown, ChevronUp, Bell } from "lucide-react";
+import { Loader2, ScrollText, LogIn, Upload, AlertTriangle, ChevronDown, ChevronUp, Bell, Users, FileText } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import type { PushHistory, Tenant } from "@shared/schema";
+
+type TeamMember = {
+  id: number;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+  role: string;
+  pushPermission: string;
+};
+
+type TeamQuote = {
+  id: number;
+  userId: number;
+  userName: string;
+  type: string;
+  name: string | null;
+  createdAt: string | null;
+  [key: string]: any;
+};
 
 type LoginEvent = {
   id: number;
@@ -76,14 +95,31 @@ function ErrorMessages({ messages }: { messages: string }) {
 }
 
 export default function AdminHistory() {
-  const { user, isAdmin, isLoading: authLoading } = useAuth();
+  const { user, isAdmin, isManager, isReporting, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
+  const [selectedTenantId, setSelectedTenantId] = useState<string>("");
+
+  const { data: tenants = [] } = useQuery<Tenant[]>({
+    queryKey: ["/api/tenants"],
+    enabled: isReporting,
+  });
+
+  useEffect(() => {
+    if (isManager && tenants.length > 0 && !selectedTenantId) {
+      setSelectedTenantId(String(tenants[0].id));
+    }
+  }, [isManager, tenants, selectedTenantId]);
+
+  const loginsQueryParams = new URLSearchParams();
+  if (selectedTenantId) loginsQueryParams.set("tenantId", selectedTenantId);
+  const loginsQueryString = loginsQueryParams.toString();
 
   const { data: logins = [], isLoading: loginsLoading } = useQuery<LoginEvent[]>({
-    queryKey: ["/api/admin/history/logins"],
-    enabled: isAdmin,
+    queryKey: ["/api/admin/history/logins", selectedTenantId],
+    enabled: isReporting && (!isManager || !!selectedTenantId),
     queryFn: async () => {
-      const res = await fetch("/api/admin/history/logins", { credentials: "include" });
+      const url = `/api/admin/history/logins${loginsQueryString ? `?${loginsQueryString}` : ""}`;
+      const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch logins");
       return res.json();
     },
@@ -91,12 +127,27 @@ export default function AdminHistory() {
 
   const { data: pushes = [], isLoading: pushesLoading } = useQuery<PushHistory[]>({
     queryKey: ["/api/push-history"],
-    enabled: isAdmin,
+    enabled: isReporting,
   });
 
-  const { data: tenants = [] } = useQuery<Tenant[]>({
-    queryKey: ["/api/tenants"],
-    enabled: isAdmin,
+  const { data: team = [], isLoading: teamLoading } = useQuery<TeamMember[]>({
+    queryKey: ["/api/reporting/team", selectedTenantId],
+    enabled: isManager && !!selectedTenantId,
+    queryFn: async () => {
+      const res = await fetch(`/api/reporting/team?tenantId=${selectedTenantId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch team");
+      return res.json();
+    },
+  });
+
+  const { data: teamQuotes = [], isLoading: teamQuotesLoading } = useQuery<TeamQuote[]>({
+    queryKey: ["/api/reporting/quotes", selectedTenantId],
+    enabled: isManager && !!selectedTenantId,
+    queryFn: async () => {
+      const res = await fetch(`/api/reporting/quotes?tenantId=${selectedTenantId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch quotes");
+      return res.json();
+    },
   });
 
   const { data: smtpStatus } = useQuery<{ configured: boolean }>({
@@ -140,13 +191,32 @@ export default function AdminHistory() {
     );
   }
 
-  if (!isAdmin) {
+  if (!isReporting) {
     return (
       <div className="flex items-center justify-center h-full p-8 text-muted-foreground">
-        Admin access required.
+        Admin or manager access required.
       </div>
     );
   }
+
+  if (isManager && tenants.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full p-8 text-muted-foreground">
+        You haven't been assigned to any tenants yet. Contact an admin.
+      </div>
+    );
+  }
+
+  const scopedPushes = isManager && selectedTenantId
+    ? pushes.filter(p => String(p.tenantId) === selectedTenantId)
+    : pushes;
+  const scopedErrorPushes = scopedPushes.filter(p => (p.errorCount ?? 0) > 0 && p.errorMessages);
+  const scopedSortedPushes = [...scopedPushes].sort(
+    (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+  );
+  const scopedSortedErrors = [...scopedErrorPushes].sort(
+    (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+  );
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -160,8 +230,30 @@ export default function AdminHistory() {
         </p>
       </div>
 
+      {/* Tenant Selector — admin (optional filter) or manager (required) */}
+      {tenants.length > 0 && (isManager || isAdmin) && (
+        <Card>
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <Label className="text-xs text-muted-foreground shrink-0">Tenant:</Label>
+              <select
+                value={selectedTenantId}
+                onChange={e => setSelectedTenantId(e.target.value)}
+                className="h-8 text-sm border border-input rounded-md px-2 bg-background"
+                data-testid="select-tenant-filter"
+              >
+                {isAdmin && <option value="">All tenants</option>}
+                {tenants.map(t => (
+                  <option key={t.id} value={String(t.id)}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="logins">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className={`grid w-full ${isManager ? "grid-cols-5" : "grid-cols-3"}`}>
           <TabsTrigger value="logins" data-testid="tab-logins">
             <LogIn size={14} className="mr-1.5" />
             Logins
@@ -172,17 +264,35 @@ export default function AdminHistory() {
           <TabsTrigger value="pushes" data-testid="tab-pushes">
             <Upload size={14} className="mr-1.5" />
             Push History
-            {pushes.length > 0 && (
-              <span className="ml-1.5 text-xs bg-muted rounded-full px-1.5 py-0.5">{pushes.length}</span>
+            {scopedPushes.length > 0 && (
+              <span className="ml-1.5 text-xs bg-muted rounded-full px-1.5 py-0.5">{scopedPushes.length}</span>
             )}
           </TabsTrigger>
           <TabsTrigger value="errors" data-testid="tab-errors">
             <AlertTriangle size={14} className="mr-1.5" />
             Errors
-            {errorPushes.length > 0 && (
-              <span className="ml-1.5 text-xs bg-destructive/20 text-destructive rounded-full px-1.5 py-0.5">{errorPushes.length}</span>
+            {scopedErrorPushes.length > 0 && (
+              <span className="ml-1.5 text-xs bg-destructive/20 text-destructive rounded-full px-1.5 py-0.5">{scopedErrorPushes.length}</span>
             )}
           </TabsTrigger>
+          {isManager && (
+            <TabsTrigger value="team" data-testid="tab-team">
+              <Users size={14} className="mr-1.5" />
+              Team
+              {team.length > 0 && (
+                <span className="ml-1.5 text-xs bg-muted rounded-full px-1.5 py-0.5">{team.length}</span>
+              )}
+            </TabsTrigger>
+          )}
+          {isManager && (
+            <TabsTrigger value="quotes" data-testid="tab-quotes">
+              <FileText size={14} className="mr-1.5" />
+              Quotes
+              {teamQuotes.length > 0 && (
+                <span className="ml-1.5 text-xs bg-muted rounded-full px-1.5 py-0.5">{teamQuotes.length}</span>
+              )}
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* ── Logins ───────────────────────────────────────────── */}
@@ -263,11 +373,11 @@ export default function AdminHistory() {
                 <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
                   <Loader2 className="animate-spin w-4 h-4" /> Loading…
                 </div>
-              ) : sortedPushes.length === 0 ? (
+              ) : scopedSortedPushes.length === 0 ? (
                 <EmptyState icon={Upload} message="No pushes have been made yet." />
               ) : (
                 <div className="divide-y divide-border">
-                  {sortedPushes.map(push => (
+                  {scopedSortedPushes.map(push => (
                     <div key={push.id} className="py-3 space-y-1" data-testid={`row-push-${push.id}`}>
                       <div className="flex items-center justify-between gap-4">
                         <div className="min-w-0 flex items-center gap-2">
@@ -313,11 +423,11 @@ export default function AdminHistory() {
                 <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
                   <Loader2 className="animate-spin w-4 h-4" /> Loading…
                 </div>
-              ) : sortedErrors.length === 0 ? (
+              ) : scopedSortedErrors.length === 0 ? (
                 <EmptyState icon={AlertTriangle} message="No errors recorded — everything has been clean." />
               ) : (
                 <div className="divide-y divide-border">
-                  {sortedErrors.map(push => (
+                  {scopedSortedErrors.map(push => (
                     <div key={push.id} className="py-3 space-y-1" data-testid={`row-error-${push.id}`}>
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-2 min-w-0">
@@ -343,6 +453,76 @@ export default function AdminHistory() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ── Team (manager only) ─────────────────────────────────── */}
+        {isManager && (
+          <TabsContent value="team">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Team Members</CardTitle>
+                <CardDescription>Everyone with access to this tenant. Read-only — contact an admin to make changes.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {teamLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
+                    <Loader2 className="animate-spin w-4 h-4" /> Loading…
+                  </div>
+                ) : team.length === 0 ? (
+                  <EmptyState icon={Users} message="No team members found for this tenant." />
+                ) : (
+                  <div className="divide-y divide-border">
+                    {team.map(member => (
+                      <div key={member.id} className="flex items-center justify-between py-3 gap-4" data-testid={`row-team-${member.id}`}>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{member.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+                        </div>
+                        <Badge variant="outline" className="text-xs capitalize shrink-0">{member.role}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* ── Quotes (manager only) ────────────────────────────────── */}
+        {isManager && (
+          <TabsContent value="quotes">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Saved Quotes</CardTitle>
+                <CardDescription>Quotes saved by anyone on this tenant, most recent first.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {teamQuotesLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
+                    <Loader2 className="animate-spin w-4 h-4" /> Loading…
+                  </div>
+                ) : teamQuotes.length === 0 ? (
+                  <EmptyState icon={FileText} message="No quotes saved yet for this tenant." />
+                ) : (
+                  <div className="divide-y divide-border">
+                    {[...teamQuotes]
+                      .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime())
+                      .map(quote => (
+                        <div key={quote.id} className="flex items-center justify-between py-3 gap-4" data-testid={`row-quote-${quote.id}`}>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{quote.name || `${quote.type} quote`}</p>
+                            <p className="text-xs text-muted-foreground truncate">by {quote.userName} · {quote.type}</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground shrink-0" title={fullDate(quote.createdAt)}>
+                            {timeAgo(quote.createdAt)}
+                          </p>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

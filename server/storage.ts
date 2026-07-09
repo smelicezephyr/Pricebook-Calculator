@@ -62,11 +62,13 @@ export interface IStorage {
   upsertUser(userData: { googleId: string; email: string; name: string; avatarUrl?: string }): Promise<User>;
   listUsers(): Promise<User[]>;
   countUsers(): Promise<number>;
-  updateUserRole(id: number, role: "everyone" | "user" | "admin"): Promise<User>;
+  updateUserRole(id: number, role: "everyone" | "user" | "manager" | "admin"): Promise<User>;
   updateUserPushPermission(id: number, pushPermission: "both" | "reprice_only" | "add_new_only"): Promise<User>;
   deleteUser(id: number): Promise<void>;
   getUserTenantIds(userId: number): Promise<number[]>;
   setUserTenantAccess(userId: number, tenantIds: number[]): Promise<void>;
+  getUsersByTenant(tenantId: number): Promise<User[]>;
+  getQuotesByUserIds(userIds: number[]): Promise<Quote[]>;
 
   // Login Events
   logLoginEvent(userId: number, email: string, name: string): Promise<void>;
@@ -325,7 +327,7 @@ export class DatabaseStorage implements IStorage {
     return result.length;
   }
 
-  async updateUserRole(id: number, role: "everyone" | "user" | "admin"): Promise<User> {
+  async updateUserRole(id: number, role: "everyone" | "user" | "manager" | "admin"): Promise<User> {
     const [updated] = await db.update(users)
       .set({ role })
       .where(eq(users.id, id))
@@ -360,6 +362,23 @@ export class DatabaseStorage implements IStorage {
       await db.insert(userTenantAccess)
         .values(tenantIds.map(tid => ({ userId, tenantId: tid })));
     }
+  }
+
+  async getUsersByTenant(tenantId: number): Promise<User[]> {
+    const rows = await db.select().from(userTenantAccess)
+      .where(eq(userTenantAccess.tenantId, tenantId));
+    const userIds = rows.map(r => r.userId);
+    if (userIds.length === 0) return [];
+    return await db.select().from(users)
+      .where(inArray(users.id, userIds))
+      .orderBy(asc(users.name));
+  }
+
+  async getQuotesByUserIds(userIds: number[]): Promise<Quote[]> {
+    if (userIds.length === 0) return [];
+    return await db.select().from(quotes)
+      .where(inArray(quotes.userId, userIds))
+      .orderBy(desc(quotes.createdAt));
   }
 
   async logLoginEvent(userId: number, email: string, name: string): Promise<void> {

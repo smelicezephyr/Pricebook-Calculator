@@ -64,10 +64,18 @@ export async function registerRoutes(
     next();
   }
 
+  // Reporting: admins and managers can view Dashboard / Activity Log / Team
+  function requireReporting(req: Request, res: Response, next: NextFunction) {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+    const role = req.user!.role;
+    if (role !== "admin" && role !== "manager") return res.status(403).json({ message: "Reporting access required" });
+    next();
+  }
+
   async function canAccessTenant(req: Request, tenantId: number): Promise<boolean> {
     const role = req.user!.role;
     if (role === "admin") return true;
-    if (role !== "user") return false;
+    if (role !== "user" && role !== "manager") return false;
     const allowedIds = await storage.getUserTenantIds(req.user!.id);
     return allowedIds.includes(tenantId);
   }
@@ -113,10 +121,10 @@ export async function registerRoutes(
     const id = Number(req.params.id);
     if (isNaN(id)) return res.status(400).json({ message: "Invalid user ID" });
     const { role } = req.body;
-    if (!["everyone", "user", "admin"].includes(role)) {
+    if (!["everyone", "user", "manager", "admin"].includes(role)) {
       return res.status(400).json({ message: "Invalid role" });
     }
-    const validRole = role as "everyone" | "user" | "admin";
+    const validRole = role as "everyone" | "user" | "manager" | "admin";
     const updated = await storage.updateUserRole(id, validRole);
     res.json(updated);
   });
@@ -161,15 +169,35 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
-  app.get("/api/admin/dashboard", requireAdmin, async (req, res) => {
+  app.get("/api/admin/dashboard", requireReporting, async (req, res) => {
     try {
       const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
+      const requestedTenantId = req.query.tenantId ? Number(req.query.tenantId) : undefined;
+
+      // Managers are restricted to tenants they have access to
+      let tenantFilterId: number | undefined = undefined;
+      if (req.user!.role === "manager") {
+        const allowedIds = await storage.getUserTenantIds(req.user!.id);
+        if (requestedTenantId !== undefined) {
+          if (!allowedIds.includes(requestedTenantId)) {
+            return res.status(403).json({ message: "You don't have access to this tenant" });
+          }
+          tenantFilterId = requestedTenantId;
+        } else if (allowedIds.length > 0) {
+          tenantFilterId = allowedIds[0];
+        } else {
+          tenantFilterId = -1; // no access to any tenant
+        }
+      } else if (requestedTenantId !== undefined) {
+        tenantFilterId = requestedTenantId;
+      }
 
       // Build date filter clauses
       const dateParams: string[] = [];
       const dateConditions: string[] = ["status NOT IN ('pending','in_progress')"];
       if (startDate) { dateConditions.push(`created_at >= $${dateParams.push(startDate)}`); }
       if (endDate)   { dateConditions.push(`created_at <= ($${dateParams.push(endDate)}::date + INTERVAL '1 day')`); }
+      if (tenantFilterId !== undefined) { dateConditions.push(`tenant_id = $${dateParams.push(String(tenantFilterId))}`); }
       const dateWhere = dateConditions.join(" AND ");
 
       // For tenant join, build separate param sets
@@ -178,6 +206,7 @@ export async function registerRoutes(
       if (startDate) { tenantDateConds.push(`ph.created_at >= $${tenantParams.push(startDate)}`); }
       if (endDate)   { tenantDateConds.push(`ph.created_at <= ($${tenantParams.push(endDate)}::date + INTERVAL '1 day')`); }
       const tenantDateWhere = tenantDateConds.join(" AND ");
+      const tenantRowFilter = tenantFilterId !== undefined ? `WHERE t.id = $${tenantParams.push(String(tenantFilterId))}` : "";
 
       // Monthly chart: use the date range if provided, else last 6 months
       const monthlyParams: string[] = [];
@@ -187,13 +216,17 @@ export async function registerRoutes(
       if (monthlyStart) { monthlyConds.push(`created_at >= $${monthlyParams.push(monthlyStart)}`); }
       else               { monthlyConds.push(`created_at >= NOW() - INTERVAL '6 months'`); }
       if (monthlyEnd)   { monthlyConds.push(`created_at <= ($${monthlyParams.push(monthlyEnd)}::date + INTERVAL '1 day')`); }
+      if (tenantFilterId !== undefined) { monthlyConds.push(`tenant_id = $${monthlyParams.push(String(tenantFilterId))}`); }
       const monthlyWhere = monthlyConds.join(" AND ");
 
-      // Build login date conditions (login_events uses created_at)
+      // Build login date conditions (login_events uses created_at), scoped to tenant's users when filtering
       const loginParams: string[] = [];
       const loginConds: string[] = [];
       if (startDate) { loginConds.push(`le.created_at >= $${loginParams.push(startDate)}`); }
       if (endDate)   { loginConds.push(`le.created_at <= ($${loginParams.push(endDate)}::date + INTERVAL '1 day')`); }
+      if (tenantFilterId !== undefined) {
+        loginConds.push(`le.user_id IN (SELECT user_id FROM user_tenant_access WHERE tenant_id = $${loginParams.push(String(tenantFilterId))})`);
+      }
       const loginWhere = loginConds.length ? `WHERE ${loginConds.join(" AND ")}` : "";
 
       const [overallResult, tenantResult, monthlyResult, userResult, typeResult, loginCountResult, recentLoginsResult] = await Promise.all([
@@ -220,6 +253,7 @@ export async function registerRoutes(
           FROM tenants t
           LEFT JOIN push_history ph ON ph.tenant_id = t.id
             AND ${tenantDateWhere}
+          ${tenantRowFilter}
           GROUP BY t.id, t.name
           ORDER BY total_updated DESC`,
           tenantParams,
@@ -236,7 +270,15 @@ export async function registerRoutes(
           ORDER BY month_date ASC`,
           monthlyParams,
         ),
-        pool.query(`SELECT COUNT(*) AS active_users FROM users WHERE role != 'everyone'`),
+        tenantFilterId !== undefined
+          ? pool.query(
+              `SELECT COUNT(DISTINCT u.id) AS active_users
+               FROM users u
+               JOIN user_tenant_access uta ON uta.user_id = u.id
+               WHERE u.role != 'everyone' AND uta.tenant_id = $1`,
+              [String(tenantFilterId)],
+            )
+          : pool.query(`SELECT COUNT(*) AS active_users FROM users WHERE role != 'everyone'`),
         pool.query(
           `SELECT COALESCE(push_type, 'update') AS push_type, COUNT(*) AS cnt
            FROM push_history WHERE ${dateWhere}
@@ -308,10 +350,66 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/admin/history/logins", requireAdmin, async (req, res) => {
+  app.get("/api/admin/history/logins", requireReporting, async (req, res) => {
     const limit = Math.min(Number(req.query.limit) || 200, 500);
     const events = await storage.listLoginEvents(limit);
+
+    if (req.user!.role === "manager") {
+      const tenantId = req.query.tenantId ? Number(req.query.tenantId) : undefined;
+      const allowedIds = await storage.getUserTenantIds(req.user!.id);
+      const targetTenantId = tenantId !== undefined ? tenantId : allowedIds[0];
+      if (targetTenantId === undefined || !allowedIds.includes(targetTenantId)) {
+        return res.json([]);
+      }
+      const teamUsers = await storage.getUsersByTenant(targetTenantId);
+      const teamUserIds = new Set(teamUsers.map(u => u.id));
+      return res.json(events.filter(e => e.userId !== null && teamUserIds.has(e.userId)));
+    }
+
     res.json(events);
+  });
+
+  // ── Reporting: read-only team view + tenant-scoped quotes ──────────────────
+
+  app.get("/api/reporting/team", requireReporting, async (req, res) => {
+    try {
+      const tenantId = req.query.tenantId ? Number(req.query.tenantId) : undefined;
+      if (tenantId === undefined || isNaN(tenantId)) {
+        return res.status(400).json({ message: "tenantId is required" });
+      }
+      if (!(await canAccessTenant(req, tenantId))) {
+        return res.status(403).json({ message: "You don't have access to this tenant" });
+      }
+      const teamUsers = await storage.getUsersByTenant(tenantId);
+      res.json(teamUsers.map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        avatarUrl: u.avatarUrl,
+        role: u.role,
+        pushPermission: u.pushPermission,
+      })));
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/reporting/quotes", requireReporting, async (req, res) => {
+    try {
+      const tenantId = req.query.tenantId ? Number(req.query.tenantId) : undefined;
+      if (tenantId === undefined || isNaN(tenantId)) {
+        return res.status(400).json({ message: "tenantId is required" });
+      }
+      if (!(await canAccessTenant(req, tenantId))) {
+        return res.status(403).json({ message: "You don't have access to this tenant" });
+      }
+      const teamUsers = await storage.getUsersByTenant(tenantId);
+      const quotes = await storage.getQuotesByUserIds(teamUsers.map(u => u.id));
+      const userMap = new Map(teamUsers.map(u => [u.id, u.name]));
+      res.json(quotes.map(q => ({ ...q, userName: userMap.get(q.userId) ?? "Unknown" })));
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
   });
 
   app.put("/api/users/me/email-notifications", requireAdmin, async (req, res) => {

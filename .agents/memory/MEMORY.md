@@ -1,0 +1,1 @@
+- [Role-scoped reporting pattern](role-scoped-reporting.md) — tenant-scoped read-only reporting for a restricted role (e.g. manager) needs backend tenant-filter guards, not just frontend hiding.

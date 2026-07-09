@@ -7,7 +7,7 @@ export interface CurrentUser {
   email: string;
   name: string;
   avatarUrl: string | null;
-  role: "everyone" | "user" | "admin";
+  role: "everyone" | "user" | "manager" | "admin";
   pushPermission: "both" | "reprice_only" | "add_new_only";
   emailNotifications: boolean;
   createdAt: string | null;
@@ -18,7 +18,9 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isManager: boolean;
   isUserOrAdmin: boolean;
+  isReporting: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -45,7 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isAuthenticated: !!resolvedUser,
         isAdmin: resolvedUser?.role === "admin",
-        isUserOrAdmin: resolvedUser?.role === "user" || resolvedUser?.role === "admin",
+        isManager: resolvedUser?.role === "manager",
+        isUserOrAdmin: resolvedUser?.role === "user" || resolvedUser?.role === "manager" || resolvedUser?.role === "admin",
+        isReporting: resolvedUser?.role === "admin" || resolvedUser?.role === "manager",
       }}
     >
       {children}

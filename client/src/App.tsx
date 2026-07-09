@@ -26,7 +26,7 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import Login from "@/pages/Login";
 
 function AppRouter() {
-  const { isAdmin, isUserOrAdmin } = useAuth();
+  const { isAdmin, isUserOrAdmin, isReporting } = useAuth();
 
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-background text-foreground font-body">
@@ -61,11 +61,13 @@ function AppRouter() {
           <Route path="/admin/users">
             {isAdmin ? <AdminUsers /> : <NotFound />}
           </Route>
-          <Route path="/admin/history">
-            {isAdmin ? <AdminHistory /> : <NotFound />}
+
+          {/* Reporting — admin or manager */}
+          <Route path="/reporting/dashboard">
+            {isReporting ? <AdminDashboard /> : <NotFound />}
           </Route>
-          <Route path="/admin/dashboard">
-            {isAdmin ? <AdminDashboard /> : <NotFound />}
+          <Route path="/reporting/activity">
+            {isReporting ? <AdminHistory /> : <NotFound />}
           </Route>
 
           <Route component={NotFound} />

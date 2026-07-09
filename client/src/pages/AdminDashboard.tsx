@@ -92,9 +92,21 @@ function StatCard({
 // ── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isManager, isReporting, isLoading: authLoading } = useAuth();
   const printRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
+  const [selectedTenantId, setSelectedTenantId] = useState<string>("");
+
+  const { data: tenants = [] } = useQuery<{ id: number; name: string }[]>({
+    queryKey: ["/api/tenants"],
+    enabled: isReporting,
+  });
+
+  useEffect(() => {
+    if (isManager && tenants.length > 0 && !selectedTenantId) {
+      setSelectedTenantId(String(tenants[0].id));
+    }
+  }, [isManager, tenants, selectedTenantId]);
 
   // Date range state — load from localStorage on mount
   const [range, setRange] = useState<DateRange>(() => {
@@ -119,17 +131,18 @@ export default function AdminDashboard() {
   const queryParams = new URLSearchParams();
   if (range.startDate) queryParams.set("startDate", range.startDate);
   if (range.endDate)   queryParams.set("endDate",   range.endDate);
+  if (selectedTenantId) queryParams.set("tenantId", selectedTenantId);
   const queryString = queryParams.toString();
 
   const { data, isLoading, isError } = useQuery<DashboardData>({
-    queryKey: ["/api/admin/dashboard", range.startDate, range.endDate],
+    queryKey: ["/api/admin/dashboard", range.startDate, range.endDate, selectedTenantId],
     queryFn: async () => {
       const url = `/api/admin/dashboard${queryString ? `?${queryString}` : ""}`;
       const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
-    enabled: isAdmin,
+    enabled: isReporting && (!isManager || !!selectedTenantId),
     refetchInterval: 60_000,
   });
 
@@ -182,7 +195,10 @@ export default function AdminDashboard() {
 
   // ── Guards ──────────────────────────────────────────────────────────────────
   if (authLoading) return <Spinner />;
-  if (!isAdmin) return <Center>Admin access required.</Center>;
+  if (!isReporting) return <Center>Admin or manager access required.</Center>;
+  if (isManager && tenants.length === 0) {
+    return <Center>You haven't been assigned to any tenants yet. Contact an admin.</Center>;
+  }
   if (isLoading) return <Spinner />;
   if (isError || !data) return <Center>Failed to load dashboard data. Please try again.</Center>;
 
@@ -203,7 +219,9 @@ export default function AdminDashboard() {
             Dashboard
           </h1>
           <p className="text-muted-foreground text-sm mt-0.5">
-            Push performance and adoption metrics across all tenants.
+            {isManager
+              ? "Push performance and adoption metrics for your tenant."
+              : "Push performance and adoption metrics across all tenants."}
           </p>
         </div>
         <Button
@@ -219,6 +237,28 @@ export default function AdminDashboard() {
           Export PDF
         </Button>
       </div>
+
+      {/* Tenant Selector — admin (optional filter) or manager (required) */}
+      {tenants.length > 0 && (isManager || isAdmin) && (
+        <Card>
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <Label className="text-xs text-muted-foreground shrink-0">Tenant:</Label>
+              <select
+                value={selectedTenantId}
+                onChange={e => setSelectedTenantId(e.target.value)}
+                className="h-8 text-sm border border-input rounded-md px-2 bg-background"
+                data-testid="select-tenant-filter"
+              >
+                {isAdmin && <option value="">All tenants</option>}
+                {tenants.map(t => (
+                  <option key={t.id} value={String(t.id)}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Date Range Controls */}
       <Card>
