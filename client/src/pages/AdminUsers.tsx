@@ -310,8 +310,8 @@ export default function AdminUsers() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="everyone">Everyone</SelectItem>
-                            <SelectItem value="user">User</SelectItem>
                             <SelectItem value="manager">Manager</SelectItem>
+                            <SelectItem value="user">User</SelectItem>
                             <SelectItem value="admin">Admin</SelectItem>
                           </SelectContent>
                         </Select>
