@@ -27,6 +27,7 @@ export default function RepairGMCalculator() {
   const [selectedTenantId, setSelectedTenantId] = useState<number | null>(null);
   const [laborMode, setLaborMode] = useState<"dollars" | "percent">("dollars");
   const [laborRate, setLaborRate] = useState("175.00");
+  const [highestTechRate, setHighestTechRate] = useState("");
   const [laborHours, setLaborHours] = useState("");
   const [numTechs, setNumTechs] = useState("1");
   const [burdenPercent, setBurdenPercent] = useState("20.00");
@@ -55,6 +56,7 @@ export default function RepairGMCalculator() {
     setLaborMode("dollars");
     setSalesTaxPercent(settings?.salesTaxPercent || "6.35");
     setLaborRate(settings?.laborHourlyRate || "175.00");
+    setHighestTechRate("");
     setBurdenPercent(settings?.laborBurdenPercent || "20.00");
     setCommissionPercent(settings?.commissionPercent || "10.00");
     setFinancingFeePercent(settings?.financingFeePercent || "4.00");
@@ -64,6 +66,8 @@ export default function RepairGMCalculator() {
 
   const partsVal = parseFloat(partsCost) || 0;
   const laborRateVal = parseFloat(laborRate) || 0;
+  const highestTechRateVal = parseFloat(highestTechRate) || 0;
+  const effectiveLaborRate = highestTechRateVal > 0 ? highestTechRateVal : laborRateVal;
   const hoursVal = parseFloat(laborHours) || 0;
   const numTechsVal = Math.max(1, parseFloat(numTechs) || 1);
   const burdenRate = (parseFloat(burdenPercent) || 0) / 100;
@@ -101,7 +105,7 @@ export default function RepairGMCalculator() {
     let laborCost = 0;
 
     if (laborMode === "dollars") {
-      laborCost = hoursVal * numTechsVal * laborRateVal * (1 + burdenRate);
+      laborCost = hoursVal * numTechsVal * effectiveLaborRate * (1 + burdenRate);
       const denom = 1 - g - c - f;
       if (denom > 0) {
         price = (totalParts + laborCost) / denom;
@@ -139,7 +143,7 @@ export default function RepairGMCalculator() {
       metrics: { grossMarginPercent, grossMarginAmount, mePercent },
     });
   }, [
-    partsVal, taxRate, laborMode, hoursVal, numTechsVal, laborRateVal,
+    partsVal, taxRate, laborMode, hoursVal, numTechsVal, effectiveLaborRate,
     burdenRate, commissionRate, financingRate, g, roundUp,
   ]);
 
@@ -317,6 +321,16 @@ export default function RepairGMCalculator() {
                   onChange={(e) => setNumTechs(e.target.value)}
                   data-testid="input-num-techs"
                 />
+                <InputMoney
+                  label="Highest Tech Pay Rate"
+                  placeholder="0.00"
+                  value={highestTechRate}
+                  onChange={(e) => setHighestTechRate(e.target.value)}
+                  data-testid="input-highest-tech-rate"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Leave blank to use the Labor Rate above for the GM calculation
+                </p>
               </div>
             )}
           </div>
@@ -395,7 +409,7 @@ export default function RepairGMCalculator() {
                   ? {
                       hours: hoursVal,
                       numTechs: numTechsVal,
-                      hourlyRate: laborRateVal,
+                      hourlyRate: effectiveLaborRate,
                       burdenPercent: parseFloat(burdenPercent) || 0,
                     }
                   : undefined
