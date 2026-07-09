@@ -27,7 +27,7 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import Login from "@/pages/Login";
 
 function AppRouter() {
-  const { isAdmin, isUserOrAdmin, isReporting } = useAuth();
+  const { isAdmin, isUserOrAdmin, isReporting, isEveryone } = useAuth();
 
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-background text-foreground font-body">
@@ -36,10 +36,16 @@ function AppRouter() {
       <main className="flex-1 w-full p-4 md:p-8 lg:p-12 overflow-y-auto h-screen">
         <Switch>
           <Route path="/" component={AutoMECalculator} />
-          <Route path="/system-me" component={Calculator} />
-          <Route path="/reverse" component={ReverseCalculator} />
-          <Route path="/repair" component={RepairCalculator} />
           <Route path="/repair-gm" component={RepairGMCalculator} />
+          <Route path="/system-me">
+            {isEveryone ? <NotFound /> : <Calculator />}
+          </Route>
+          <Route path="/reverse">
+            {isEveryone ? <NotFound /> : <ReverseCalculator />}
+          </Route>
+          <Route path="/repair">
+            {isEveryone ? <NotFound /> : <RepairCalculator />}
+          </Route>
           <Route path="/history" component={History} />
 
           {/* ServiceTitan — user or admin only */}

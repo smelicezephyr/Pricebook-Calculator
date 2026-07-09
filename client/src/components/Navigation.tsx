@@ -17,7 +17,7 @@ function getInitials(name: string) {
 export function Navigation() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const { user, isAdmin, isManager, isUserOrAdmin, isReporting } = useAuth();
+  const { user, isAdmin, isManager, isUserOrAdmin, isReporting, isEveryone } = useAuth();
   const { toast } = useToast();
 
   const isServiceTitanPath =
@@ -102,12 +102,12 @@ export function Navigation() {
           </div>
 
           <div className="space-y-2 flex-1 overflow-y-auto">
-            {/* Calculator pages — all roles */}
+            {/* Calculator pages */}
             {navLink("/", "System GM Calculator", Target)}
             {navLink("/repair-gm", "Repair GM Calculator", Target)}
-            {navLink("/system-me", "System M&E Calculator", Calculator)}
-            {navLink("/repair", "Repair Calculator", Wrench)}
-            {navLink("/reverse", "Reverse Calculator", ArrowLeftRight)}
+            {!isEveryone && navLink("/system-me", "System M&E Calculator", Calculator)}
+            {!isEveryone && navLink("/repair", "Repair Calculator", Wrench)}
+            {!isEveryone && navLink("/reverse", "Reverse Calculator", ArrowLeftRight)}
             {navLink("/history", "Saved Quotes", History)}
 
             {/* Settings — all roles */}
