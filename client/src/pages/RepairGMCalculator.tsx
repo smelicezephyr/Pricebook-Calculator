@@ -40,7 +40,13 @@ export default function RepairGMCalculator() {
   useEffect(() => {
     if (settings && !hasInitialized) {
       setSalesTaxPercent(settings.salesTaxPercent || "6.35");
-      setLaborRate(settings.laborHourlyRate || "175.00");
+      const defaultHighestTechRate = parseFloat(settings.highestTechRate || "0") || 0;
+      if (defaultHighestTechRate > 0) {
+        setHighestTechRate(defaultHighestTechRate.toFixed(2));
+        setLaborRate((defaultHighestTechRate * 3.5).toFixed(2));
+      } else {
+        setLaborRate(settings.laborHourlyRate || "175.00");
+      }
       setBurdenPercent(settings.laborBurdenPercent || "20.00");
       setCommissionPercent(settings.commissionPercent || "10.00");
       setFinancingFeePercent(settings.financingFeePercent || "4.00");
@@ -55,8 +61,14 @@ export default function RepairGMCalculator() {
     setNumTechs("1");
     setLaborMode("dollars");
     setSalesTaxPercent(settings?.salesTaxPercent || "6.35");
-    setLaborRate(settings?.laborHourlyRate || "175.00");
-    setHighestTechRate("");
+    const defaultHighestTechRate = parseFloat(settings?.highestTechRate || "0") || 0;
+    if (defaultHighestTechRate > 0) {
+      setHighestTechRate(defaultHighestTechRate.toFixed(2));
+      setLaborRate((defaultHighestTechRate * 3.5).toFixed(2));
+    } else {
+      setHighestTechRate("");
+      setLaborRate(settings?.laborHourlyRate || "175.00");
+    }
     setBurdenPercent(settings?.laborBurdenPercent || "20.00");
     setCommissionPercent(settings?.commissionPercent || "10.00");
     setFinancingFeePercent(settings?.financingFeePercent || "4.00");

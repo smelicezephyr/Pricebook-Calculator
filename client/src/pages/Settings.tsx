@@ -30,6 +30,7 @@ export default function Settings() {
       laborHourlyRate: "0.00",
       laborPercent: "7.00",
       laborBurdenPercent: "20.00",
+      highestTechRate: "0.00",
       commissionPercent: "10.00",
       commissionBurdenPercent: "20.00",
       financingFeePercent: "6.00",
@@ -48,6 +49,7 @@ export default function Settings() {
         laborHourlyRate: settings.laborHourlyRate,
         laborPercent: settings.laborPercent,
         laborBurdenPercent: settings.laborBurdenPercent,
+        highestTechRate: settings.highestTechRate,
         commissionPercent: settings.commissionPercent,
         commissionBurdenPercent: settings.commissionBurdenPercent,
         financingFeePercent: settings.financingFeePercent,
@@ -278,6 +280,31 @@ export default function Settings() {
                           </div>
                         </FormControl>
                         <FormDescription>Added overhead on top of labor cost.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="highestTechRate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Highest Tech Rate</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">$</span>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              className="pl-8"
+                              data-testid="input-highest-tech-rate-setting"
+                              {...field}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormDescription>Used as the default for the repair calculators — Labor Rate defaults to 3.5x this amount.</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

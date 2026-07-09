@@ -60,6 +60,7 @@ export const settings = pgTable("settings", {
   laborHourlyRate: numeric("labor_hourly_rate").notNull().default("0.00"),
   laborPercent: numeric("labor_percent").notNull().default("7.00"),
   laborBurdenPercent: numeric("labor_burden_percent").notNull().default("20.00"),
+  highestTechRate: numeric("highest_tech_rate").notNull().default("0.00"),
   
   // Commission Settings
   commissionPercent: numeric("commission_percent").notNull().default("10.00"),
