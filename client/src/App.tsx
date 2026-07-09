@@ -13,6 +13,7 @@ import NotFound from "@/pages/not-found";
 import Calculator from "@/pages/Calculator";
 import AutoMECalculator from "@/pages/AutoMECalculator";
 import RepairCalculator from "@/pages/RepairCalculator";
+import RepairGMCalculator from "@/pages/RepairGMCalculator";
 import ReverseCalculator from "@/pages/ReverseCalculator";
 import Settings from "@/pages/Settings";
 import History from "@/pages/History";
@@ -38,6 +39,7 @@ function AppRouter() {
           <Route path="/system-me" component={Calculator} />
           <Route path="/reverse" component={ReverseCalculator} />
           <Route path="/repair" component={RepairCalculator} />
+          <Route path="/repair-gm" component={RepairGMCalculator} />
           <Route path="/history" component={History} />
 
           {/* ServiceTitan — user or admin only */}
