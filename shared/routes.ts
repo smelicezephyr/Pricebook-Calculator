@@ -38,7 +38,7 @@ export const api = {
       method: 'GET' as const,
       path: '/api/quotes',
       responses: {
-        200: z.array(z.custom<typeof quotes.$inferSelect>()),
+        200: z.array(z.custom<typeof quotes.$inferSelect & { userName: string | null }>()),
       },
     },
     create: {

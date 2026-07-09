@@ -1,6 +1,6 @@
 import { useQuotes, useDeleteQuote, useClearQuotes } from "@/hooks/use-quotes";
 import { format } from "date-fns";
-import { Loader2, Trash2, Search, Calendar, DollarSign, Users } from "lucide-react";
+import { Loader2, Trash2, Search, Calendar, DollarSign, Users, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
@@ -110,6 +110,11 @@ export default function History() {
                     <Calendar className="w-3 h-3 mr-1" />
                     {quote.createdAt ? format(new Date(quote.createdAt), "MMM d, yyyy") : "Unknown"}
                   </div>
+                </div>
+
+                <div className="flex items-center text-xs text-muted-foreground mb-3" data-testid={`text-created-by-${quote.id}`}>
+                  <User className="w-3 h-3 mr-1" />
+                  Added by {quote.userName || "Unknown"}
                 </div>
 
                 <div className="space-y-3">
