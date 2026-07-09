@@ -179,7 +179,7 @@ export default function AutoMECalculator() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">Auto M&E Calculator</h1>
+          <h1 className="text-3xl font-display font-bold text-foreground">System Gross Margin Calculator</h1>
           <p className="text-muted-foreground mt-1">
             Enter your costs — the calculator finds the M&E% needed to hit your target gross margin.
           </p>

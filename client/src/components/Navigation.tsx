@@ -102,8 +102,8 @@ export function Navigation() {
 
           <div className="space-y-2 flex-1 overflow-y-auto">
             {/* Calculator pages — all roles */}
-            {navLink("/", "System Calculator", Calculator)}
-            {navLink("/system-auto", "Auto M&E Calculator", Target)}
+            {navLink("/", "System Gross Margin Calculator", Target)}
+            {navLink("/system-me", "System M&E Calculator", Calculator)}
             {navLink("/repair", "Repair Calculator", Wrench)}
             {navLink("/reverse", "Reverse Calculator", ArrowLeftRight)}
             {navLink("/history", "Saved Quotes", History)}

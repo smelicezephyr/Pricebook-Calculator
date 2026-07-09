@@ -34,8 +34,8 @@ function AppRouter() {
       <Navigation />
       <main className="flex-1 w-full p-4 md:p-8 lg:p-12 overflow-y-auto h-screen">
         <Switch>
-          <Route path="/" component={Calculator} />
-          <Route path="/system-auto" component={AutoMECalculator} />
+          <Route path="/" component={AutoMECalculator} />
+          <Route path="/system-me" component={Calculator} />
           <Route path="/reverse" component={ReverseCalculator} />
           <Route path="/repair" component={RepairCalculator} />
           <Route path="/history" component={History} />

@@ -297,7 +297,7 @@ export default function Calculator() {
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">Complete System Calculator</h1>
+          <h1 className="text-3xl font-display font-bold text-foreground">System M&E Calculator</h1>
           <p className="text-muted-foreground mt-1">Estimate pricing and labor for HVAC installations.</p>
         </div>
 

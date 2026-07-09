@@ -42,7 +42,8 @@ Preferred communication style: Simple, everyday language.
 
 | Route | Page | Access |
 |---|---|---|
-| `/` | Complete System Calculator | `user`, `admin` |
+| `/` | System Gross Margin Calculator (formerly Auto M&E Calculator) | `user`, `admin` |
+| `/system-me` | System M&E Calculator (formerly System Calculator) | `user`, `admin` |
 | `/repair` | Repair Calculator | `user`, `admin` |
 | `/reverse` | Reverse Calculator | `user`, `admin` |
 | `/history` | Saved Quotes | `user`, `admin` |
