@@ -210,7 +210,7 @@ export default function RepairGMCalculator() {
       <div className="flex items-center gap-4 bg-primary/5 border border-primary/20 rounded-xl px-5 py-4">
         <Target size={28} className="text-primary shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-bold text-primary uppercase tracking-wider">Target Gross Margin</p>
+          <p className="text-xs font-bold text-primary uppercase tracking-wider">Target GM</p>
           <p className="text-sm text-muted-foreground">From your Settings — the selling price is solved to hit this margin exactly.</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">

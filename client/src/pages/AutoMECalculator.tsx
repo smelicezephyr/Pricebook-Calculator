@@ -208,7 +208,7 @@ export default function AutoMECalculator() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">System Gross Margin Calculator</h1>
+          <h1 className="text-3xl font-display font-bold text-foreground">System GM Calculator</h1>
           <p className="text-muted-foreground mt-1">
             Enter your costs — the calculator finds the M&E% needed to hit your target gross margin.
           </p>
@@ -223,7 +223,7 @@ export default function AutoMECalculator() {
       <div className="flex items-center gap-4 bg-primary/5 border border-primary/20 rounded-xl px-5 py-4">
         <Target size={28} className="text-primary shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-bold text-primary uppercase tracking-wider">Target Gross Margin</p>
+          <p className="text-xs font-bold text-primary uppercase tracking-wider">Target GM</p>
           <p className="text-sm text-muted-foreground">From your Settings — all prices are solved to hit this margin exactly.</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
