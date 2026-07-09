@@ -309,10 +309,10 @@ export default function AdminUsers() {
                             {isRoleSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <SelectValue />}
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="everyone">Everyone</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
                             <SelectItem value="manager">Manager</SelectItem>
                             <SelectItem value="user">User</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="everyone">Everyone</SelectItem>
                           </SelectContent>
                         </Select>
 
