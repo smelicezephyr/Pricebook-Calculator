@@ -53,6 +53,7 @@ export const settings = pgTable("settings", {
   userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
   targetMePercent: numeric("target_me_percent").notNull().default("23.00"),
   salesTaxPercent: numeric("sales_tax_percent").notNull().default("6.35"),
+  defaultTenantId: integer("default_tenant_id"),
   
   // Labor Settings
   laborMode: text("labor_mode", { enum: ["hours", "percent"] }).notNull().default("percent"),

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTenants } from "@/hooks/use-tenants";
+import { useSettings } from "@/hooks/use-settings";
 import { useAuth } from "@/contexts/AuthContext";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -52,6 +53,7 @@ export function TenantTaxSelector({
 }: TenantTaxSelectorProps) {
   const { tenants } = useTenants();
   const { user } = useAuth();
+  const { settings } = useSettings();
   const { data: locations = [] } = useQuery<Location[]>({ queryKey: ["/api/locations"] });
   const autoAppliedRef = useRef(false);
 
@@ -63,19 +65,25 @@ export function TenantTaxSelector({
 
   useEffect(() => {
     if (autoAppliedRef.current || selectedTenantId != null || tenants.length === 0) return;
+    if (settings === undefined) return; // wait for settings to load before guessing
     autoAppliedRef.current = true;
 
+    const savedDefault = settings.defaultTenantId != null
+      ? tenants.find((t) => t.id === settings.defaultTenantId)
+      : undefined;
+
     const match =
-      tenants.length === 1
+      savedDefault ||
+      (tenants.length === 1
         ? tenants[0]
         : guessTenantByEmail(tenants, user?.email) ||
-          [...tenants].sort((a, b) => a.name.localeCompare(b.name))[0];
+          [...tenants].sort((a, b) => a.name.localeCompare(b.name))[0]);
     if (match) {
       onTenantChange(match.id);
       applyTenantTax(match);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenants, locations, user?.email, selectedTenantId]);
+  }, [tenants, locations, user?.email, selectedTenantId, settings]);
 
   if (tenants.length === 0) return null;
 

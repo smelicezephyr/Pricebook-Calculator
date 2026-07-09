@@ -1,4 +1,5 @@
 import { useSettings } from "@/hooks/use-settings";
+import { useTenants } from "@/hooks/use-tenants";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertSettingsSchema } from "@shared/schema";
@@ -6,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Save, ArrowLeft } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation } from "wouter";
@@ -15,6 +17,7 @@ type SettingsFormValues = z.infer<typeof insertSettingsSchema>;
 
 export default function Settings() {
   const { settings, isLoading, updateSettings, isUpdating } = useSettings();
+  const { tenants } = useTenants();
   const [, setLocation] = useLocation();
 
   const form = useForm<SettingsFormValues>({
@@ -22,6 +25,7 @@ export default function Settings() {
     defaultValues: {
       targetMePercent: "23.00",
       salesTaxPercent: "6.35",
+      defaultTenantId: null,
       laborMode: "percent",
       laborHourlyRate: "0.00",
       laborPercent: "7.00",
@@ -39,6 +43,7 @@ export default function Settings() {
       form.reset({
         targetMePercent: settings.targetMePercent,
         salesTaxPercent: settings.salesTaxPercent,
+        defaultTenantId: settings.defaultTenantId ?? null,
         laborMode: settings.laborMode,
         laborHourlyRate: settings.laborHourlyRate,
         laborPercent: settings.laborPercent,
@@ -118,6 +123,35 @@ export default function Settings() {
                           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
                         </div>
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="defaultTenantId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Default Tenant</FormLabel>
+                      <FormControl>
+                        <Select
+                          value={field.value != null ? field.value.toString() : "none"}
+                          onValueChange={(v) => field.onChange(v === "none" ? null : parseInt(v, 10))}
+                        >
+                          <SelectTrigger data-testid="select-default-tenant">
+                            <SelectValue placeholder="Auto-detect" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Auto-detect (email domain match)</SelectItem>
+                            {tenants.map((t) => (
+                              <SelectItem key={t.id} value={t.id.toString()} data-testid={`option-default-tenant-${t.id}`}>
+                                {t.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormDescription>The tenant pre-selected on each calculator page.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
