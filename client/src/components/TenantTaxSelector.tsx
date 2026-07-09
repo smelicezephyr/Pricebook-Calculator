@@ -40,6 +40,7 @@ interface TenantTaxSelectorProps {
   onTenantChange: (id: number | null) => void;
   onTaxChange: (tax: string) => void;
   testIdSuffix?: string;
+  variant?: "stacked" | "bar";
 }
 
 export function TenantTaxSelector({
@@ -47,6 +48,7 @@ export function TenantTaxSelector({
   onTenantChange,
   onTaxChange,
   testIdSuffix = "",
+  variant = "stacked",
 }: TenantTaxSelectorProps) {
   const { tenants } = useTenants();
   const { user } = useAuth();
@@ -83,26 +85,48 @@ export function TenantTaxSelector({
     applyTenantTax(tenants.find((t) => t.id === id));
   };
 
+  const select = (
+    <Select
+      value={selectedTenantId != null ? selectedTenantId.toString() : undefined}
+      onValueChange={handleChange}
+    >
+      <SelectTrigger
+        className={
+          variant === "bar"
+            ? "h-9 w-full sm:w-64 text-sm font-medium bg-background border-border shadow-sm"
+            : "h-9 text-sm font-medium bg-background border-border shadow-sm"
+        }
+        data-testid={`select-tenant${testIdSuffix}`}
+      >
+        <SelectValue placeholder="Select tenant" />
+      </SelectTrigger>
+      <SelectContent>
+        {tenants.map((t) => (
+          <SelectItem key={t.id} value={t.id.toString()} data-testid={`option-tenant-${t.id}`}>
+            {t.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  if (variant === "bar") {
+    return (
+      <div className="flex items-center gap-3 bg-card border border-border rounded-lg px-4 py-2.5 shadow-sm">
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5 shrink-0">
+          <Building2 className="w-3.5 h-3.5" /> Tenant
+        </Label>
+        {select}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-1">
       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
         <Building2 className="w-3 h-3" /> Tenant
       </Label>
-      <Select
-        value={selectedTenantId != null ? selectedTenantId.toString() : undefined}
-        onValueChange={handleChange}
-      >
-        <SelectTrigger className="h-9 text-sm font-medium bg-background border-border shadow-sm" data-testid={`select-tenant${testIdSuffix}`}>
-          <SelectValue placeholder="Select tenant" />
-        </SelectTrigger>
-        <SelectContent>
-          {tenants.map((t) => (
-            <SelectItem key={t.id} value={t.id.toString()} data-testid={`option-tenant-${t.id}`}>
-              {t.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {select}
     </div>
   );
 }

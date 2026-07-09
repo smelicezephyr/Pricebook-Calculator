@@ -216,6 +216,14 @@ export default function AutoMECalculator() {
         </div>
       </div>
 
+      <TenantTaxSelector
+        selectedTenantId={selectedTenantId}
+        onTenantChange={setSelectedTenantId}
+        onTaxChange={setSalesTaxPercent}
+        testIdSuffix="-auto-me"
+        variant="bar"
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Input Column */}
         <div className="lg:col-span-3 space-y-2">
@@ -258,12 +266,6 @@ export default function AutoMECalculator() {
                   />
                 </div>
               </div>
-              <TenantTaxSelector
-                selectedTenantId={selectedTenantId}
-                onTenantChange={setSelectedTenantId}
-                onTaxChange={setSalesTaxPercent}
-                testIdSuffix="-auto-me"
-              />
             </div>
           </div>
 

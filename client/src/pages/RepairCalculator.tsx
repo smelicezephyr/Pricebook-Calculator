@@ -284,6 +284,14 @@ export default function RepairCalculator() {
         </div>
       </div>
 
+      <TenantTaxSelector
+        selectedTenantId={selectedTenantId}
+        onTenantChange={setSelectedTenantId}
+        onTaxChange={setSalesTaxPercent}
+        testIdSuffix="-repair"
+        variant="bar"
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-3 space-y-2">
           <div className="bg-card rounded-lg p-3 shadow-sm border border-border">
@@ -326,12 +334,6 @@ export default function RepairCalculator() {
                 value={salesTaxPercent}
                 onChange={(e) => setSalesTaxPercent(e.target.value)}
                 data-testid="input-sales-tax"
-              />
-              <TenantTaxSelector
-                selectedTenantId={selectedTenantId}
-                onTenantChange={setSelectedTenantId}
-                onTaxChange={setSalesTaxPercent}
-                testIdSuffix="-repair"
               />
             </div>
           </div>

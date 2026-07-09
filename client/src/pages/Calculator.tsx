@@ -370,6 +370,14 @@ export default function Calculator() {
         </div>
       </div>
 
+      <TenantTaxSelector
+        selectedTenantId={selectedTenantId}
+        onTenantChange={setSelectedTenantId}
+        onTaxChange={setSalesTaxPercent}
+        testIdSuffix="-system-me"
+        variant="bar"
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Input Column */}
         <div className="lg:col-span-3 space-y-2">
@@ -432,12 +440,6 @@ export default function Calculator() {
                   />
                 </div>
               </div>
-              <TenantTaxSelector
-                selectedTenantId={selectedTenantId}
-                onTenantChange={setSelectedTenantId}
-                onTaxChange={setSalesTaxPercent}
-                testIdSuffix="-system-me"
-              />
             </div>
           </div>
 

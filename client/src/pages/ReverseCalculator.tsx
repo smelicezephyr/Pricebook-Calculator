@@ -435,6 +435,14 @@ export default function ReverseCalculator() {
         </button>
       </div>
 
+      <TenantTaxSelector
+        selectedTenantId={mode === "system" ? selectedTenantId : repairSelectedTenantId}
+        onTenantChange={mode === "system" ? setSelectedTenantId : setRepairSelectedTenantId}
+        onTaxChange={mode === "system" ? setSalesTaxPercent : setRepairSalesTaxPercent}
+        testIdSuffix={mode === "system" ? "-reverse-system" : "-reverse-repair"}
+        variant="bar"
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-3 space-y-1.5">
           {mode === "system" ? (
@@ -464,12 +472,6 @@ export default function ReverseCalculator() {
                       <Input type="number" step="0.01" min="0" value={salesTaxPercent} onChange={(e) => setSalesTaxPercent(e.target.value)} data-testid="input-reverse-sales-tax" className="pl-8 h-9 text-sm font-medium bg-background border-border shadow-sm transition-all focus:ring-primary/20" />
                     </div>
                   </div>
-                  <TenantTaxSelector
-                    selectedTenantId={selectedTenantId}
-                    onTenantChange={setSelectedTenantId}
-                    onTaxChange={setSalesTaxPercent}
-                    testIdSuffix="-reverse-system"
-                  />
                 </div>
               </div>
 
@@ -602,12 +604,6 @@ export default function ReverseCalculator() {
                     </select>
                   </div>
                   <InputMoney label="Sales Tax %" type="percent" placeholder="6.35" value={repairSalesTaxPercent} onChange={(e) => setRepairSalesTaxPercent(e.target.value)} data-testid="input-reverse-sales-tax" />
-                  <TenantTaxSelector
-                    selectedTenantId={repairSelectedTenantId}
-                    onTenantChange={setRepairSelectedTenantId}
-                    onTaxChange={setRepairSalesTaxPercent}
-                    testIdSuffix="-reverse-repair"
-                  />
                 </div>
               </div>
 
