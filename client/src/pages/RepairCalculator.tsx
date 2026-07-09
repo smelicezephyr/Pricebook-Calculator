@@ -3,6 +3,7 @@ import { useSettings } from "@/hooks/use-settings";
 import { useCalculatorState } from "@/contexts/CalculatorContext";
 import { useCreateQuote } from "@/hooks/use-quotes";
 import { InputMoney } from "@/components/InputMoney";
+import { TenantTaxSelector } from "@/components/TenantTaxSelector";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -33,6 +34,7 @@ export default function RepairCalculator() {
   const [financingFeePercent, setFinancingFeePercent] = useState("4.00");
   const [highestTechRate, setHighestTechRate] = useState("");
   const [roundUp, setRoundUp] = useState(false);
+  const [selectedTenantId, setSelectedTenantId] = useState<number | null>(null);
   const [laborMode, setLaborMode] = useState<"dollars" | "percent">("dollars");
 
   const markupOptions = Array.from({ length: 30 }, (_, i) => 300 - i * 10);
@@ -324,6 +326,12 @@ export default function RepairCalculator() {
                 value={salesTaxPercent}
                 onChange={(e) => setSalesTaxPercent(e.target.value)}
                 data-testid="input-sales-tax"
+              />
+              <TenantTaxSelector
+                selectedTenantId={selectedTenantId}
+                onTenantChange={setSelectedTenantId}
+                onTaxChange={setSalesTaxPercent}
+                testIdSuffix="-repair"
               />
             </div>
           </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSettings } from "@/hooks/use-settings";
 import { InputMoney } from "@/components/InputMoney";
 import { ResultsCard } from "@/components/ResultsCard";
+import { TenantTaxSelector } from "@/components/TenantTaxSelector";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ export default function AutoMECalculator() {
   const [materials, setMaterials] = useState("");
   const [equipment, setEquipment] = useState("");
   const [salesTaxPercent, setSalesTaxPercent] = useState("6.35");
+  const [selectedTenantId, setSelectedTenantId] = useState<number | null>(null);
   const [laborMode, setLaborMode] = useState<"hours" | "percent">("percent");
   const [laborHours, setLaborHours] = useState("");
   const [numTechs, setNumTechs] = useState("1");
@@ -256,6 +258,12 @@ export default function AutoMECalculator() {
                   />
                 </div>
               </div>
+              <TenantTaxSelector
+                selectedTenantId={selectedTenantId}
+                onTenantChange={setSelectedTenantId}
+                onTaxChange={setSalesTaxPercent}
+                testIdSuffix="-auto-me"
+              />
             </div>
           </div>
 

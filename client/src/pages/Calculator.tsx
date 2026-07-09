@@ -4,6 +4,7 @@ import { useCreateQuote } from "@/hooks/use-quotes";
 import { useCalculatorState } from "@/contexts/CalculatorContext";
 import { InputMoney } from "@/components/InputMoney";
 import { ResultsCard } from "@/components/ResultsCard";
+import { TenantTaxSelector } from "@/components/TenantTaxSelector";
 import { Button } from "@/components/ui/button";
 import { Save, RefreshCw, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -20,6 +21,7 @@ export default function Calculator() {
   const resultsRef = useRef<HTMLDivElement>(null);
   const { state: calcState, setState: setCalcState, resetState } = useCalculatorState();
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [selectedTenantId, setSelectedTenantId] = useState<number | null>(null);
 
   // Destructure calculator state for easier access
   const { materials, equipment, salesTaxPercent, laborMode, laborHours, numTechs, laborPercent, targetMe, discount, discountMode, subcontractor, crane, permit, roundUp, oemRebate, utilityRebate } = calcState;
@@ -430,6 +432,12 @@ export default function Calculator() {
                   />
                 </div>
               </div>
+              <TenantTaxSelector
+                selectedTenantId={selectedTenantId}
+                onTenantChange={setSelectedTenantId}
+                onTaxChange={setSalesTaxPercent}
+                testIdSuffix="-system-me"
+              />
             </div>
           </div>
 

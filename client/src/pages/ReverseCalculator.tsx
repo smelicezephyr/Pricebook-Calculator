@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSettings } from "@/hooks/use-settings";
 import { useCalculatorState } from "@/contexts/CalculatorContext";
 import { InputMoney } from "@/components/InputMoney";
+import { TenantTaxSelector } from "@/components/TenantTaxSelector";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -54,6 +55,7 @@ export default function ReverseCalculator() {
   const [utilityRebate, setUtilityRebate] = useState("");
   const [commissionPercent, setCommissionPercent] = useState("");
   const [financingFeePercent, setFinancingFeePercent] = useState("");
+  const [selectedTenantId, setSelectedTenantId] = useState<number | null>(null);
 
   const [repairSellingPrice, setRepairSellingPrice] = useState("");
   const [repairPartsCost, setRepairPartsCost] = useState("");
@@ -65,6 +67,7 @@ export default function ReverseCalculator() {
   const [repairFinancingFeePercent, setRepairFinancingFeePercent] = useState("4.00");
   const [repairHighestTechRate, setRepairHighestTechRate] = useState("");
   const [repairLaborMode, setRepairLaborMode] = useState<"dollars" | "percent">("dollars");
+  const [repairSelectedTenantId, setRepairSelectedTenantId] = useState<number | null>(null);
 
   const [hasInitialized, setHasInitialized] = useState(false);
 
@@ -461,6 +464,12 @@ export default function ReverseCalculator() {
                       <Input type="number" step="0.01" min="0" value={salesTaxPercent} onChange={(e) => setSalesTaxPercent(e.target.value)} data-testid="input-reverse-sales-tax" className="pl-8 h-9 text-sm font-medium bg-background border-border shadow-sm transition-all focus:ring-primary/20" />
                     </div>
                   </div>
+                  <TenantTaxSelector
+                    selectedTenantId={selectedTenantId}
+                    onTenantChange={setSelectedTenantId}
+                    onTaxChange={setSalesTaxPercent}
+                    testIdSuffix="-reverse-system"
+                  />
                 </div>
               </div>
 
@@ -593,6 +602,12 @@ export default function ReverseCalculator() {
                     </select>
                   </div>
                   <InputMoney label="Sales Tax %" type="percent" placeholder="6.35" value={repairSalesTaxPercent} onChange={(e) => setRepairSalesTaxPercent(e.target.value)} data-testid="input-reverse-sales-tax" />
+                  <TenantTaxSelector
+                    selectedTenantId={repairSelectedTenantId}
+                    onTenantChange={setRepairSelectedTenantId}
+                    onTaxChange={setRepairSalesTaxPercent}
+                    testIdSuffix="-reverse-repair"
+                  />
                 </div>
               </div>
 
