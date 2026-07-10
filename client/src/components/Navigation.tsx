@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { Calculator, Settings, History, Menu, X, Upload, Building2, ChevronDown, Clock, Wrench, Shield, MapPin, ArrowLeftRight, LogOut, Users, ScrollText, BarChart2, Target, type LucideIcon } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import clsx from "clsx";
 import horizontalLogo from "@assets/Logo_-_Horizontal_1772750848213.png";
 import stackedLogo from "@assets/Logo_-_Stacked_1772750848213.png";
@@ -9,16 +9,46 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+
+const SETTINGS_REMINDER_KEY = "settingsReminderSeen";
 
 function getInitials(name: string) {
   return name.split(" ").map(p => p[0]).join("").toUpperCase().slice(0, 2);
 }
 
 export function Navigation() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const { user, isAdmin, isManager, isUserOrAdmin, isReporting, isEveryone } = useAuth();
   const { toast } = useToast();
+  const [showSettingsReminder, setShowSettingsReminder] = useState(false);
+  const [highlightSettings, setHighlightSettings] = useState(false);
+
+  useEffect(() => {
+    if (!isEveryone || !user) return;
+    const seenKey = `${SETTINGS_REMINDER_KEY}:${user.id}`;
+    if (sessionStorage.getItem(seenKey)) return;
+    setShowSettingsReminder(true);
+    sessionStorage.setItem(seenKey, "1");
+  }, [isEveryone, user]);
+
+  const dismissSettingsReminder = (goToSettings: boolean) => {
+    setShowSettingsReminder(false);
+    setHighlightSettings(true);
+    setTimeout(() => setHighlightSettings(false), 5000);
+    if (goToSettings) {
+      close();
+      navigate("/settings");
+    }
+  };
 
   const isServiceTitanPath =
     location.startsWith("/push") ||
@@ -111,7 +141,9 @@ export function Navigation() {
             {navLink("/history", "Saved Quotes", History)}
 
             {/* Settings — all roles */}
-            {navLink("/settings", "Settings", Settings)}
+            <div className={clsx(highlightSettings && "rounded-xl ring-4 ring-primary/60 animate-pulse")}>
+              {navLink("/settings", "Settings", Settings)}
+            </div>
 
             {/* ServiceTitan section — user or admin only */}
             {isUserOrAdmin && (
@@ -304,6 +336,36 @@ export function Navigation() {
           )}
         </div>
       </nav>
+
+      <Dialog open={showSettingsReminder} onOpenChange={(open) => !open && dismissSettingsReminder(false)}>
+        <DialogContent data-testid="dialog-settings-reminder">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="w-5 h-5 text-primary" />
+              Set Up Your Settings
+            </DialogTitle>
+            <DialogDescription>
+              Before you start calculating prices, head over to <span className="font-semibold text-foreground">Settings</span> to
+              set your labor rate, burden %, commission %, sales tax, and target gross margin. This ensures your calculations are accurate.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => dismissSettingsReminder(false)}
+              data-testid="button-dismiss-settings-reminder"
+            >
+              Remind Me Later
+            </Button>
+            <Button
+              onClick={() => dismissSettingsReminder(true)}
+              data-testid="button-go-to-settings"
+            >
+              Go to Settings
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
