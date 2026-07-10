@@ -1,24 +1,46 @@
 import { useQuotes, useDeleteQuote, useClearQuotes } from "@/hooks/use-quotes";
 import { format } from "date-fns";
-import { Loader2, Trash2, Search, Calendar, DollarSign, Users, User } from "lucide-react";
+import { Loader2, Trash2, Search, Calendar, DollarSign, Users, User, Wrench, Flame, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import clsx from "clsx";
+
+type SortOption = "date" | "type";
 
 export default function History() {
   const { data: quotes, isLoading } = useQuotes();
   const deleteQuote = useDeleteQuote();
   const clearQuotes = useClearQuotes();
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<SortOption>("date");
 
   const formatCurrency = (val: string | number) => 
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(val));
 
-  const filteredQuotes = quotes?.filter(q => 
-    q.title.toLowerCase().includes(search.toLowerCase())
-  );
+  const isSystemQuote = (equipmentCost: string | number) => Number(equipmentCost) > 0;
+
+  const filteredQuotes = useMemo(() => {
+    const filtered = quotes?.filter(q => 
+      q.title.toLowerCase().includes(search.toLowerCase())
+    );
+    if (!filtered) return filtered;
+
+    const sorted = [...filtered];
+    if (sortBy === "type") {
+      sorted.sort((a, b) => {
+        const aType = isSystemQuote(a.equipmentCost) ? "System" : "Repair";
+        const bType = isSystemQuote(b.equipmentCost) ? "System" : "Repair";
+        if (aType !== bType) return aType.localeCompare(bType);
+        return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
+      });
+    } else {
+      sorted.sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime());
+    }
+    return sorted;
+  }, [quotes, search, sortBy]);
 
   if (isLoading) {
     return (
@@ -47,6 +69,16 @@ export default function History() {
               data-testid="input-search-quotes"
             />
           </div>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+            <SelectTrigger className="w-[150px] bg-card shrink-0" data-testid="select-sort-quotes">
+              <ArrowUpDown className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="date" data-testid="option-sort-date">Sort by Date</SelectItem>
+              <SelectItem value="type" data-testid="option-sort-type">Sort by Type</SelectItem>
+            </SelectContent>
+          </Select>
           {(quotes?.length ?? 0) > 0 && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -102,13 +134,29 @@ export default function History() {
               className="bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden group flex flex-col"
             >
               <div className="p-5 flex-1">
-                <div className="flex justify-between items-start mb-4">
+                <div className="flex justify-between items-start mb-4 gap-2">
                   <h3 className="font-semibold text-lg line-clamp-1 group-hover:text-primary transition-colors">
                     {quote.title}
                   </h3>
-                  <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap bg-muted px-2 py-1 rounded-full">
-                    <Calendar className="w-3 h-3 mr-1" />
-                    {quote.createdAt ? format(new Date(quote.createdAt), "MMM d, yyyy") : "Unknown"}
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div
+                      className={clsx(
+                        "flex items-center text-xs font-semibold whitespace-nowrap px-2 py-1 rounded-full",
+                        isSystemQuote(quote.equipmentCost)
+                          ? "bg-sky-500/10 text-sky-700"
+                          : "bg-amber-500/10 text-amber-700"
+                      )}
+                      data-testid={`badge-type-${quote.id}`}
+                    >
+                      {isSystemQuote(quote.equipmentCost)
+                        ? <Flame className="w-3 h-3 mr-1" />
+                        : <Wrench className="w-3 h-3 mr-1" />}
+                      {isSystemQuote(quote.equipmentCost) ? "System" : "Repair"}
+                    </div>
+                    <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap bg-muted px-2 py-1 rounded-full">
+                      <Calendar className="w-3 h-3 mr-1" />
+                      {quote.createdAt ? format(new Date(quote.createdAt), "MMM d, yyyy") : "Unknown"}
+                    </div>
                   </div>
                 </div>
 
