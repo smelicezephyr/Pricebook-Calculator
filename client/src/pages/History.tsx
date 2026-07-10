@@ -132,10 +132,13 @@ export default function History() {
                       <DollarSign className="w-4 h-4 text-sky-600" />
                       {Number(quote.equipmentCost) > 0 ? "M&E" : "Parts Total"}
                     </span>
-                    <span className="text-lg font-bold text-sky-700">
+                    <span className="text-lg font-bold text-sky-700 flex items-baseline gap-1.5">
                       {Number(quote.equipmentCost) > 0
                         ? formatCurrency(Number(quote.materialsCost) + Number(quote.equipmentCost))
                         : formatCurrency(quote.materialsCost)}
+                      <span className="text-xs font-medium text-sky-600/70">
+                        ({Number(quote.calculatedMePercent).toFixed(1)}%)
+                      </span>
                     </span>
                   </div>
 
@@ -144,10 +147,15 @@ export default function History() {
                       <Users className="w-4 h-4 text-emerald-600" />
                       {quote.calculatedLaborRate && Number(quote.calculatedLaborRate) > 0 ? "Labor Rate" : "Est. Labor"}
                     </span>
-                    <span className="text-lg font-bold text-emerald-700">
+                    <span className="text-lg font-bold text-emerald-700 flex items-baseline gap-1.5">
                       {quote.calculatedLaborRate && Number(quote.calculatedLaborRate) > 0
                         ? `${formatCurrency(quote.calculatedLaborRate)}/hr`
                         : formatCurrency(quote.calculatedEstimatedLabor)}
+                      <span className="text-xs font-medium text-emerald-600/70">
+                        ({Number(quote.calculatedPrice) > 0
+                          ? ((Number(quote.calculatedEstimatedLabor) / Number(quote.calculatedPrice)) * 100).toFixed(1)
+                          : "0.0"}%)
+                      </span>
                     </span>
                   </div>
 
