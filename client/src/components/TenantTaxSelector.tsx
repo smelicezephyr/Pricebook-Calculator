@@ -101,8 +101,8 @@ export function TenantTaxSelector({
       <SelectTrigger
         className={
           variant === "bar"
-            ? "h-9 w-full sm:w-64 text-sm font-medium bg-background border-border shadow-sm"
-            : "h-9 text-sm font-medium bg-background border-border shadow-sm"
+            ? "h-9 w-full sm:w-64 text-sm font-bold bg-primary/10 border-2 border-primary text-primary shadow-sm hover:bg-primary/15 focus:ring-primary/40"
+            : "h-9 text-sm font-bold bg-primary/10 border-2 border-primary text-primary shadow-sm hover:bg-primary/15 focus:ring-primary/40"
         }
         data-testid={`select-tenant${testIdSuffix}`}
       >
@@ -121,7 +121,7 @@ export function TenantTaxSelector({
   if (variant === "bar") {
     return (
       <div className="flex items-center gap-3 bg-card border border-border rounded-lg px-4 py-2.5 shadow-sm">
-        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5 shrink-0">
+        <Label className="text-xs font-bold text-primary uppercase tracking-wide flex items-center gap-1.5 shrink-0">
           <Building2 className="w-3.5 h-3.5" /> Tenant
         </Label>
         {select}
