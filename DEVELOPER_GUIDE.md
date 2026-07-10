@@ -126,7 +126,7 @@ Stores all global calculator configuration. One row (id=1), auto-created with de
 | `adminPin` | text | "7437" | PIN for Admin section access |
 
 #### `quotes`
-Saved calculation snapshots from the System Calculator.
+Saved calculation snapshots from the System, Repair, and Repair GM calculators.
 
 | Column | Type | Default | Purpose |
 |--------|------|---------|---------|
@@ -142,7 +142,12 @@ Saved calculation snapshots from the System Calculator.
 | `subcontractorCost` | numeric | "0.00" | Input: subcontractor cost |
 | `craneCost` | numeric | "0.00" | Input: crane cost |
 | `permitCost` | numeric | "0.00" | Input: permit cost |
+| `userId` | integer | null | FK to `users` — who saved the quote |
+| `customerName` | text | null | Optional customer name (captured via Reveal Price gate) |
+| `tenantId` | integer | null | FK to `tenants`, `ON DELETE SET NULL` — which tenant/business unit this quote was calculated for, based on the tenant selected in `TenantTaxSelector` at save time. Nullable — quotes saved before this column existed have `tenantId = null` and cannot be backfilled. |
 | `createdAt` | timestamp | now() | When quote was saved |
+
+Note: `tenantId` is used purely for client-side filtering on the Saved Quotes page (see [Section 10](#10-quote-saving--history)) — no backend query filters on it directly; role-based tenant scoping happens via `GET /api/tenants`.
 
 #### `tenants`
 ServiceTitan API credentials for multi-tenant support.
@@ -626,25 +631,32 @@ Provides a form to configure all calculator defaults: Target M&E %, Sales Tax, L
 
 ## 10. Quote Saving & History
 
-**Files**: `client/src/pages/Calculator.tsx` (save dialog), `client/src/pages/History.tsx`, `server/routes.ts`, `server/storage.ts`
+**Files**: `client/src/pages/Calculator.tsx`, `client/src/pages/AutoMECalculator.tsx`, `client/src/pages/RepairCalculator.tsx`, `client/src/pages/RepairGMCalculator.tsx` (save dialogs / Reveal Price gate), `client/src/pages/History.tsx`, `client/src/hooks/use-tenants.ts`, `server/routes.ts`, `server/storage.ts`
 
 ### Saving a Quote
-From the System Calculator, clicking "Save Calc" opens a dialog where the user names the quote. The current calculated results are saved as a snapshot:
+From any of the four calculators (System GM, System M&E, Repair, Repair GM), clicking "Save Calc" (or confirming the Reveal Price dialog — see below) saves the current calculated results as a snapshot:
 - Input values (materials, equipment, labor hours, subcontractor, crane, permit)
 - Output values (price, GM%, estimated labor, M&E%)
+- `tenantId` — the tenant currently selected in that calculator's `TenantTaxSelector`, if any (nullable; used later for filtering on the History page)
+
+### Reveal Price Gate
+For roles `everyone` and `user` (not `manager`/`admin`), the calculated results on System GM, System M&E, Repair, and Repair GM are hidden behind a "Reveal Price" button (`RevealPriceGate` component). Confirming the dialog (Job Number required, Customer Name optional) saves a quote — title = job number, `customerName` set — without generating a PNG, then reveals the results. The Reverse Calculator is excluded (price is entered directly, nothing to reveal).
 
 ### History Page (`/history`)
-Displays all saved quotes in a list/table with:
-- Quote title
-- Calculated price
-- GM%
-- Date saved
+Displays all saved quotes in a card list with:
+- Quote title, customer name (if set)
+- Calculated price, GM%
+- Date saved, added-by user
+- Tenant name badge (only shown when the quote has a resolvable `tenantId`)
+- Sort control (newest/oldest/price, etc.)
+- **Tenant filter dropdown** — only rendered when the current user has at least one tenant available. Options are "All Tenants" plus every tenant returned by `useTenants()` (which calls `GET /api/tenants`, already role-scoped server-side: admins see every tenant, `user`/`manager` see only tenants granted via `user_tenant_access`). The filter is a pure client-side filter over the already-authorized quote list — no additional backend query parameter is needed since the available tenant options are already scoped correctly. Quotes with `tenantId = null` (legacy, saved before the column existed) only appear under "All Tenants".
 - Delete action
 
 ### API Endpoints
-- `GET /api/quotes` — List all quotes
-- `POST /api/quotes` — Create new quote
+- `GET /api/quotes` — List quotes (admin sees all, user sees own — scoped by `userId`, independent of the tenant filter which is applied client-side)
+- `POST /api/quotes` — Create new quote (accepts optional `tenantId`)
 - `DELETE /api/quotes/:id` — Delete a quote
+- `GET /api/tenants` — Role-scoped list of tenants; reused directly to populate the History page's tenant filter options
 
 ### Admin: Clear History
 In the Admin section of the navigation (after unlocking with PIN), there's a "Clear All History" option that deletes all saved quotes.
