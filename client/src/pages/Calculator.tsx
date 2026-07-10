@@ -87,6 +87,7 @@ export default function Calculator() {
   const [results, setResults] = useState({
     price: 0,
     estimatedLabor: 0,
+    laborRate: 0,
     breakdown: {
       materials: 0,
       equipment: 0,
@@ -159,6 +160,10 @@ export default function Calculator() {
 
     // 7. Estimated Labor (The Output)
     const estimatedLabor = laborCost + commissionCost + tax + financingCost;
+    const totalHours = hoursVal * numTechsVal;
+    const laborRate = laborMode === 'hours' && totalHours > 0
+      ? (laborCost + commissionCost) / totalHours
+      : 0;
 
     // 8. Gross Margin - use displayPrice (rounded or not) for final metrics
     const displayPrice = roundUp ? Math.ceil(price) : price;
@@ -173,6 +178,7 @@ export default function Calculator() {
     setResults({
       price: displayPrice,
       estimatedLabor,
+      laborRate,
       breakdown: {
         materials: matVal,
         equipment: equipVal,
@@ -228,6 +234,7 @@ export default function Calculator() {
       calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
       calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
       calculatedMePercent: targetMe,
+      calculatedLaborRate: results.laborRate > 0 ? results.laborRate.toFixed(2) : null,
       subcontractorCost: subVal.toString(),
       craneCost: craneVal.toString(),
       permitCost: permitVal.toString(),
@@ -277,6 +284,7 @@ export default function Calculator() {
       calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
       calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
       calculatedMePercent: targetMe,
+      calculatedLaborRate: results.laborRate > 0 ? results.laborRate.toFixed(2) : null,
       subcontractorCost: subVal.toString(),
       craneCost: craneVal.toString(),
       permitCost: permitVal.toString(),

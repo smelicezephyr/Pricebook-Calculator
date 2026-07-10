@@ -136,6 +136,11 @@ export default function RepairCalculator() {
 
   const totalPrice = roundUp ? Math.ceil(totalBeforeRounding) : totalBeforeRounding;
 
+  const totalLaborHours = laborHoursVal * numTechsVal;
+  const laborRateResult = laborMode === "dollars" && totalLaborHours > 0
+    ? (burdenedLaborCost + burdenedCommission) / totalLaborHours
+    : 0;
+
   const highestTechRateVal = parseFloat(highestTechRate) || 0;
   const techLaborCost = laborMode === "percent"
     ? 0
@@ -203,6 +208,7 @@ export default function RepairCalculator() {
       calculatedGrossMargin: grossMarginPercent.toFixed(2),
       calculatedEstimatedLabor: burdenedLaborCost.toFixed(2),
       calculatedMePercent: materialMarkup,
+      calculatedLaborRate: laborRateResult > 0 ? laborRateResult.toFixed(2) : null,
       subcontractorCost: "0",
       craneCost: "0",
       permitCost: "0",
@@ -232,6 +238,7 @@ export default function RepairCalculator() {
       calculatedGrossMargin: grossMarginPercent.toFixed(2),
       calculatedEstimatedLabor: burdenedLaborCost.toFixed(2),
       calculatedMePercent: materialMarkup,
+      calculatedLaborRate: laborRateResult > 0 ? laborRateResult.toFixed(2) : null,
       subcontractorCost: "0",
       craneCost: "0",
       permitCost: "0",

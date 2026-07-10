@@ -92,6 +92,7 @@ export default function RepairGMCalculator() {
   const [results, setResults] = useState({
     price: 0,
     estimatedLabor: 0,
+    laborRate: 0,
     breakdown: {
       materials: 0,
       equipment: 0,
@@ -135,6 +136,10 @@ export default function RepairGMCalculator() {
     const commissionCost = price * c;
     const financingCost = price * f;
     const estimatedLabor = laborCost + commissionCost + tax + financingCost;
+    const totalHours = hoursVal * numTechsVal;
+    const laborRate = laborMode === "dollars" && totalHours > 0
+      ? (laborCost + commissionCost) / totalHours
+      : 0;
 
     const totalAllCogs = totalParts + laborCost + commissionCost + financingCost;
     const grossMarginAmount = price - totalAllCogs;
@@ -144,6 +149,7 @@ export default function RepairGMCalculator() {
     setResults({
       price,
       estimatedLabor,
+      laborRate,
       breakdown: {
         materials: partsVal,
         equipment: 0,
@@ -195,6 +201,7 @@ export default function RepairGMCalculator() {
       calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
       calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
       calculatedMePercent: results.metrics.mePercent.toFixed(2),
+      calculatedLaborRate: results.laborRate > 0 ? results.laborRate.toFixed(2) : null,
       subcontractorCost: "0",
       craneCost: "0",
       permitCost: "0",

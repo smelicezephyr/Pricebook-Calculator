@@ -127,34 +127,40 @@ export default function History() {
                     </span>
                   </div>
 
+                  <div className="flex items-center justify-between p-3 bg-sky-500/5 rounded-lg">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-sky-600" />
+                      {Number(quote.equipmentCost) > 0 ? "M&E" : "Parts Total"}
+                    </span>
+                    <span className="text-lg font-bold text-sky-700">
+                      {Number(quote.equipmentCost) > 0
+                        ? formatCurrency(Number(quote.materialsCost) + Number(quote.equipmentCost))
+                        : formatCurrency(quote.materialsCost)}
+                    </span>
+                  </div>
+
                   <div className="flex items-center justify-between p-3 bg-emerald-500/5 rounded-lg">
                     <span className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                      <Users className="w-4 h-4 text-emerald-600" /> Est. Labor
+                      <Users className="w-4 h-4 text-emerald-600" />
+                      {quote.calculatedLaborRate && Number(quote.calculatedLaborRate) > 0 ? "Labor Rate" : "Est. Labor"}
                     </span>
                     <span className="text-lg font-bold text-emerald-700">
-                      {formatCurrency(quote.calculatedEstimatedLabor)}
+                      {quote.calculatedLaborRate && Number(quote.calculatedLaborRate) > 0
+                        ? `${formatCurrency(quote.calculatedLaborRate)}/hr`
+                        : formatCurrency(quote.calculatedEstimatedLabor)}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-border">
                     <div className="text-center">
-                      <p className="text-xs text-muted-foreground uppercase font-bold">Margin</p>
-                      <p className="font-mono font-medium">{quote.calculatedGrossMargin}%</p>
+                      <p className="text-xs text-muted-foreground uppercase font-bold">Margin $</p>
+                      <p className="font-mono font-medium">
+                        {formatCurrency((Number(quote.calculatedPrice) * Number(quote.calculatedGrossMargin)) / 100)}
+                      </p>
                     </div>
                     <div className="text-center border-l border-border">
-                      {Number(quote.equipmentCost) > 0 ? (
-                        <>
-                          <p className="text-xs text-muted-foreground uppercase font-bold">M&amp;E</p>
-                          <p className="font-mono font-medium">
-                            {formatCurrency(Number(quote.materialsCost) + Number(quote.equipmentCost))}
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-xs text-muted-foreground uppercase font-bold">Parts Total</p>
-                          <p className="font-mono font-medium">{formatCurrency(quote.materialsCost)}</p>
-                        </>
-                      )}
+                      <p className="text-xs text-muted-foreground uppercase font-bold">Margin %</p>
+                      <p className="font-mono font-medium">{quote.calculatedGrossMargin}%</p>
                     </div>
                   </div>
                 </div>

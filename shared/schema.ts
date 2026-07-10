@@ -138,6 +138,7 @@ export const quotes = pgTable("quotes", {
   calculatedGrossMargin: numeric("calculated_gross_margin").notNull(),
   calculatedEstimatedLabor: numeric("calculated_estimated_labor").notNull(),
   calculatedMePercent: numeric("calculated_me_percent").notNull(),
+  calculatedLaborRate: numeric("calculated_labor_rate"),
   
   // Other COGS
   subcontractorCost: numeric("subcontractor_cost").notNull().default("0.00"),

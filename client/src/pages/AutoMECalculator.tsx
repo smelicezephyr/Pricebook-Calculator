@@ -87,6 +87,7 @@ export default function AutoMECalculator() {
   const [results, setResults] = useState({
     price: 0,
     estimatedLabor: 0,
+    laborRate: 0,
     computedMePercent: 0,
     breakdown: {
       materials: 0,
@@ -155,6 +156,10 @@ export default function AutoMECalculator() {
     if (roundUp) price = Math.ceil(price);
 
     const estimatedLabor = laborCost + commissionCost + tax + financingCost;
+    const totalHours = hoursVal * numTechsVal;
+    const laborRate = laborMode === "hours" && totalHours > 0
+      ? (laborCost + commissionCost) / totalHours
+      : 0;
 
     const effectiveRevenue = price + rebates;
     const totalAllCogs = totalMe + laborCost + commissionCost + financingCost + otherCogs;
@@ -165,6 +170,7 @@ export default function AutoMECalculator() {
     setResults({
       price,
       estimatedLabor,
+      laborRate,
       computedMePercent: mePercent,
       breakdown: {
         materials: matVal,
@@ -201,6 +207,7 @@ export default function AutoMECalculator() {
       calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
       calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
       calculatedMePercent: results.computedMePercent.toFixed(2),
+      calculatedLaborRate: results.laborRate > 0 ? results.laborRate.toFixed(2) : null,
       subcontractorCost: subVal.toString(),
       craneCost: craneVal.toString(),
       permitCost: permitVal.toString(),
