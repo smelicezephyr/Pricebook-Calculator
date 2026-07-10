@@ -120,9 +120,9 @@ export function TenantTaxSelector({
 
   if (variant === "bar") {
     return (
-      <div className="flex items-center gap-3 bg-card border border-border rounded-lg px-4 py-2.5 shadow-sm">
+      <div className="flex items-center gap-3 bg-card border-4 border-black rounded-lg px-4 py-2.5 shadow-sm">
         <Label className="text-xs font-bold text-primary uppercase tracking-wide flex items-center gap-1.5 shrink-0">
-          <Building2 className="w-3.5 h-3.5" /> Tenant
+          <Building2 className="w-3.5 h-3.5" /> Tenant Selection
         </Label>
         {select}
       </div>
@@ -132,7 +132,7 @@ export function TenantTaxSelector({
   return (
     <div className="space-y-1">
       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-        <Building2 className="w-3 h-3" /> Tenant
+        <Building2 className="w-3 h-3" /> Tenant Selection
       </Label>
       {select}
     </div>
