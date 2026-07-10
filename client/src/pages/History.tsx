@@ -142,8 +142,19 @@ export default function History() {
                       <p className="font-mono font-medium">{quote.calculatedGrossMargin}%</p>
                     </div>
                     <div className="text-center border-l border-border">
-                      <p className="text-xs text-muted-foreground uppercase font-bold">Materials</p>
-                      <p className="font-mono font-medium">{formatCurrency(quote.materialsCost)}</p>
+                      {Number(quote.equipmentCost) > 0 ? (
+                        <>
+                          <p className="text-xs text-muted-foreground uppercase font-bold">M&amp;E</p>
+                          <p className="font-mono font-medium">
+                            {formatCurrency(Number(quote.materialsCost) + Number(quote.equipmentCost))}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-xs text-muted-foreground uppercase font-bold">Parts Total</p>
+                          <p className="font-mono font-medium">{formatCurrency(quote.materialsCost)}</p>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
