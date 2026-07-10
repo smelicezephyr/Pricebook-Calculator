@@ -141,10 +141,10 @@ export default function History() {
                   <div className="flex flex-col items-end gap-1 shrink-0">
                     <div
                       className={clsx(
-                        "flex items-center text-xs font-semibold whitespace-nowrap px-2 py-1 rounded-full",
+                        "flex items-center text-xs font-bold whitespace-nowrap px-2 py-1 rounded-full text-white shadow-sm",
                         isSystemQuote(quote.equipmentCost)
-                          ? "bg-sky-500/10 text-sky-700"
-                          : "bg-amber-500/10 text-amber-700"
+                          ? "bg-blue-600"
+                          : "bg-orange-500"
                       )}
                       data-testid={`badge-type-${quote.id}`}
                     >
