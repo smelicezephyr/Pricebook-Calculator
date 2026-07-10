@@ -199,6 +199,7 @@ export default function RepairGMCalculator() {
     await createQuote.mutateAsync({
       title: jobNumber,
       customerName: customerName || null,
+      tenantId: selectedTenantId,
       materialsCost: partsVal.toString(),
       equipmentCost: "0",
       laborHoursInput: laborMode === "dollars" ? hoursVal.toString() : "0",

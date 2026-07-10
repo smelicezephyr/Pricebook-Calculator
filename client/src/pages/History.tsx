@@ -1,6 +1,7 @@
 import { useQuotes, useDeleteQuote, useClearQuotes } from "@/hooks/use-quotes";
+import { useTenants } from "@/hooks/use-tenants";
 import { format } from "date-fns";
-import { Loader2, Trash2, Search, Calendar, DollarSign, Users, User, Wrench, Flame, ArrowUpDown } from "lucide-react";
+import { Loader2, Trash2, Search, Calendar, DollarSign, Users, User, Wrench, Flame, ArrowUpDown, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useMemo } from "react";
@@ -12,10 +13,17 @@ type SortOption = "date" | "type";
 
 export default function History() {
   const { data: quotes, isLoading } = useQuotes();
+  const { tenants } = useTenants();
   const deleteQuote = useDeleteQuote();
   const clearQuotes = useClearQuotes();
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("date");
+  const [tenantFilter, setTenantFilter] = useState<string>("all");
+
+  const tenantNameById = useMemo(
+    () => new Map(tenants.map(t => [t.id, t.name])),
+    [tenants]
+  );
 
   const formatCurrency = (val: string | number) => 
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(val));
@@ -24,7 +32,8 @@ export default function History() {
 
   const filteredQuotes = useMemo(() => {
     const filtered = quotes?.filter(q => 
-      q.title.toLowerCase().includes(search.toLowerCase())
+      q.title.toLowerCase().includes(search.toLowerCase()) &&
+      (tenantFilter === "all" || String(q.tenantId ?? "") === tenantFilter)
     );
     if (!filtered) return filtered;
 
@@ -40,7 +49,7 @@ export default function History() {
       sorted.sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime());
     }
     return sorted;
-  }, [quotes, search, sortBy]);
+  }, [quotes, search, sortBy, tenantFilter]);
 
   if (isLoading) {
     return (
@@ -79,6 +88,22 @@ export default function History() {
               <SelectItem value="type" data-testid="option-sort-type">Sort by Type</SelectItem>
             </SelectContent>
           </Select>
+          {tenants.length > 0 && (
+            <Select value={tenantFilter} onValueChange={setTenantFilter}>
+              <SelectTrigger className="w-[170px] bg-card shrink-0" data-testid="select-filter-tenant">
+                <Building2 className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+                <SelectValue placeholder="Tenant" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" data-testid="option-tenant-all">All Tenants</SelectItem>
+                {tenants.map((t) => (
+                  <SelectItem key={t.id} value={String(t.id)} data-testid={`option-tenant-${t.id}`}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           {(quotes?.length ?? 0) > 0 && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -160,9 +185,20 @@ export default function History() {
                   </div>
                 </div>
 
-                <div className="flex items-center text-xs text-muted-foreground mb-2" data-testid={`text-created-by-${quote.id}`}>
-                  <User className="w-3 h-3 mr-1" />
-                  Added by {quote.userName || "Unknown"}
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center text-xs text-muted-foreground" data-testid={`text-created-by-${quote.id}`}>
+                    <User className="w-3 h-3 mr-1" />
+                    Added by {quote.userName || "Unknown"}
+                  </div>
+                  {quote.tenantId && tenantNameById.get(quote.tenantId) && (
+                    <div
+                      className="flex items-center text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full whitespace-nowrap"
+                      data-testid={`badge-tenant-${quote.id}`}
+                    >
+                      <Building2 className="w-3 h-3 mr-1" />
+                      {tenantNameById.get(quote.tenantId)}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">

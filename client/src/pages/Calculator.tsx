@@ -232,6 +232,7 @@ export default function Calculator() {
 
     createQuote.mutate({
       title: quoteTitle || "Untitled Quote",
+      tenantId: selectedTenantId,
       materialsCost: matVal.toString(),
       equipmentCost: equipVal.toString(),
       laborHoursInput: laborMode === 'hours' ? hoursVal.toString() : laborPercent,
@@ -282,6 +283,7 @@ export default function Calculator() {
     await createQuote.mutateAsync({
       title: jobNumber,
       customerName: customerName || null,
+      tenantId: selectedTenantId,
       materialsCost: matVal.toString(),
       equipmentCost: equipVal.toString(),
       laborHoursInput: laborMode === 'hours' ? hoursVal.toString() : laborPercent,

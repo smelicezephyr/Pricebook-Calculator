@@ -127,6 +127,7 @@ export const pushHistory = pgTable("push_history", {
 export const quotes = pgTable("quotes", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  tenantId: integer("tenant_id").references(() => tenants.id, { onDelete: "set null" }),
   title: text("title").notNull().default("Untitled Quote"),
   customerName: text("customer_name"),
   materialsCost: numeric("materials_cost").notNull(),

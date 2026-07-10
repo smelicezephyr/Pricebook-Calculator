@@ -1,1 +1,2 @@
 - [Role-scoped reporting pattern](role-scoped-reporting.md) — tenant-scoped read-only reporting for a restricted role (e.g. manager) needs backend tenant-filter guards, not just frontend hiding.
+- [Quotes tenant scoping](quotes-tenant-scoping.md) — quotes.tenant_id is nullable/unbackfillable for legacy rows; reuse GET /api/tenants for role-scoped filter options.

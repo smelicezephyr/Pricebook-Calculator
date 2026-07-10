@@ -205,6 +205,7 @@ export default function AutoMECalculator() {
     await createQuote.mutateAsync({
       title: jobNumber,
       customerName: customerName || null,
+      tenantId: selectedTenantId,
       materialsCost: matVal.toString(),
       equipmentCost: equipVal.toString(),
       laborHoursInput: laborMode === "hours" ? hoursVal.toString() : "0",

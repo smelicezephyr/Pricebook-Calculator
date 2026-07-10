@@ -201,6 +201,7 @@ export default function RepairCalculator() {
   const handleSave = () => {
     createQuote.mutate({
       title: quoteTitle || "Untitled Repair Quote",
+      tenantId: selectedTenantId,
       materialsCost: partsTotal.toString(),
       equipmentCost: "0",
       laborHoursInput: laborMode === "percent" ? "0" : laborHoursVal.toString(),
@@ -231,6 +232,7 @@ export default function RepairCalculator() {
     await createQuote.mutateAsync({
       title: jobNumber,
       customerName: customerName || null,
+      tenantId: selectedTenantId,
       materialsCost: partsTotal.toString(),
       equipmentCost: "0",
       laborHoursInput: laborMode === "percent" ? "0" : laborHoursVal.toString(),
