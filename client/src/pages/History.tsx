@@ -200,7 +200,7 @@ export default function History() {
                   <div className="flex items-center justify-between p-2 bg-emerald-500/5 rounded-lg">
                     <span className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                       <Users className="w-4 h-4 text-emerald-600" />
-                      {quote.calculatedLaborRate && Number(quote.calculatedLaborRate) > 0 ? "Labor Rate" : "Est. Labor"}
+                      {quote.calculatedLaborRate && Number(quote.calculatedLaborRate) > 0 ? "Labor Rate" : "Direct Labor"}
                     </span>
                     <span className="flex items-baseline justify-end gap-1.5">
                       <span className="text-lg font-bold text-emerald-700 font-mono tabular-nums text-right">

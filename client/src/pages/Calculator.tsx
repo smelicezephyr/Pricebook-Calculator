@@ -87,6 +87,7 @@ export default function Calculator() {
   const [results, setResults] = useState({
     price: 0,
     estimatedLabor: 0,
+    directLaborCost: 0,
     laborRate: 0,
     breakdown: {
       materials: 0,
@@ -147,15 +148,18 @@ export default function Calculator() {
 
     // 6. Labor Cost (For Margin Calculation)
     let laborCost = 0;
+    let directLaborCost = 0;
     const laborBurdenRate = parseFloat(settings.laborBurdenPercent) / 100;
 
     if (laborMode === 'hours') {
       const hourlyRate = parseFloat(settings.laborHourlyRate);
-      laborCost = (hoursVal * numTechsVal * hourlyRate) * (1 + laborBurdenRate);
+      directLaborCost = hoursVal * numTechsVal * hourlyRate;
+      laborCost = directLaborCost * (1 + laborBurdenRate);
     } else {
       const laborPercentRate = (parseFloat(laborPercent) || 0) / 100;
+      directLaborCost = price * laborPercentRate;
       // Apply burden to the percentage-based labor as well
-      laborCost = (price * laborPercentRate) * (1 + laborBurdenRate);
+      laborCost = directLaborCost * (1 + laborBurdenRate);
     }
 
     // 7. Estimated Labor (The Output)
@@ -178,6 +182,7 @@ export default function Calculator() {
     setResults({
       price: displayPrice,
       estimatedLabor,
+      directLaborCost,
       laborRate,
       breakdown: {
         materials: matVal,
@@ -232,7 +237,7 @@ export default function Calculator() {
       laborHoursInput: laborMode === 'hours' ? hoursVal.toString() : laborPercent,
       calculatedPrice: results.price.toFixed(2),
       calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
-      calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
+      calculatedEstimatedLabor: results.directLaborCost.toFixed(2),
       calculatedMePercent: targetMe,
       calculatedLaborRate: results.laborRate > 0 ? results.laborRate.toFixed(2) : null,
       subcontractorCost: subVal.toString(),
@@ -282,7 +287,7 @@ export default function Calculator() {
       laborHoursInput: laborMode === 'hours' ? hoursVal.toString() : laborPercent,
       calculatedPrice: results.price.toFixed(2),
       calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
-      calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
+      calculatedEstimatedLabor: results.directLaborCost.toFixed(2),
       calculatedMePercent: targetMe,
       calculatedLaborRate: results.laborRate > 0 ? results.laborRate.toFixed(2) : null,
       subcontractorCost: subVal.toString(),

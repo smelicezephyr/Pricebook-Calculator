@@ -92,6 +92,7 @@ export default function RepairGMCalculator() {
   const [results, setResults] = useState({
     price: 0,
     estimatedLabor: 0,
+    directLaborCost: 0,
     laborRate: 0,
     breakdown: {
       materials: 0,
@@ -116,15 +117,18 @@ export default function RepairGMCalculator() {
 
     let price = 0;
     let laborCost = 0;
+    let directLaborCost = 0;
 
     if (laborMode === "dollars") {
-      laborCost = hoursVal * numTechsVal * effectiveLaborRate * (1 + burdenRate);
+      directLaborCost = hoursVal * numTechsVal * effectiveLaborRate;
+      laborCost = directLaborCost * (1 + burdenRate);
       const denom = 1 - g - c - f;
       if (denom > 0) {
         price = (totalParts + laborCost) / denom;
       }
     } else {
       laborCost = 0;
+      directLaborCost = 0;
       const denom = 1 - g - c - f;
       if (denom > 0) {
         price = totalParts / denom;
@@ -149,6 +153,7 @@ export default function RepairGMCalculator() {
     setResults({
       price,
       estimatedLabor,
+      directLaborCost,
       laborRate,
       breakdown: {
         materials: partsVal,
@@ -199,7 +204,7 @@ export default function RepairGMCalculator() {
       laborHoursInput: laborMode === "dollars" ? hoursVal.toString() : "0",
       calculatedPrice: results.price.toFixed(2),
       calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
-      calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
+      calculatedEstimatedLabor: results.directLaborCost.toFixed(2),
       calculatedMePercent: results.metrics.mePercent.toFixed(2),
       calculatedLaborRate: results.laborRate > 0 ? results.laborRate.toFixed(2) : null,
       subcontractorCost: "0",

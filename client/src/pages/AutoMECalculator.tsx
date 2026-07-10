@@ -87,6 +87,7 @@ export default function AutoMECalculator() {
   const [results, setResults] = useState({
     price: 0,
     estimatedLabor: 0,
+    directLaborCost: 0,
     laborRate: 0,
     computedMePercent: 0,
     breakdown: {
@@ -127,12 +128,14 @@ export default function AutoMECalculator() {
 
     let price = 0;
     let laborCost = 0;
+    let directLaborCost = 0;
 
     // Other COGS (subcontractor/crane/permit) are pass-through costs added
     // after the margin solve — they do not factor into the target GM% math.
     if (laborMode === "hours") {
       const hourlyRate = parseFloat(settings.laborHourlyRate) || 0;
-      laborCost = hoursVal * numTechsVal * hourlyRate * (1 + laborBurdenRate);
+      directLaborCost = hoursVal * numTechsVal * hourlyRate;
+      laborCost = directLaborCost * (1 + laborBurdenRate);
       // price × (1 - g - c - f) = M + L - R×(1-g)
       const denom = 1 - g - c - f;
       if (denom > 0) {
@@ -146,6 +149,7 @@ export default function AutoMECalculator() {
         price = (totalMe - rebates * (1 - g)) / denom;
       }
       laborCost = price * lp;
+      directLaborCost = price * ((parseFloat(laborPercent) || 0) / 100);
     }
 
     const commissionCost = price * c;
@@ -170,6 +174,7 @@ export default function AutoMECalculator() {
     setResults({
       price,
       estimatedLabor,
+      directLaborCost,
       laborRate,
       computedMePercent: mePercent,
       breakdown: {
@@ -205,7 +210,7 @@ export default function AutoMECalculator() {
       laborHoursInput: laborMode === "hours" ? hoursVal.toString() : "0",
       calculatedPrice: results.price.toFixed(2),
       calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
-      calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
+      calculatedEstimatedLabor: results.directLaborCost.toFixed(2),
       calculatedMePercent: results.computedMePercent.toFixed(2),
       calculatedLaborRate: results.laborRate > 0 ? results.laborRate.toFixed(2) : null,
       subcontractorCost: subVal.toString(),
