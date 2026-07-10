@@ -133,15 +133,15 @@ export default function History() {
               key={quote.id} 
               className="bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden group flex flex-col"
             >
-              <div className="p-5 flex-1">
-                <div className="flex justify-between items-start mb-4 gap-2">
+              <div className="p-4 flex-1">
+                <div className="flex justify-between items-start mb-2.5 gap-2">
                   <h3 className="font-semibold text-lg line-clamp-1 group-hover:text-primary transition-colors">
                     {quote.title}
                   </h3>
                   <div className="flex flex-col items-end gap-1 shrink-0">
                     <div
                       className={clsx(
-                        "flex items-center text-xs font-bold whitespace-nowrap px-2 py-1 rounded-full text-white shadow-sm",
+                        "flex items-center text-xs font-bold whitespace-nowrap px-2 py-0.5 rounded-full text-white shadow-sm",
                         isSystemQuote(quote.equipmentCost)
                           ? "bg-blue-600"
                           : "bg-orange-500"
@@ -153,20 +153,20 @@ export default function History() {
                         : <Wrench className="w-3 h-3 mr-1" />}
                       {isSystemQuote(quote.equipmentCost) ? "System" : "Repair"}
                     </div>
-                    <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap bg-muted px-2 py-1 rounded-full">
+                    <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap bg-muted px-2 py-0.5 rounded-full">
                       <Calendar className="w-3 h-3 mr-1" />
                       {quote.createdAt ? format(new Date(quote.createdAt), "MMM d, yyyy") : "Unknown"}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center text-xs text-muted-foreground mb-3" data-testid={`text-created-by-${quote.id}`}>
+                <div className="flex items-center text-xs text-muted-foreground mb-2" data-testid={`text-created-by-${quote.id}`}>
                   <User className="w-3 h-3 mr-1" />
                   Added by {quote.userName || "Unknown"}
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-2 bg-primary/5 rounded-lg">
                     <span className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                       <DollarSign className="w-4 h-4 text-primary" /> Total Price
                     </span>
@@ -180,7 +180,7 @@ export default function History() {
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between p-3 bg-sky-500/5 rounded-lg">
+                  <div className="flex items-center justify-between p-2 bg-sky-500/5 rounded-lg">
                     <span className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                       <DollarSign className="w-4 h-4 text-sky-600" />
                       {Number(quote.equipmentCost) > 0 ? "M&E" : "Parts Total"}
@@ -197,7 +197,7 @@ export default function History() {
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between p-3 bg-emerald-500/5 rounded-lg">
+                  <div className="flex items-center justify-between p-2 bg-emerald-500/5 rounded-lg">
                     <span className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                       <Users className="w-4 h-4 text-emerald-600" />
                       {quote.calculatedLaborRate && Number(quote.calculatedLaborRate) > 0 ? "Labor Rate" : "Est. Labor"}
@@ -216,7 +216,7 @@ export default function History() {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-border">
+                  <div className="grid grid-cols-2 gap-2 mt-1 pt-2 border-t border-border">
                     <div className="text-center">
                       <p className="text-xs text-muted-foreground uppercase font-bold">Margin $</p>
                       <p className="font-mono font-medium">
@@ -231,7 +231,7 @@ export default function History() {
                 </div>
               </div>
 
-              <div className="px-5 py-3 bg-muted/30 border-t border-border flex justify-between items-center">
+              <div className="px-4 py-2 bg-muted/30 border-t border-border flex justify-between items-center">
                 <span className="text-xs text-muted-foreground font-medium">
                   ID: #{quote.id}
                 </span>
