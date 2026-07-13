@@ -511,98 +511,83 @@ export class ServiceTitanAPI {
   }
 
   /**
-   * Fetch the highest hourly pay rate among all Technician-type employees.
-   * Uses the ServiceTitan Payroll v2 employees endpoint:
-   *   GET /payroll/v2/tenant/{tenantId}/employees
-   * Confirmed fields on employee records: id, name, type (e.g. "Technician"),
-   * hourlyRate / regularPayRate / payRate (checked in order, first non-zero wins).
+   * Fetch the highest hourly pay rate among all technicians.
+   * Flow:
+   *   1. GET /payroll/v2/tenant/{tenantId}/technicians  — list all technicians
+   *   2. GET /payroll/v2/tenant/{tenantId}/technicians/{id}/payroll-settings  — per-tech hourlyRate
+   * Returns the highest hourlyRate found across all technicians.
    */
   async getHighestTechnicianRate(): Promise<{
     rate: number;
     technicianName: string;
     technicianCount: number;
   }> {
-    const allEmployees: any[] = [];
+    // Step 1: page through all technicians
+    const allTechs: any[] = [];
     let page = 1;
     let hasMore = true;
 
     while (hasMore) {
       const response = await this.request<{ data: any[]; hasMore: boolean }>(
-        `/payroll/v2/tenant/${this.tenant.tenantId}/employees?pageSize=200&page=${page}`
+        `/payroll/v2/tenant/${this.tenant.tenantId}/technicians?pageSize=200&page=${page}`
       );
-      allEmployees.push(...response.data);
-      hasMore = response.hasMore;
+      allTechs.push(...(response.data ?? []));
+      hasMore = response.hasMore ?? false;
       page++;
       if (page > 20) break;
     }
 
-    if (allEmployees.length === 0) {
+    if (allTechs.length === 0) {
       throw new Error(
-        "No employee records returned from ServiceTitan. Verify this tenant has payroll data " +
-        "accessible with the configured API credentials."
+        "No technician records returned from ServiceTitan payroll API. " +
+        "Verify the API credentials have Payroll access."
       );
     }
 
-    // Log only the field names (no values) to aid debugging without exposing payroll data
-    console.log(
-      "[ServiceTitan] Payroll employee fields:",
-      Object.keys(allEmployees[0]).join(", ")
-    );
-
-    // Filter to Technician-type employees only (distinct from CSR, dispatcher, office staff, etc.)
-    const technicians = allEmployees.filter((emp) => {
-      const type = String(emp.type ?? emp.employeeType ?? emp.role ?? "").toLowerCase();
-      return type.includes("tech");
-    });
-
-    if (technicians.length === 0) {
-      const types = [
-        ...new Set(
-          allEmployees.map((e) => e.type ?? e.employeeType ?? e.role ?? "unknown")
-        ),
-      ];
-      console.log("[ServiceTitan] Employee types found:", types);
-      throw new Error(
-        `No technician employees found. Employee types in your ServiceTitan account: ` +
-        `${types.join(", ")}. Expected a type containing "tech".`
+    // Step 2: fetch payroll-settings for each technician in parallel (batches of 5)
+    const results: Array<{ rate: number; name: string }> = [];
+    const BATCH = 5;
+    for (let i = 0; i < allTechs.length; i += BATCH) {
+      const batch = allTechs.slice(i, i + BATCH);
+      const settled = await Promise.allSettled(
+        batch.map(async (tech) => {
+          const settings = await this.request<any>(
+            `/payroll/v2/tenant/${this.tenant.tenantId}/technicians/${tech.id}/payroll-settings`
+          );
+          return {
+            rate: Number(settings.hourlyRate ?? 0),
+            name: tech.name ?? tech.displayName ?? tech.fullName ?? "Unknown",
+          };
+        })
       );
-    }
-
-    // Extract rate — check multiple common field names in priority order
-    let highest = { rate: 0, name: "Unknown" };
-    for (const tech of technicians) {
-      const rate = Number(
-        tech.hourlyRate ??
-        tech.regularPayRate ??
-        tech.payRate ??
-        tech.basePayRate ??
-        tech.rate ??
-        0
-      );
-      if (rate > highest.rate) {
-        highest = {
-          rate,
-          name: tech.name ?? tech.fullName ?? tech.displayName ?? "Unknown",
-        };
+      for (const r of settled) {
+        if (r.status === "fulfilled") results.push(r.value);
       }
     }
 
-    if (highest.rate <= 0) {
-      const rateFieldsPresent = Object.keys(technicians[0]).filter((k) =>
-        ["hourlyRate", "regularPayRate", "payRate", "basePayRate", "rate"].includes(k)
-      );
+    if (results.length === 0) {
       throw new Error(
-        `Found ${technicians.length} technician(s) but no pay rate data was returned. ` +
-        (rateFieldsPresent.length > 0
-          ? `Rate field(s) present but zero: ${rateFieldsPresent.join(", ")}.`
-          : "Pay rate fields were not returned — this data may require additional API permissions on your ServiceTitan app.")
+        `Found ${allTechs.length} technician(s) but could not retrieve payroll-settings for any of them. ` +
+        "Check that the API app has Payroll read permissions."
+      );
+    }
+
+    const highest = results.reduce(
+      (best, cur) => (cur.rate > best.rate ? cur : best),
+      { rate: 0, name: "Unknown" }
+    );
+
+    if (highest.rate <= 0) {
+      throw new Error(
+        `Found ${allTechs.length} technician(s) but all hourlyRate values are $0. ` +
+        "Ensure technician pay rates are entered in ServiceTitan Payroll settings."
       );
     }
 
     return {
       rate: highest.rate,
       technicianName: highest.name,
-      technicianCount: technicians.length,
+      technicianCount: allTechs.length,
     };
   }
 
