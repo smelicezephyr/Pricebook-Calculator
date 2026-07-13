@@ -33,6 +33,7 @@ interface Category {
   parentId?: number;
   sortOrder?: number;
   displayOrder?: number;
+  apiOrder?: number;
 }
 
 export default function PushToServiceTitan() {
@@ -837,8 +838,13 @@ export default function PushToServiceTitan() {
     }
   };
 
-  const sortByOrder = (a: Category, b: Category) =>
-    (a.sortOrder ?? a.displayOrder ?? 0) - (b.sortOrder ?? b.displayOrder ?? 0);
+  const sortByOrder = (a: Category, b: Category) => {
+    // Prefer explicit ST sort fields; fall back to the API's return order (apiOrder)
+    // which reflects the exact sequence ServiceTitan displays categories in.
+    const aVal = a.sortOrder ?? a.displayOrder ?? a.apiOrder ?? 0;
+    const bVal = b.sortOrder ?? b.displayOrder ?? b.apiOrder ?? 0;
+    return aVal - bVal;
+  };
 
   const getChildren = (parentId: number) =>
     categories.filter(c => c.parentId === parentId && c.active).sort(sortByOrder);

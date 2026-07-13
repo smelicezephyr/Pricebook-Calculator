@@ -16,6 +16,7 @@ interface PricebookCategory {
   categoryType?: string;
   displayOrder?: number;
   sortOrder?: number;
+  apiOrder?: number; // Sibling index stamped from the ST API's return order
   [key: string]: any; // Allow additional fields from API
 }
 
@@ -231,12 +232,16 @@ export class ServiceTitanAPI {
       console.log(`[ServiceTitan] Page ${page}: fetched ${response.data.length} categories, hasMore: ${response.hasMore}`);
       
       // Flatten categories - ServiceTitan returns nested subcategories
+      let topLevelOrder = 0;
       for (const category of response.data) {
         // Skip inactive top-level categories
         if (category.active === false) continue;
         // Skip non-service categories (e.g. Materials)
         if (category.categoryType && category.categoryType !== "Services") continue;
-        allCategories.push(category);
+        // Stamp apiOrder = position within this sibling group so the frontend
+        // can sort by the ST API's natural return order when sortOrder/displayOrder
+        // are absent or all zero.
+        allCategories.push({ ...category, apiOrder: topLevelOrder++ });
         // Recursively add all nested subcategories
         this.flattenSubcategories(category, allCategories);
       }
@@ -256,6 +261,7 @@ export class ServiceTitanAPI {
   
   private flattenSubcategories(category: PricebookCategory, result: PricebookCategory[]): void {
     if (category.subcategories && Array.isArray(category.subcategories)) {
+      let siblingOrder = 0;
       for (const sub of category.subcategories) {
         // Skip inactive subcategories; if 'active' is absent on the nested object,
         // treat it as active (inherit from parent which was already confirmed active).
@@ -264,7 +270,8 @@ export class ServiceTitanAPI {
         if (sub.categoryType && sub.categoryType !== "Services") continue;
         // Stamp parentId so the frontend hierarchy builder can reconstruct the tree.
         // Also ensure 'active' is explicitly set so downstream filters work correctly.
-        const withParent: PricebookCategory = { ...sub, parentId: category.id, active: sub.active !== false };
+        // apiOrder = position within this parent's subcategory list (ST's return order).
+        const withParent: PricebookCategory = { ...sub, parentId: category.id, active: true, apiOrder: siblingOrder++ };
         result.push(withParent);
         // Recurse with the stamped copy so deeper children also get correct parentId
         this.flattenSubcategories(withParent, result);
