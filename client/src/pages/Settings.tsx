@@ -145,10 +145,11 @@ export default function Settings() {
     if (!fetchTenantId) return;
     setIsFetchingRate(true);
     try {
-      const data = await apiRequest<{ rate: number; technicianName: string; technicianCount: number }>(
-        "GET",
-        `/api/servicetitan/${fetchTenantId}/highest-tech-rate`
-      );
+      const res = await apiRequest("GET", `/api/servicetitan/${fetchTenantId}/highest-tech-rate`);
+      const data = await res.json() as { rate: number; technicianName: string; technicianCount: number };
+      if (typeof data.rate !== "number" || data.rate <= 0) {
+        throw new Error("ServiceTitan returned an unexpected pay rate value. Please enter the rate manually.");
+      }
       form.setValue("highestTechRate", String(data.rate), { shouldDirty: true, shouldValidate: true });
       setFetchDialogOpen(false);
       toast({

@@ -543,14 +543,10 @@ export class ServiceTitanAPI {
       );
     }
 
-    // Log first record's keys so we can identify the exact field names in production logs
+    // Log only the field names (no values) to aid debugging without exposing payroll data
     console.log(
       "[ServiceTitan] Payroll employee fields:",
       Object.keys(allEmployees[0]).join(", ")
-    );
-    console.log(
-      "[ServiceTitan] First employee sample:",
-      JSON.stringify(allEmployees[0]).substring(0, 400)
     );
 
     // Filter to Technician-type employees only (distinct from CSR, dispatcher, office staff, etc.)
