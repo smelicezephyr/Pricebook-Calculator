@@ -748,6 +748,28 @@ export async function registerRoutes(
     }
   });
 
+  // Fetch the highest technician pay rate from ServiceTitan's Payroll API
+  app.get("/api/servicetitan/:tenantId/highest-tech-rate", requireUserOrAdmin, async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    if (isNaN(tenantId)) {
+      return res.status(400).json({ message: "Invalid tenant ID" });
+    }
+    const tenant = await storage.getTenant(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+    if (!(await canAccessTenant(req, tenantId))) {
+      return res.status(403).json({ message: "You don't have access to this tenant" });
+    }
+    try {
+      const api = new ServiceTitanAPI(tenant);
+      const result = await api.getHighestTechnicianRate();
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/servicetitan/:tenantId/categories", requireUserOrAdmin, async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     if (isNaN(tenantId)) {

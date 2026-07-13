@@ -10,9 +10,12 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Save, ArrowLeft, Lock, Calculator, Target } from "lucide-react";
-import { useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Loader2, Save, ArrowLeft, Lock, Calculator, Target, Download } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { z } from "zod";
 
 type SettingsFormValues = z.infer<typeof insertSettingsSchema>;
@@ -60,6 +63,12 @@ export default function Settings() {
   const { tenants } = useTenants();
   const { isReporting } = useAuth(); // manager + admin can edit leadership targets
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
+
+  // Fetch-from-ST dialog state
+  const [fetchDialogOpen, setFetchDialogOpen] = useState(false);
+  const [fetchTenantId, setFetchTenantId] = useState<string>("");
+  const [isFetchingRate, setIsFetchingRate] = useState(false);
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(insertSettingsSchema),
@@ -118,6 +127,44 @@ export default function Settings() {
   // Only fire when laborMode changes direction — not on every liveOutputs recalc
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [laborMode]);
+
+  // Open dialog, defaulting to the user's saved default tenant
+  function openFetchDialog() {
+    const defaultId = form.getValues("defaultTenantId");
+    if (defaultId != null && tenants.some((t) => t.id === defaultId)) {
+      setFetchTenantId(String(defaultId));
+    } else if (tenants.length > 0) {
+      setFetchTenantId(String(tenants[0].id));
+    } else {
+      setFetchTenantId("");
+    }
+    setFetchDialogOpen(true);
+  }
+
+  async function handleFetchRate() {
+    if (!fetchTenantId) return;
+    setIsFetchingRate(true);
+    try {
+      const data = await apiRequest<{ rate: number; technicianName: string; technicianCount: number }>(
+        "GET",
+        `/api/servicetitan/${fetchTenantId}/highest-tech-rate`
+      );
+      form.setValue("highestTechRate", String(data.rate), { shouldDirty: true, shouldValidate: true });
+      setFetchDialogOpen(false);
+      toast({
+        title: "Rate fetched successfully",
+        description: `Highest rate: $${data.rate}/hr (${data.technicianName}) — ${data.technicianCount} technician${data.technicianCount !== 1 ? "s" : ""} scanned.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Could not fetch rate",
+        description: err.message ?? "An error occurred while contacting ServiceTitan.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsFetchingRate(false);
+    }
+  }
 
   const onSubmit = (data: SettingsFormValues) => {
     // Ensure Zephyr constants are always submitted, regardless of any form state
@@ -356,16 +403,31 @@ export default function Settings() {
                       <FormItem>
                         <FormLabel>Highest Tech Pay Rate</FormLabel>
                         <FormControl>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">$</span>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              className="pl-8"
-                              data-testid="input-highest-tech-rate-setting"
-                              {...field}
-                            />
+                          <div className="flex gap-2">
+                            <div className="relative flex-1">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">$</span>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className="pl-8"
+                                data-testid="input-highest-tech-rate-setting"
+                                {...field}
+                              />
+                            </div>
+                            {tenants.length > 0 && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="shrink-0"
+                                title="Fetch highest rate from ServiceTitan"
+                                data-testid="button-fetch-tech-rate"
+                                onClick={openFetchDialog}
+                              >
+                                <Download size={15} />
+                              </Button>
+                            )}
                           </div>
                         </FormControl>
                         <FormDescription>Highest-paid technician's hourly wage — drives the recommended labor rate below.</FormDescription>
@@ -635,6 +697,64 @@ export default function Settings() {
           </form>
         </Form>
       </div>
+
+      {/* Fetch-from-ServiceTitan dialog */}
+      <Dialog open={fetchDialogOpen} onOpenChange={setFetchDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Fetch from ServiceTitan</DialogTitle>
+            <DialogDescription>
+              Scans payroll employee records in ServiceTitan, finds all Technician-type employees,
+              and pre-fills the field with the highest hourly rate.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2">
+            <label className="text-sm font-medium mb-2 block">Select Tenant</label>
+            <Select value={fetchTenantId} onValueChange={setFetchTenantId}>
+              <SelectTrigger data-testid="select-fetch-rate-tenant">
+                <SelectValue placeholder="Choose a tenant…" />
+              </SelectTrigger>
+              <SelectContent>
+                {tenants.map((t) => (
+                  <SelectItem key={t.id} value={String(t.id)} data-testid={`option-fetch-tenant-${t.id}`}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setFetchDialogOpen(false)}
+              disabled={isFetchingRate}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!fetchTenantId || isFetchingRate}
+              data-testid="button-confirm-fetch-rate"
+              onClick={handleFetchRate}
+            >
+              {isFetchingRate ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Fetching…
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Fetch Rate
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
