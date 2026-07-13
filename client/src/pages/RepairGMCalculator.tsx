@@ -84,6 +84,18 @@ export default function RepairGMCalculator() {
     }
   }, [settings, hasInitialized]);
 
+  // When TenantTaxSelector silently updates settings with a new tech rate,
+  // re-apply the rates even though the page is already initialized.
+  useEffect(() => {
+    if (!hasInitialized || !settings) return;
+    const newTechRate = parseFloat(settings.highestTechRate || "0") || 0;
+    if (newTechRate > 0) {
+      setHighestTechRate(newTechRate.toFixed(2));
+      setLaborRate(computeRecommendedLaborRate(settings).toFixed(2));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings?.highestTechRate, settings?.laborHourlyRate]);
+
   const resetInputs = () => {
     setPartsCost("");
     setLaborHours("");
