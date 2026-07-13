@@ -83,7 +83,7 @@ export const settings = pgTable("settings", {
   billableUtilizationPercent: numeric("billable_utilization_percent").notNull().default("65.00"),
   annualTruckFieldCost: numeric("annual_truck_field_cost").notNull().default("0.00"),
   targetOverheadPercent: numeric("target_overhead_percent").notNull().default("35.00"),
-  targetOperatingProfitPercent: numeric("target_operating_profit_percent").notNull().default("10.00"),
+  targetOperatingProfitPercent: numeric("target_operating_profit_percent").notNull().default("14.00"),
   laborRateRoundingIncrement: numeric("labor_rate_rounding_increment").notNull().default("5"),
 });
 

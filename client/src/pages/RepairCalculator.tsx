@@ -30,7 +30,7 @@ function computeRecommendedLaborRate(s: Settings): number {
   const annualTruckCost = ZEPHYR_STANDARDS.ANNUAL_TRUCK_FIELD_COST;
   const roundingIncrement = ZEPHYR_STANDARDS.ROUNDING_INCREMENT;
   const overheadPct = safeNum(s.targetOverheadPercent, 35) / 100;
-  const opProfitPct = safeNum(s.targetOperatingProfitPercent, 10) / 100;
+  const opProfitPct = safeNum(s.targetOperatingProfitPercent, 14) / 100;
   const burdenPct = safeNum(s.laborBurdenPercent, 20) / 100;
 
   const annualBillableHours = annualPaidHours * billableUtil;

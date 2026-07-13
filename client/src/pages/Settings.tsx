@@ -27,7 +27,7 @@ function computeLaborRateOutputs(values: SettingsFormValues) {
   const billableUtil = ZEPHYR_STANDARDS.BILLABLE_UTILIZATION_PCT / 100;
   const annualTruckCost = ZEPHYR_STANDARDS.ANNUAL_TRUCK_FIELD_COST;
   const overheadPct = safeNum(values.targetOverheadPercent, 35) / 100;
-  const opProfitPct = safeNum(values.targetOperatingProfitPercent, 10) / 100;
+  const opProfitPct = safeNum(values.targetOperatingProfitPercent, 14) / 100;
   const roundingIncrement = ZEPHYR_STANDARDS.ROUNDING_INCREMENT;
   const burdenPct = safeNum(values.laborBurdenPercent, 20) / 100;
 
@@ -75,7 +75,7 @@ export default function Settings() {
       financingFeePercent: "6.00",
       grossMarginMinPercent: "52.00",
       targetOverheadPercent: "35.00",
-      targetOperatingProfitPercent: "10.00",
+      targetOperatingProfitPercent: "14.00",
       ...ZEPHYR_FORM_DEFAULTS,
     },
   });
@@ -480,7 +480,7 @@ export default function Settings() {
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
                           </div>
                         </FormControl>
-                        <FormDescription>% of revenue kept as operating profit.</FormDescription>
+                        <FormDescription>Target operating profit retained after direct costs and overhead.</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
