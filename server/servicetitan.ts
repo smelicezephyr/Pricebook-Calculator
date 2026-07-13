@@ -522,47 +522,30 @@ export class ServiceTitanAPI {
     technicianName: string;
     technicianCount: number;
   }> {
-    // Step 1: collect technician IDs from Payroll module records.
-    // The Payroll API doesn't have a plain /technicians list endpoint, but
-    // "Technician Payrolls" and "Payroll Jobs" records each carry technicianId.
-    const techIdMap = new Map<number, string>(); // id → display name
+    // id → { name, hourlyRate (if available directly from the list endpoint) }
+    const techMap = new Map<number, { name: string; rate: number | null }>();
 
-    // Try every known path that lists technicians/employees across ST modules.
-    // These need the corresponding module enabled in the ST developer app.
-    const payrollSources = [
-      // Settings module (v2 & v1)
+    // Try list endpoints in priority order. Settings v2 technicians is the confirmed
+    // working path and returns hourlyRate directly on each record.
+    const listEndpoints = [
       `/settings/v2/tenant/${this.tenant.tenantId}/technicians`,
       `/settings/v2/tenant/${this.tenant.tenantId}/employees`,
-      `/settings/v1/tenant/${this.tenant.tenantId}/technicians`,
-      `/settings/v1/tenant/${this.tenant.tenantId}/employees`,
-      // HRM module
       `/hrm/v2/tenant/${this.tenant.tenantId}/employees`,
       `/hrm/v2/tenant/${this.tenant.tenantId}/technicians`,
-      // Dispatch module
       `/dispatch/v2/tenant/${this.tenant.tenantId}/technicians`,
-      // JPM module
       `/jpm/v2/tenant/${this.tenant.tenantId}/technicians`,
-      // CRM module
-      `/crm/v2/tenant/${this.tenant.tenantId}/employees`,
     ];
 
-    for (const source of payrollSources) {
-      if (techIdMap.size > 0) break;
+    for (const source of listEndpoints) {
+      if (techMap.size > 0) break;
       try {
-        console.log(`[ServiceTitan] Fetching tech IDs from: ${source}`);
+        console.log(`[ServiceTitan] Fetching technician list from: ${source}`);
         let page = 1;
         let hasMore = true;
         while (hasMore && page <= 20) {
           const resp = await this.request<any>(
             `${source}?pageSize=200&page=${page}`
           );
-          // Log raw structure on first page so we can see the shape
-          if (page === 1) {
-            const keys = Object.keys(resp ?? {});
-            const sample = Array.isArray(resp) ? resp[0] : (resp?.data?.[0] ?? resp?.items?.[0] ?? resp?.result?.[0]);
-            console.log(`[ServiceTitan] ${source} page1 keys:`, keys, `| sample keys:`, sample ? Object.keys(sample) : "no items");
-          }
-          // Handle various response shapes
           const items: any[] = Array.isArray(resp)
             ? resp
             : (resp?.data ?? resp?.items ?? resp?.result ?? resp?.technicians ?? resp?.employees ?? []);
@@ -573,57 +556,63 @@ export class ServiceTitanAPI {
               rec.name ?? rec.displayName ?? rec.fullName ??
               rec.technicianName ?? rec.technician?.name ??
               `Technician ${id}`;
-            if (id != null) techIdMap.set(id, name);
+            // hourlyRate is often embedded directly on the technician record
+            const rate: number | null =
+              rec.hourlyRate != null ? Number(rec.hourlyRate) : null;
+            if (id != null) techMap.set(id, { name, rate });
           }
           hasMore = resp?.hasMore ?? resp?.more ?? false;
           page++;
         }
-        console.log(`[ServiceTitan] Found ${techIdMap.size} unique tech IDs from ${source}`);
+        console.log(`[ServiceTitan] Found ${techMap.size} technicians from ${source}`);
       } catch (err: any) {
         console.log(`[ServiceTitan] ${source} failed: ${err?.message}`);
       }
     }
 
-    if (techIdMap.size === 0) {
+    if (techMap.size === 0) {
       throw new Error(
         "Could not retrieve a technician list from ServiceTitan. " +
-        "The Payroll module (for rate lookup) is enabled, but listing technicians requires " +
-        "one additional module. In your API app at developer.servicetitan.io, " +
-        "also enable the 'Settings', 'HRM', or 'Dispatch' module, then save."
+        "Enable the 'Settings' module (Technicians scope) on your API app at " +
+        "developer.servicetitan.io, then save."
       );
     }
 
-    // Step 2: fetch payroll-settings for each technician (scope: Payroll Settings)
+    // If all records already have hourlyRate, use them directly (fast path).
+    const allHaveRate = [...techMap.values()].every((t) => t.rate !== null);
     const results: Array<{ rate: number; name: string }> = [];
-    const BATCH = 5;
-    const techEntries = [...techIdMap.entries()];
 
-    for (let i = 0; i < techEntries.length; i += BATCH) {
-      const batch = techEntries.slice(i, i + BATCH);
-      const settled = await Promise.allSettled(
-        batch.map(async ([techId, techName]) => {
-          const settings = await this.request<any>(
-            `/payroll/v2/tenant/${this.tenant.tenantId}/technicians/${techId}/payroll-settings`
-          );
-          return {
-            rate: Number(settings.hourlyRate ?? 0),
-            name: techName,
-          };
-        })
-      );
-      for (const r of settled) {
-        if (r.status === "fulfilled") {
-          results.push(r.value);
-        } else {
-          console.warn("[ServiceTitan] payroll-settings fetch failed:", r.reason?.message ?? r.reason);
+    if (allHaveRate) {
+      console.log("[ServiceTitan] Using hourlyRate embedded in technician records (no extra API calls needed)");
+      for (const { name, rate } of techMap.values()) {
+        results.push({ name, rate: rate! });
+      }
+    } else {
+      // Fall back: fetch per-tech payroll-settings for the rate
+      console.log("[ServiceTitan] Fetching payroll-settings per technician for hourlyRate");
+      const BATCH = 5;
+      const techEntries = [...techMap.entries()];
+      for (let i = 0; i < techEntries.length; i += BATCH) {
+        const batch = techEntries.slice(i, i + BATCH);
+        const settled = await Promise.allSettled(
+          batch.map(async ([techId, { name }]) => {
+            const settings = await this.request<any>(
+              `/payroll/v2/tenant/${this.tenant.tenantId}/technicians/${techId}/payroll-settings`
+            );
+            return { rate: Number(settings.hourlyRate ?? 0), name };
+          })
+        );
+        for (const r of settled) {
+          if (r.status === "fulfilled") results.push(r.value);
+          else console.warn("[ServiceTitan] payroll-settings fetch failed:", r.reason?.message ?? r.reason);
         }
       }
     }
 
     if (results.length === 0) {
       throw new Error(
-        `Found ${techIdMap.size} technician ID(s) but could not retrieve payroll-settings for any. ` +
-        "Check that the Payroll Settings scope is enabled."
+        `Found ${techMap.size} technician(s) but could not retrieve any hourlyRate values. ` +
+        "Ensure the Payroll Settings scope is enabled and technicians have pay rates configured."
       );
     }
 
@@ -634,15 +623,15 @@ export class ServiceTitanAPI {
 
     if (highest.rate <= 0) {
       throw new Error(
-        `Found ${techIdMap.size} technician(s) but all hourlyRate values are $0. ` +
-        "Ensure technician pay rates are entered in ServiceTitan Payroll settings."
+        `Found ${techMap.size} technician(s) but all hourlyRate values are $0. ` +
+        "Ensure technician pay rates are entered in ServiceTitan."
       );
     }
 
     return {
       rate: highest.rate,
       technicianName: highest.name,
-      technicianCount: techIdMap.size,
+      technicianCount: techMap.size,
     };
   }
 
