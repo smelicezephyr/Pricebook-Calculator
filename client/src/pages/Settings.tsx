@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Loader2, Save, ArrowLeft, Lock, Calculator, Target, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
@@ -65,9 +64,6 @@ export default function Settings() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  // Fetch-from-ST dialog state
-  const [fetchDialogOpen, setFetchDialogOpen] = useState(false);
-  const [fetchTenantId, setFetchTenantId] = useState<string>("");
   const [isFetchingRate, setIsFetchingRate] = useState(false);
 
   const form = useForm<SettingsFormValues>({
@@ -128,38 +124,27 @@ export default function Settings() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [laborMode]);
 
-  // Open dialog — priority: saved default tenant → last active tenant → first tenant
-  function openFetchDialog() {
+  // Pick the best available tenant ID: form default → first tenant
+  function getActiveTenantId(): number | null {
     const defaultId = form.getValues("defaultTenantId");
-    const lastActive = localStorage.getItem("pbc_last_active_tenant_id");
-    const lastActiveId = lastActive ? parseInt(lastActive, 10) : null;
-
-    if (defaultId != null && tenants.some((t) => t.id === defaultId)) {
-      setFetchTenantId(String(defaultId));
-    } else if (lastActiveId != null && tenants.some((t) => t.id === lastActiveId)) {
-      setFetchTenantId(String(lastActiveId));
-    } else if (tenants.length > 0) {
-      setFetchTenantId(String(tenants[0].id));
-    } else {
-      setFetchTenantId("");
-    }
-    setFetchDialogOpen(true);
+    if (defaultId != null && tenants.some((t) => t.id === defaultId)) return defaultId;
+    return tenants[0]?.id ?? null;
   }
 
   async function handleFetchRate() {
-    if (!fetchTenantId) return;
+    const tenantId = getActiveTenantId();
+    if (!tenantId) return;
     setIsFetchingRate(true);
     try {
-      const res = await apiRequest("GET", `/api/servicetitan/${fetchTenantId}/highest-tech-rate`);
+      const res = await apiRequest("GET", `/api/servicetitan/${tenantId}/highest-tech-rate`);
       const data = await res.json() as { rate: number; technicianName: string; technicianCount: number };
       if (typeof data.rate !== "number" || data.rate <= 0) {
         throw new Error("ServiceTitan returned an unexpected pay rate value. Please enter the rate manually.");
       }
       form.setValue("highestTechRate", String(data.rate), { shouldDirty: true, shouldValidate: true });
-      setFetchDialogOpen(false);
       toast({
-        title: "Rate fetched successfully",
-        description: `Highest rate: $${data.rate}/hr (${data.technicianName}) — ${data.technicianCount} technician${data.technicianCount !== 1 ? "s" : ""} scanned.`,
+        title: "Rate fetched",
+        description: `$${data.rate}/hr — ${data.technicianName} (${data.technicianCount} tech${data.technicianCount !== 1 ? "s" : ""} scanned)`,
       });
     } catch (err: any) {
       toast({
@@ -171,6 +156,23 @@ export default function Settings() {
       setIsFetchingRate(false);
     }
   }
+
+  // Auto-fetch whenever the page loads and a tenant is available — silently pre-fills the field
+  useEffect(() => {
+    if (!settings || !tenants.length) return;
+    const tenantId = settings.defaultTenantId ?? tenants[0]?.id;
+    if (!tenantId) return;
+    apiRequest("GET", `/api/servicetitan/${tenantId}/highest-tech-rate`)
+      .then((res) => res.json())
+      .then((data: { rate: number }) => {
+        if (typeof data.rate === "number" && data.rate > 0) {
+          form.setValue("highestTechRate", String(data.rate), { shouldDirty: true, shouldValidate: true });
+        }
+      })
+      .catch(() => {}); // Silent fail — user can still type manually
+  // Re-run if the user changes their default tenant; don't re-run on every render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings?.defaultTenantId, tenants.length]);
 
   const onSubmit = (data: SettingsFormValues) => {
     // Ensure Zephyr constants are always submitted, regardless of any form state
@@ -427,11 +429,12 @@ export default function Settings() {
                                 variant="outline"
                                 size="icon"
                                 className="shrink-0"
-                                title="Fetch highest rate from ServiceTitan"
+                                title="Refresh rate from ServiceTitan"
                                 data-testid="button-fetch-tech-rate"
-                                onClick={openFetchDialog}
+                                disabled={isFetchingRate}
+                                onClick={handleFetchRate}
                               >
-                                <Download size={15} />
+                                {isFetchingRate ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
                               </Button>
                             )}
                           </div>
@@ -704,63 +707,6 @@ export default function Settings() {
         </Form>
       </div>
 
-      {/* Fetch-from-ServiceTitan dialog */}
-      <Dialog open={fetchDialogOpen} onOpenChange={setFetchDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Fetch from ServiceTitan</DialogTitle>
-            <DialogDescription>
-              Scans payroll employee records in ServiceTitan, finds all Technician-type employees,
-              and pre-fills the field with the highest hourly rate.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-2">
-            <label className="text-sm font-medium mb-2 block">Select Tenant</label>
-            <Select value={fetchTenantId} onValueChange={setFetchTenantId}>
-              <SelectTrigger data-testid="select-fetch-rate-tenant">
-                <SelectValue placeholder="Choose a tenant…" />
-              </SelectTrigger>
-              <SelectContent>
-                {tenants.map((t) => (
-                  <SelectItem key={t.id} value={String(t.id)} data-testid={`option-fetch-tenant-${t.id}`}>
-                    {t.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setFetchDialogOpen(false)}
-              disabled={isFetchingRate}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={!fetchTenantId || isFetchingRate}
-              data-testid="button-confirm-fetch-rate"
-              onClick={handleFetchRate}
-            >
-              {isFetchingRate ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Fetching…
-                </>
-              ) : (
-                <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Fetch Rate
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -426,6 +426,19 @@ export default function PushToServiceTitan() {
 
   const repairCalculatedPrice = repairCalculations.price;
 
+  // Auto-fetch highest tech rate whenever the selected tenant changes
+  useEffect(() => {
+    if (!selectedTenantId) return;
+    apiRequest("GET", `/api/servicetitan/${selectedTenantId}/highest-tech-rate`)
+      .then((res) => res.json())
+      .then((data: { rate: number }) => {
+        if (typeof data.rate === "number" && data.rate > 0) {
+          setRepairHighestTechRate(String(data.rate));
+        }
+      })
+      .catch(() => {}); // Silent fail — doesn't block the push flow
+  }, [selectedTenantId]);
+
   const handleTenantSelect = async (value: string) => {
     const id = Number(value);
     setSelectedTenantId(id);
