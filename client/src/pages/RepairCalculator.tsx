@@ -439,14 +439,6 @@ export default function RepairCalculator() {
               ) : (
                 <>
                   <InputMoney
-                    label="Labor Rate (per tech)"
-                    placeholder="125.00"
-                    value={laborRate}
-                    onChange={(e) => setLaborRate(e.target.value)}
-                    data-testid="input-labor-rate"
-                  />
-
-                  <InputMoney
                     label="Labor Hours"
                     type="number"
                     placeholder="1"
@@ -464,13 +456,9 @@ export default function RepairCalculator() {
                     data-testid="input-num-techs"
                   />
 
-                  <InputMoney
-                    label="Highest Tech Pay Rate"
-                    placeholder="0.00"
-                    value={highestTechRate}
-                    onChange={(e) => setHighestTechRate(e.target.value)}
-                    data-testid="input-highest-tech-rate"
-                  />
+                  <p className="text-xs text-muted-foreground">
+                    ${parseFloat(settings.laborHourlyRate).toFixed(2)}/hr per technician
+                  </p>
                 </>
               )}
             </div>

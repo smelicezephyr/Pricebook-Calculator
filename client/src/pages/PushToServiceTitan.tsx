@@ -192,6 +192,11 @@ export default function PushToServiceTitan() {
       setRepairUpdateBurdenPercent(settings.laborBurdenPercent);
       setRepairUpdateCommissionPercent(settings.commissionPercent);
       setRepairUpdateFinancingFeePercent(settings.financingFeePercent);
+      setRepairLaborRate(settings.laborHourlyRate);
+      setRepairUpdateLaborHourlyRate(settings.laborHourlyRate);
+      if (parseFloat(settings.highestTechRate || "0") > 0) {
+        setRepairHighestTechRate(settings.highestTechRate);
+      }
     }
   }, [settings]);
 
@@ -1593,22 +1598,6 @@ export default function PushToServiceTitan() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="laborHourlyRate">Hourly Rate (per tech)</Label>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                              <Input
-                                id="laborHourlyRate"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={laborHourlyRate}
-                                onChange={(e) => setLaborHourlyRate(e.target.value)}
-                                className="pl-8"
-                                data-testid="input-labor-hourly-rate"
-                              />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
                             <Label htmlFor="numTechs"># of Technicians</Label>
                             <Input
                               id="numTechs"
@@ -1619,6 +1608,9 @@ export default function PushToServiceTitan() {
                               onChange={(e) => setNumTechs(e.target.value)}
                               data-testid="input-num-techs"
                             />
+                          </div>
+                          <div className="flex items-end pb-2">
+                            <p className="text-xs text-muted-foreground">${parseFloat(laborHourlyRate).toFixed(2)}/hr per technician</p>
                           </div>
                         </>
                       )}
@@ -2083,23 +2075,6 @@ export default function PushToServiceTitan() {
                         {repairUpdateLaborMode === "hours" && (
                           <>
                             <div className="space-y-2">
-                              <Label htmlFor="repairUpdateLaborHourlyRate">Hourly Rate (per tech)</Label>
-                              <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                                <Input
-                                  id="repairUpdateLaborHourlyRate"
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  value={repairUpdateLaborHourlyRate}
-                                  onChange={(e) => setRepairUpdateLaborHourlyRate(e.target.value)}
-                                  className="pl-8"
-                                  data-testid="input-repair-update-labor-hourly-rate"
-                                />
-                              </div>
-                              <p className="text-xs text-muted-foreground">Rate × each service's hours from ServiceTitan</p>
-                            </div>
-                            <div className="space-y-2">
                               <Label htmlFor="repairUpdateNumTechs"># of Technicians</Label>
                               <Input
                                 id="repairUpdateNumTechs"
@@ -2110,6 +2085,9 @@ export default function PushToServiceTitan() {
                                 onChange={(e) => setRepairUpdateNumTechs(e.target.value)}
                                 data-testid="input-repair-update-num-techs"
                               />
+                            </div>
+                            <div className="flex items-end pb-2">
+                              <p className="text-xs text-muted-foreground">${parseFloat(repairUpdateLaborHourlyRate).toFixed(2)}/hr per technician · Rate × each service's hours from ServiceTitan</p>
                             </div>
                           </>
                         )}
@@ -2930,22 +2908,6 @@ export default function PushToServiceTitan() {
                           <>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div className="space-y-2">
-                                <Label htmlFor="repairLaborRate">Labor Rate (per hour)</Label>
-                                <div className="relative">
-                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                                  <Input
-                                    id="repairLaborRate"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={repairLaborRate}
-                                    onChange={(e) => setRepairLaborRate(e.target.value)}
-                                    className="pl-7"
-                                    data-testid="input-repair-labor-rate"
-                                  />
-                                </div>
-                              </div>
-                              <div className="space-y-2">
                                 <Label htmlFor="repairLaborHours">Labor Hours</Label>
                                 <Input
                                   id="repairLaborHours"
@@ -2957,25 +2919,8 @@ export default function PushToServiceTitan() {
                                   data-testid="input-repair-labor-hours"
                                 />
                               </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label htmlFor="repairHighestTechRate">Highest Tech Pay Rate</Label>
-                                <div className="relative">
-                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                                  <Input
-                                    id="repairHighestTechRate"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={repairHighestTechRate}
-                                    onChange={(e) => setRepairHighestTechRate(e.target.value)}
-                                    className="pl-7"
-                                    data-testid="input-repair-highest-tech-rate"
-                                  />
-                                </div>
-                                <p className="text-xs text-muted-foreground">Used for gross margin calculation only</p>
+                              <div className="flex items-end pb-1">
+                                <p className="text-xs text-muted-foreground">${parseFloat(repairLaborRate).toFixed(2)}/hr per technician</p>
                               </div>
                             </div>
                           </>
