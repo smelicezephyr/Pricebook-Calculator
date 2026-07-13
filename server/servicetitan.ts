@@ -14,9 +14,10 @@ interface PricebookCategory {
   subcategories?: PricebookCategory[];
   level?: number;
   categoryType?: string;
+  position?: number;   // Primary ST sort field (confirmed from API responses)
   displayOrder?: number;
   sortOrder?: number;
-  apiOrder?: number; // Sibling index stamped from the ST API's return order
+  apiOrder?: number; // Sibling index stamped from the ST API's return order (fallback)
   [key: string]: any; // Allow additional fields from API
 }
 

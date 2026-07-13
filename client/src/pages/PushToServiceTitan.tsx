@@ -31,6 +31,7 @@ interface Category {
   name: string;
   active: boolean;
   parentId?: number;
+  position?: number;
   sortOrder?: number;
   displayOrder?: number;
   apiOrder?: number;
@@ -839,10 +840,10 @@ export default function PushToServiceTitan() {
   };
 
   const sortByOrder = (a: Category, b: Category) => {
-    // Prefer explicit ST sort fields; fall back to the API's return order (apiOrder)
-    // which reflects the exact sequence ServiceTitan displays categories in.
-    const aVal = a.sortOrder ?? a.displayOrder ?? a.apiOrder ?? 0;
-    const bVal = b.sortOrder ?? b.displayOrder ?? b.apiOrder ?? 0;
+    // ST API uses `position` as the primary sort field (confirmed from live API responses).
+    // Fall back through other possible sort fields, then apiOrder (ST's return order).
+    const aVal = a.position ?? a.sortOrder ?? a.displayOrder ?? a.apiOrder ?? 0;
+    const bVal = b.position ?? b.sortOrder ?? b.displayOrder ?? b.apiOrder ?? 0;
     return aVal - bVal;
   };
 
