@@ -163,12 +163,14 @@ export const insertLocationSchema = createInsertSchema(locations).omit({
 });
 
 // Zephyr operating standards — hard-coded constants used in every labor-rate calculation.
-// These are NOT editable by users; only the two leadership targets (overhead / profit) are.
+// These are NOT editable by users; all values including overhead and profit targets are fixed.
 export const ZEPHYR_STANDARDS = {
   ANNUAL_PAID_HOURS: 2080,
   BILLABLE_UTILIZATION_PCT: 65,   // percentage (65 = 65%)
   ANNUAL_TRUCK_FIELD_COST: 20000,
   ROUNDING_INCREMENT: 5,
+  TARGET_OVERHEAD_PCT: 35,        // percentage (35 = 35%)
+  TARGET_OPERATING_PROFIT_PCT: 14, // percentage (14 = 14%)
 } as const;
 
 export const insertSettingsSchema = createInsertSchema(settings).superRefine((data, ctx) => {

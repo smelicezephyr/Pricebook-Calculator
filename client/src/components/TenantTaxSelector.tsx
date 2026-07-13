@@ -16,8 +16,8 @@ const LAST_TENANT_KEY = "pbc_last_active_tenant_id";
  *  from the highest tech pay rate and the user's overhead / profit targets. */
 function computeRecommendedLaborRate(techRate: number, s: Settings): number {
   const burdenPct = parseFloat(s.laborBurdenPercent) / 100 || 0;
-  const overheadPct = parseFloat(s.targetOverheadPercent) / 100 || 0;
-  const opProfitPct = parseFloat(s.targetOperatingProfitPercent) / 100 || 0;
+  const overheadPct = ZEPHYR_STANDARDS.TARGET_OVERHEAD_PCT / 100;
+  const opProfitPct = ZEPHYR_STANDARDS.TARGET_OPERATING_PROFIT_PCT / 100;
   const billableUtil = ZEPHYR_STANDARDS.BILLABLE_UTILIZATION_PCT / 100;
   const annualPaidHours = ZEPHYR_STANDARDS.ANNUAL_PAID_HOURS;
   const annualBillableHours = annualPaidHours * billableUtil;
