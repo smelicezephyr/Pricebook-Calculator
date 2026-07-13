@@ -527,9 +527,23 @@ export class ServiceTitanAPI {
     // "Technician Payrolls" and "Payroll Jobs" records each carry technicianId.
     const techIdMap = new Map<number, string>(); // id → display name
 
+    // Try every known path that lists technicians/employees across ST modules.
+    // These need the corresponding module enabled in the ST developer app.
     const payrollSources = [
-      `/payroll/v2/tenant/${this.tenant.tenantId}/technician-payrolls`,
-      `/payroll/v2/tenant/${this.tenant.tenantId}/payroll-jobs`,
+      // Settings module (v2 & v1)
+      `/settings/v2/tenant/${this.tenant.tenantId}/technicians`,
+      `/settings/v2/tenant/${this.tenant.tenantId}/employees`,
+      `/settings/v1/tenant/${this.tenant.tenantId}/technicians`,
+      `/settings/v1/tenant/${this.tenant.tenantId}/employees`,
+      // HRM module
+      `/hrm/v2/tenant/${this.tenant.tenantId}/employees`,
+      `/hrm/v2/tenant/${this.tenant.tenantId}/technicians`,
+      // Dispatch module
+      `/dispatch/v2/tenant/${this.tenant.tenantId}/technicians`,
+      // JPM module
+      `/jpm/v2/tenant/${this.tenant.tenantId}/technicians`,
+      // CRM module
+      `/crm/v2/tenant/${this.tenant.tenantId}/employees`,
     ];
 
     for (const source of payrollSources) {
@@ -562,8 +576,10 @@ export class ServiceTitanAPI {
 
     if (techIdMap.size === 0) {
       throw new Error(
-        "Could not find any technician IDs in your ServiceTitan payroll records. " +
-        "Ensure technicians have payroll records (technician-payrolls or payroll-jobs) in ServiceTitan."
+        "Could not retrieve a technician list from ServiceTitan. " +
+        "The Payroll module (for rate lookup) is enabled, but listing technicians requires " +
+        "one additional module. In your API app at developer.servicetitan.io, " +
+        "also enable the 'Settings', 'HRM', or 'Dispatch' module, then save."
       );
     }
 
