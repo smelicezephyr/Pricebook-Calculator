@@ -522,14 +522,14 @@ export class ServiceTitanAPI {
     technicianName: string;
     technicianCount: number;
   }> {
-    // Step 1: page through all technicians
+    // Step 1: page through all technicians via the dispatch API
     const allTechs: any[] = [];
     let page = 1;
     let hasMore = true;
 
     while (hasMore) {
       const response = await this.request<{ data: any[]; hasMore: boolean }>(
-        `/payroll/v2/tenant/${this.tenant.tenantId}/technicians?pageSize=200&page=${page}`
+        `/dispatch/v2/tenant/${this.tenant.tenantId}/technicians?pageSize=200&page=${page}&active=true`
       );
       allTechs.push(...(response.data ?? []));
       hasMore = response.hasMore ?? false;
@@ -539,8 +539,8 @@ export class ServiceTitanAPI {
 
     if (allTechs.length === 0) {
       throw new Error(
-        "No technician records returned from ServiceTitan payroll API. " +
-        "Verify the API credentials have Payroll access."
+        "No technician records returned from ServiceTitan. " +
+        "Verify the API credentials have Dispatch access."
       );
     }
 
@@ -561,13 +561,19 @@ export class ServiceTitanAPI {
         })
       );
       for (const r of settled) {
-        if (r.status === "fulfilled") results.push(r.value);
+        if (r.status === "fulfilled") {
+          results.push(r.value);
+        } else {
+          console.warn("[ServiceTitan] payroll-settings fetch failed:", r.reason?.message ?? r.reason);
+        }
       }
     }
 
     if (results.length === 0) {
+      const firstTechId = allTechs[0]?.id;
       throw new Error(
         `Found ${allTechs.length} technician(s) but could not retrieve payroll-settings for any of them. ` +
+        `(First tech id tried: ${firstTechId}) ` +
         "Check that the API app has Payroll read permissions."
       );
     }
