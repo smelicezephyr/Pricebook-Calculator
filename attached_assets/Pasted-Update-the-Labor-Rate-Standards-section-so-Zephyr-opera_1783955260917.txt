@@ -1,0 +1,98 @@
+Update the Labor Rate Standards section so Zephyr operational standards are locked, while leadership-controlled targets remain editable.
+
+Preserve the existing “Highest Paid Field Technician” behavior exactly:
+
+Use the existing Settings value as the default
+Allow the calculator-level override to replace the Settings value
+Do not create a duplicate wage field
+
+Set the following Zephyr standard fields to fixed, read-only values:
+
+Annual Paid Hours = 2,080
+Billable Utilization = 65%
+Annual Truck / Field Cost = $20,000
+Rounding Increment = $5
+
+These values should:
+
+Be visible in Settings
+Be displayed as locked or read-only
+Not be editable by standard users
+Continue to feed all technician labor-rate calculations
+Be labeled as “Zephyr Standard”
+
+Keep the following leadership-controlled fields editable:
+
+Target Overhead %
+Target Operating Profit %
+
+These fields should:
+
+Remain editable in Settings
+Be labeled as “Leadership Target”
+Continue to flow into the calculator as defaults
+Be available for authorized leadership users to update
+
+Recommended default leadership values:
+
+Target Overhead = 35%
+Target Operating Profit = 10%
+
+Update the labor-rate calculation to use:
+
+effectiveHighestPaidRate = calculatorOverride ?? settingsHighestPaidFieldTechnician
+
+annualPaidHours = 2080
+
+billableUtilization = 0.65
+
+annualTruckFieldCost = 20000
+
+roundingIncrement = 5
+
+annualBillableHours = annualPaidHours * billableUtilization
+
+burdenedHourlyWage = effectiveHighestPaidRate * (1 + payrollBurdenPercent)
+
+laborCostPerBillableHour = burdenedHourlyWage / billableUtilization
+
+truckCostPerBillableHour = annualTruckFieldCost / annualBillableHours
+
+directCostPerBillableHour = laborCostPerBillableHour + truckCostPerBillableHour
+
+recoveryMargin = 1 - targetOverheadPercent - targetOperatingProfitPercent
+
+rawLaborRate = directCostPerBillableHour / recoveryMargin
+
+recommendedLaborRate = Math.ceil(rawLaborRate / roundingIncrement) * roundingIncrement
+
+impliedWageMultiplier = recommendedLaborRate / effectiveHighestPaidRate
+
+Also display the following calculated values:
+
+Annual Billable Hours
+Direct Cost per Billable Hour
+Recommended Labor Rate
+Implied Wage Multiplier
+
+With the locked Zephyr standards, Annual Billable Hours should calculate to:
+
+2080 * 0.65 = 1352
+
+Add visual distinctions:
+
+Locked Zephyr Standard fields should use a muted background and lock icon
+Leadership Target fields should remain visually editable
+Add helper text explaining that Zephyr Standards are centrally controlled operating assumptions
+Add helper text explaining that Leadership Targets are adjustable profitability goals
+
+Do not allow calculator-level overrides for:
+
+Annual Paid Hours
+Billable Utilization
+Annual Truck / Field Cost
+Rounding Increment
+
+Continue allowing calculator-level override only for the existing Highest Paid Field Technician field.
+
+Preserve all unrelated calculations, settings behavior, styling, and permissions.

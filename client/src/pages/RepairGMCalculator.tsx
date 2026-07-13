@@ -14,6 +14,7 @@ import { RefreshCw, Target, Loader2 } from "lucide-react";
 import { toPng } from "html-to-image";
 import { useToast } from "@/hooks/use-toast";
 import type { Settings } from "@shared/schema";
+import { ZEPHYR_STANDARDS } from "@shared/schema";
 
 function safeNum(raw: string | null | undefined, fallback: number): number {
   const n = parseFloat(raw ?? "");
@@ -23,15 +24,14 @@ function safeNum(raw: string | null | undefined, fallback: number): number {
 function computeRecommendedLaborRate(s: Settings): number {
   const highestTechRate = safeNum(s.highestTechRate, 0);
   if (highestTechRate <= 0) return 0;
-  const annualPaidHours = safeNum(s.annualPaidHours, 2080);
-  const billableUtil = safeNum(s.billableUtilizationPercent, 65) / 100;
-  const annualTruckCost = safeNum(s.annualTruckFieldCost, 0);
+  const annualPaidHours = ZEPHYR_STANDARDS.ANNUAL_PAID_HOURS;
+  const billableUtil = ZEPHYR_STANDARDS.BILLABLE_UTILIZATION_PCT / 100;
+  const annualTruckCost = ZEPHYR_STANDARDS.ANNUAL_TRUCK_FIELD_COST;
+  const roundingIncrement = ZEPHYR_STANDARDS.ROUNDING_INCREMENT;
   const overheadPct = safeNum(s.targetOverheadPercent, 35) / 100;
   const opProfitPct = safeNum(s.targetOperatingProfitPercent, 10) / 100;
-  const roundingIncrement = safeNum(s.laborRateRoundingIncrement, 5);
   const burdenPct = safeNum(s.laborBurdenPercent, 20) / 100;
 
-  if (annualPaidHours <= 0 || billableUtil <= 0 || roundingIncrement <= 0) return 0;
   const annualBillableHours = annualPaidHours * billableUtil;
   const burdenedHourlyWage = highestTechRate * (1 + burdenPct);
   const laborCostPerBillableHour = burdenedHourlyWage / billableUtil;

@@ -2,13 +2,14 @@ import { useSettings } from "@/hooks/use-settings";
 import { useTenants } from "@/hooks/use-tenants";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertSettingsSchema } from "@shared/schema";
+import { insertSettingsSchema, ZEPHYR_STANDARDS } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Save, ArrowLeft, Calculator } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Save, ArrowLeft, Lock, Calculator, Target } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import type { z } from "zod";
@@ -22,12 +23,12 @@ function safeNum(raw: string | null | undefined, fallback: number): number {
 
 function computeLaborRateOutputs(values: SettingsFormValues) {
   const highestTechRate = safeNum(values.highestTechRate, 0);
-  const annualPaidHours = safeNum(values.annualPaidHours, 2080);
-  const billableUtil = safeNum(values.billableUtilizationPercent, 65) / 100;
-  const annualTruckCost = safeNum(values.annualTruckFieldCost, 0);
+  const annualPaidHours = ZEPHYR_STANDARDS.ANNUAL_PAID_HOURS;
+  const billableUtil = ZEPHYR_STANDARDS.BILLABLE_UTILIZATION_PCT / 100;
+  const annualTruckCost = ZEPHYR_STANDARDS.ANNUAL_TRUCK_FIELD_COST;
   const overheadPct = safeNum(values.targetOverheadPercent, 35) / 100;
   const opProfitPct = safeNum(values.targetOperatingProfitPercent, 10) / 100;
-  const roundingIncrement = safeNum(values.laborRateRoundingIncrement, 5);
+  const roundingIncrement = ZEPHYR_STANDARDS.ROUNDING_INCREMENT;
   const burdenPct = safeNum(values.laborBurdenPercent, 20) / 100;
 
   const annualBillableHours = annualPaidHours * billableUtil;
@@ -42,13 +43,16 @@ function computeLaborRateOutputs(values: SettingsFormValues) {
     : rawLaborRate;
   const impliedWageMultiplier = highestTechRate > 0 ? recommendedLaborRate / highestTechRate : 0;
 
-  return {
-    annualBillableHours,
-    directCostPerBillableHour,
-    recommendedLaborRate,
-    impliedWageMultiplier,
-  };
+  return { annualBillableHours, directCostPerBillableHour, recommendedLaborRate, impliedWageMultiplier };
 }
+
+// Constant strings so the form always submits the Zephyr standard values
+const ZEPHYR_FORM_DEFAULTS = {
+  annualPaidHours: String(ZEPHYR_STANDARDS.ANNUAL_PAID_HOURS),
+  billableUtilizationPercent: String(ZEPHYR_STANDARDS.BILLABLE_UTILIZATION_PCT),
+  annualTruckFieldCost: String(ZEPHYR_STANDARDS.ANNUAL_TRUCK_FIELD_COST),
+  laborRateRoundingIncrement: String(ZEPHYR_STANDARDS.ROUNDING_INCREMENT),
+};
 
 export default function Settings() {
   const { settings, isLoading, updateSettings, isUpdating } = useSettings();
@@ -70,12 +74,9 @@ export default function Settings() {
       commissionBurdenPercent: "20.00",
       financingFeePercent: "6.00",
       grossMarginMinPercent: "52.00",
-      annualPaidHours: "2080",
-      billableUtilizationPercent: "65.00",
-      annualTruckFieldCost: "0.00",
       targetOverheadPercent: "35.00",
       targetOperatingProfitPercent: "10.00",
-      laborRateRoundingIncrement: "5",
+      ...ZEPHYR_FORM_DEFAULTS,
     },
   });
 
@@ -94,12 +95,10 @@ export default function Settings() {
         commissionBurdenPercent: settings.commissionBurdenPercent,
         financingFeePercent: settings.financingFeePercent,
         grossMarginMinPercent: settings.grossMarginMinPercent,
-        annualPaidHours: settings.annualPaidHours,
-        billableUtilizationPercent: settings.billableUtilizationPercent,
-        annualTruckFieldCost: settings.annualTruckFieldCost,
         targetOverheadPercent: settings.targetOverheadPercent,
         targetOperatingProfitPercent: settings.targetOperatingProfitPercent,
-        laborRateRoundingIncrement: settings.laborRateRoundingIncrement,
+        // Always override locked fields with Zephyr constants
+        ...ZEPHYR_FORM_DEFAULTS,
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -109,7 +108,8 @@ export default function Settings() {
   const liveOutputs = computeLaborRateOutputs(watchedValues);
 
   const onSubmit = (data: SettingsFormValues) => {
-    updateSettings(data);
+    // Ensure Zephyr constants are always submitted, regardless of any form state
+    updateSettings({ ...data, ...ZEPHYR_FORM_DEFAULTS });
   };
 
   const formatCurrency = (val: number) =>
@@ -356,7 +356,7 @@ export default function Settings() {
                             />
                           </div>
                         </FormControl>
-                        <FormDescription>Highest-paid technician's hourly wage — drives the labor rate formula below.</FormDescription>
+                        <FormDescription>Highest-paid technician's hourly wage — drives the recommended labor rate below.</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -369,116 +369,120 @@ export default function Settings() {
             <div className="p-6 border-b border-border">
               <h2 className="text-lg font-semibold mb-1 text-primary">Labor Rate Standards</h2>
               <p className="text-sm text-muted-foreground mb-5">
-                These inputs build a fully-loaded labor rate from the ground up. The Repair calculators use the Recommended Labor Rate as their default.
+                Inputs below are used to build a fully-loaded technician labor rate from the ground up. The Repair calculators use the Recommended Labor Rate as their default.
               </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <FormField
-                  control={form.control}
-                  name="annualPaidHours"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Annual Paid Hours</FormLabel>
-                      <FormControl>
-                        <Input {...field} type="number" step="1" min="0" data-testid="input-annual-paid-hours" />
-                      </FormControl>
-                      <FormDescription>Total hours the tech is paid per year (e.g. 2080 = 40 hrs × 52 wks).</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="billableUtilizationPercent"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Billable Utilization</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Input {...field} type="number" step="0.1" min="0" max="100" className="pr-8" data-testid="input-billable-utilization" />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+              {/* Zephyr Standard locked fields */}
+              <div className="rounded-xl border border-border bg-muted/40 p-4 mb-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Lock size={14} className="text-muted-foreground" />
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Zephyr Standards</span>
+                  <span className="ml-auto text-xs text-muted-foreground">Centrally-controlled operating assumptions — not editable</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {/* Annual Paid Hours */}
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                      Annual Paid Hours
+                    </p>
+                    <div className="flex items-center gap-1.5 bg-background border border-border rounded-md px-3 py-2 text-sm font-medium text-muted-foreground" data-testid="locked-annual-paid-hours">
+                      <Lock size={11} className="text-muted-foreground/60 shrink-0" />
+                      {ZEPHYR_STANDARDS.ANNUAL_PAID_HOURS.toLocaleString()} hrs
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">40 hrs/wk × 52 wks</p>
+                  </div>
+                  {/* Billable Utilization */}
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Billable Utilization
+                    </p>
+                    <div className="flex items-center gap-1.5 bg-background border border-border rounded-md px-3 py-2 text-sm font-medium text-muted-foreground" data-testid="locked-billable-utilization">
+                      <Lock size={11} className="text-muted-foreground/60 shrink-0" />
+                      {ZEPHYR_STANDARDS.BILLABLE_UTILIZATION_PCT}%
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Billable portion of paid hours</p>
+                  </div>
+                  {/* Annual Truck / Field Cost */}
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Annual Truck / Field Cost
+                    </p>
+                    <div className="flex items-center gap-1.5 bg-background border border-border rounded-md px-3 py-2 text-sm font-medium text-muted-foreground" data-testid="locked-truck-cost">
+                      <Lock size={11} className="text-muted-foreground/60 shrink-0" />
+                      ${ZEPHYR_STANDARDS.ANNUAL_TRUCK_FIELD_COST.toLocaleString()}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Fuel, insurance, maintenance</p>
+                  </div>
+                  {/* Rounding Increment */}
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Rounding Increment
+                    </p>
+                    <div className="flex items-center gap-1.5 bg-background border border-border rounded-md px-3 py-2 text-sm font-medium text-muted-foreground" data-testid="locked-rounding-increment">
+                      <Lock size={11} className="text-muted-foreground/60 shrink-0" />
+                      ${ZEPHYR_STANDARDS.ROUNDING_INCREMENT}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Rate rounded up to nearest $5</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Leadership Target editable fields */}
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 mb-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Target size={14} className="text-primary" />
+                  <span className="text-xs font-bold text-primary uppercase tracking-wider">Leadership Targets</span>
+                  <span className="ml-auto text-xs text-muted-foreground">Adjustable profitability goals</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="targetOverheadPercent"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center gap-2">
+                          <FormLabel className="text-sm">Target Overhead</FormLabel>
+                          <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Leadership Target</Badge>
                         </div>
-                      </FormControl>
-                      <FormDescription>Portion of paid hours that are actually billable to customers.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="annualTruckFieldCost"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Annual Truck / Field Cost</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">$</span>
-                          <Input {...field} type="number" step="0.01" min="0" className="pl-8" data-testid="input-annual-truck-cost" />
+                        <FormControl>
+                          <div className="relative">
+                            <Input {...field} type="number" step="0.1" min="0" max="99" className="pr-8 bg-background" data-testid="input-target-overhead" />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                          </div>
+                        </FormControl>
+                        <FormDescription>% of revenue allocated to cover company overhead.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="targetOperatingProfitPercent"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center gap-2">
+                          <FormLabel className="text-sm">Target Operating Profit</FormLabel>
+                          <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Leadership Target</Badge>
                         </div>
-                      </FormControl>
-                      <FormDescription>Total annual cost to field the truck (fuel, insurance, maintenance, etc.).</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="targetOverheadPercent"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Target Overhead</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Input {...field} type="number" step="0.1" min="0" max="100" className="pr-8" data-testid="input-target-overhead" />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
-                        </div>
-                      </FormControl>
-                      <FormDescription>% of revenue allocated to cover company overhead.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="targetOperatingProfitPercent"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Target Operating Profit</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Input {...field} type="number" step="0.1" min="0" max="100" className="pr-8" data-testid="input-target-op-profit" />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
-                        </div>
-                      </FormControl>
-                      <FormDescription>% of revenue kept as operating profit.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="laborRateRoundingIncrement"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Rounding Increment ($)</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">$</span>
-                          <Input {...field} type="number" step="1" min="1" className="pl-8" data-testid="input-rounding-increment" />
-                        </div>
-                      </FormControl>
-                      <FormDescription>The recommended rate is rounded up to the nearest multiple of this value.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        <FormControl>
+                          <div className="relative">
+                            <Input {...field} type="number" step="0.1" min="0" max="99" className="pr-8 bg-background" data-testid="input-target-op-profit" />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                          </div>
+                        </FormControl>
+                        <FormDescription>% of revenue kept as operating profit.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
 
               {/* Live Output Panel */}
-              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+              <div className="rounded-xl border border-border bg-muted/20 p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Calculator size={16} className="text-primary" />
-                  <span className="text-xs font-bold text-primary uppercase tracking-wider">Live Calculation Results</span>
+                  <Calculator size={15} className="text-foreground" />
+                  <span className="text-xs font-bold text-foreground uppercase tracking-wider">Live Calculation Results</span>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>

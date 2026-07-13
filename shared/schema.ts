@@ -162,6 +162,15 @@ export const insertLocationSchema = createInsertSchema(locations).omit({
   createdAt: true,
 });
 
+// Zephyr operating standards — hard-coded constants used in every labor-rate calculation.
+// These are NOT editable by users; only the two leadership targets (overhead / profit) are.
+export const ZEPHYR_STANDARDS = {
+  ANNUAL_PAID_HOURS: 2080,
+  BILLABLE_UTILIZATION_PCT: 65,   // percentage (65 = 65%)
+  ANNUAL_TRUCK_FIELD_COST: 20000,
+  ROUNDING_INCREMENT: 5,
+} as const;
+
 export const insertSettingsSchema = createInsertSchema(settings).superRefine((data, ctx) => {
   const toNum = (v: unknown, fallback = 0) => {
     const n = parseFloat(String(v ?? ""));
@@ -171,18 +180,8 @@ export const insertSettingsSchema = createInsertSchema(settings).superRefine((da
   if (toNum(data.highestTechRate) <= 0) {
     ctx.addIssue({ code: "custom", path: ["highestTechRate"], message: "Highest tech pay rate must be greater than 0 to use the labor rate formula" });
   }
-  if (toNum(data.annualPaidHours) <= 0) {
-    ctx.addIssue({ code: "custom", path: ["annualPaidHours"], message: "Annual paid hours must be greater than 0" });
-  }
-  const util = toNum(data.billableUtilizationPercent);
-  if (util <= 0 || util > 100) {
-    ctx.addIssue({ code: "custom", path: ["billableUtilizationPercent"], message: "Billable utilization must be between 0% (exclusive) and 100%" });
-  }
   if (toNum(data.laborBurdenPercent) < 0) {
     ctx.addIssue({ code: "custom", path: ["laborBurdenPercent"], message: "Payroll burden cannot be negative" });
-  }
-  if (toNum(data.laborRateRoundingIncrement) <= 0) {
-    ctx.addIssue({ code: "custom", path: ["laborRateRoundingIncrement"], message: "Rounding increment must be greater than 0" });
   }
   const overhead = toNum(data.targetOverheadPercent);
   const opProfit = toNum(data.targetOperatingProfitPercent);
