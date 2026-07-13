@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Building2 } from "lucide-react";
 import type { Tenant, Location } from "@shared/schema";
 
+const LAST_TENANT_KEY = "pbc_last_active_tenant_id";
+
 function normalize(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -81,6 +83,7 @@ export function TenantTaxSelector({
     if (match) {
       onTenantChange(match.id);
       applyTenantTax(match);
+      localStorage.setItem(LAST_TENANT_KEY, String(match.id));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenants, locations, user?.email, selectedTenantId, settings]);
@@ -91,6 +94,7 @@ export function TenantTaxSelector({
     const id = parseInt(value, 10);
     onTenantChange(id);
     applyTenantTax(tenants.find((t) => t.id === id));
+    localStorage.setItem(LAST_TENANT_KEY, value);
   };
 
   const select = (
