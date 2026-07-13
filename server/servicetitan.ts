@@ -522,83 +522,66 @@ export class ServiceTitanAPI {
     technicianName: string;
     technicianCount: number;
   }> {
-    // Step 1: get technician list — try multiple ST API modules in priority order
-    // since different app configurations expose different modules.
-    const listEndpoints = [
-      // Payroll module — technicians list (same module as payroll-settings)
-      `/payroll/v2/tenant/${this.tenant.tenantId}/technicians`,
-      // HRM module
-      `/hrm/v2/tenant/${this.tenant.tenantId}/employees`,
-      // Dispatch module
-      `/dispatch/v2/tenant/${this.tenant.tenantId}/technicians`,
-      // Settings module
-      `/settings/v2/tenant/${this.tenant.tenantId}/employees`,
-      // Job & project management module
-      `/jpm/v2/tenant/${this.tenant.tenantId}/technicians`,
+    // Step 1: collect technician IDs from Payroll module records.
+    // The Payroll API doesn't have a plain /technicians list endpoint, but
+    // "Technician Payrolls" and "Payroll Jobs" records each carry technicianId.
+    const techIdMap = new Map<number, string>(); // id → display name
+
+    const payrollSources = [
+      `/payroll/v2/tenant/${this.tenant.tenantId}/technician-payrolls`,
+      `/payroll/v2/tenant/${this.tenant.tenantId}/payroll-jobs`,
     ];
 
-    const allTechs: any[] = [];
-    let usedEndpoint = "";
-
-    for (const endpoint of listEndpoints) {
+    for (const source of payrollSources) {
+      if (techIdMap.size > 0) break;
       try {
-        console.log(`[ServiceTitan] Trying technician list endpoint: ${endpoint}`);
+        console.log(`[ServiceTitan] Fetching tech IDs from: ${source}`);
         let page = 1;
         let hasMore = true;
-        const fetched: any[] = [];
-        while (hasMore) {
-          const response = await this.request<{ data: any[]; hasMore: boolean }>(
-            `${endpoint}?pageSize=200&page=${page}`
+        while (hasMore && page <= 20) {
+          const resp = await this.request<{ data: any[]; hasMore: boolean }>(
+            `${source}?pageSize=200&page=${page}`
           );
-          fetched.push(...(response.data ?? []));
-          hasMore = response.hasMore ?? false;
+          for (const rec of resp.data ?? []) {
+            const id: number | undefined =
+              rec.technicianId ?? rec.technician?.id;
+            const name: string =
+              rec.technicianName ??
+              rec.technician?.name ??
+              `Technician ${id}`;
+            if (id != null) techIdMap.set(id, name);
+          }
+          hasMore = resp.hasMore ?? false;
           page++;
-          if (page > 20) break;
         }
-        if (fetched.length > 0) {
-          allTechs.push(...fetched);
-          usedEndpoint = endpoint;
-          console.log(`[ServiceTitan] Tech list success: ${fetched.length} records from ${endpoint}`);
-          break;
-        }
+        console.log(`[ServiceTitan] Found ${techIdMap.size} unique tech IDs from ${source}`);
       } catch (err: any) {
-        console.log(`[ServiceTitan] Tech list endpoint failed (${endpoint}): ${err?.message}`);
-        // this module isn't enabled — try the next one
+        console.log(`[ServiceTitan] ${source} failed: ${err?.message}`);
       }
     }
 
-    if (allTechs.length === 0) {
+    if (techIdMap.size === 0) {
       throw new Error(
-        "None of the ServiceTitan technician list APIs are accessible with these credentials. " +
-        "To use Fetch Rate, go to developer.servicetitan.io → your API app → add the " +
-        "\"Payroll\" or \"HRM\" (Human Resources) module, then save. " +
-        "The app currently only has the Pricebook module enabled."
+        "Could not find any technician IDs in your ServiceTitan payroll records. " +
+        "Ensure technicians have payroll records (technician-payrolls or payroll-jobs) in ServiceTitan."
       );
     }
 
-    console.log(`[ServiceTitan] Got ${allTechs.length} tech(s) from ${usedEndpoint}`);
-
-    // Filter to technician-type records when the endpoint returns mixed employee types
-    const techs = allTechs.filter((e) => {
-      const type = String(e.type ?? e.employeeType ?? e.role ?? "").toLowerCase();
-      return type === "" || type.includes("tech");
-    });
-
-    // Step 2: fetch payroll-settings for each technician in parallel (batches of 5)
+    // Step 2: fetch payroll-settings for each technician (scope: Payroll Settings)
     const results: Array<{ rate: number; name: string }> = [];
     const BATCH = 5;
-    const techsToQuery = techs.length > 0 ? techs : allTechs;
+    const techEntries = [...techIdMap.entries()];
 
-    for (let i = 0; i < techsToQuery.length; i += BATCH) {
-      const batch = techsToQuery.slice(i, i + BATCH);
+    for (let i = 0; i < techEntries.length; i += BATCH) {
+      const batch = techEntries.slice(i, i + BATCH);
       const settled = await Promise.allSettled(
-        batch.map(async (tech) => {
+        batch.map(async ([techId, techName]) => {
           const settings = await this.request<any>(
-            `/payroll/v2/tenant/${this.tenant.tenantId}/technicians/${tech.id}/payroll-settings`
+            `/payroll/v2/tenant/${this.tenant.tenantId}/technicians/${techId}/payroll-settings`
           );
           return {
             rate: Number(settings.hourlyRate ?? 0),
-            name: tech.name ?? tech.displayName ?? tech.fullName ?? "Unknown",
+            name: techName,
           };
         })
       );
@@ -612,11 +595,9 @@ export class ServiceTitanAPI {
     }
 
     if (results.length === 0) {
-      const firstTechId = techsToQuery[0]?.id;
       throw new Error(
-        `Found ${techsToQuery.length} technician(s) but could not retrieve payroll-settings for any of them. ` +
-        `(First tech id tried: ${firstTechId}) ` +
-        "Check that the API app has Payroll read permissions."
+        `Found ${techIdMap.size} technician ID(s) but could not retrieve payroll-settings for any. ` +
+        "Check that the Payroll Settings scope is enabled."
       );
     }
 
@@ -627,7 +608,7 @@ export class ServiceTitanAPI {
 
     if (highest.rate <= 0) {
       throw new Error(
-        `Found ${techsToQuery.length} technician(s) but all hourlyRate values are $0. ` +
+        `Found ${techIdMap.size} technician(s) but all hourlyRate values are $0. ` +
         "Ensure technician pay rates are entered in ServiceTitan Payroll settings."
       );
     }
@@ -635,7 +616,7 @@ export class ServiceTitanAPI {
     return {
       rate: highest.rate,
       technicianName: highest.name,
-      technicianCount: techsToQuery.length,
+      technicianCount: techIdMap.size,
     };
   }
 
