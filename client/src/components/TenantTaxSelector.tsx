@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTenants } from "@/hooks/use-tenants";
 import { useSettings } from "@/hooks/use-settings";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiRequest } from "@/lib/queryClient";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Building2 } from "lucide-react";
@@ -57,7 +58,11 @@ export function TenantTaxSelector({
   const { user } = useAuth();
   const { settings } = useSettings();
   const { data: locations = [] } = useQuery<Location[]>({ queryKey: ["/api/locations"] });
+  const queryClient = useQueryClient();
   const autoAppliedRef = useRef(false);
+  // Track which tenant we've already fetched the rate for — prevents re-fetching on
+  // every settings invalidation and avoids an infinite update loop.
+  const rateFetchedForTenantRef = useRef<number | null>(null);
 
   const applyTenantTax = (tenant: Tenant | undefined) => {
     if (!tenant) return;
@@ -87,6 +92,33 @@ export function TenantTaxSelector({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenants, locations, user?.email, selectedTenantId, settings]);
+
+  // Auto-fetch highest tech rate from ServiceTitan whenever the tenant changes.
+  // Silently persists the result so all calculator pages always reflect the
+  // latest rate without requiring the user to visit Settings.
+  useEffect(() => {
+    if (!selectedTenantId || !settings) return;
+    // Only fetch once per tenant selection — don't re-run on settings invalidation
+    if (rateFetchedForTenantRef.current === selectedTenantId) return;
+    rateFetchedForTenantRef.current = selectedTenantId;
+
+    const { id: _id, ...settingsForUpdate } = settings as any;
+    apiRequest("GET", `/api/servicetitan/${selectedTenantId}/highest-tech-rate`)
+      .then((res) => res.json())
+      .then((data: { rate: number }) => {
+        if (typeof data.rate === "number" && data.rate > 0) {
+          return apiRequest("PUT", "/api/settings", {
+            ...settingsForUpdate,
+            highestTechRate: String(data.rate),
+          });
+        }
+      })
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      })
+      .catch(() => {}); // Silent fail — never blocks the calculator UI
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTenantId, settings]);
 
   if (tenants.length === 0) return null;
 
