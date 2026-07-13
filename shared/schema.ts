@@ -77,6 +77,14 @@ export const settings = pgTable("settings", {
   
   // Admin Section PIN (kept for legacy, no longer used for auth)
   adminPin: text("admin_pin").notNull().default("7437"),
+
+  // Labor Rate Standards (cost-buildup formula inputs)
+  annualPaidHours: numeric("annual_paid_hours").notNull().default("2080"),
+  billableUtilizationPercent: numeric("billable_utilization_percent").notNull().default("65.00"),
+  annualTruckFieldCost: numeric("annual_truck_field_cost").notNull().default("0.00"),
+  targetOverheadPercent: numeric("target_overhead_percent").notNull().default("35.00"),
+  targetOperatingProfitPercent: numeric("target_operating_profit_percent").notNull().default("10.00"),
+  laborRateRoundingIncrement: numeric("labor_rate_rounding_increment").notNull().default("5"),
 });
 
 // Push History for ServiceTitan

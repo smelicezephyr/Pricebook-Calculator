@@ -13,6 +13,29 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, Target, Loader2 } from "lucide-react";
 import { toPng } from "html-to-image";
 import { useToast } from "@/hooks/use-toast";
+import type { Settings } from "@shared/schema";
+
+function computeRecommendedLaborRate(s: Settings): number {
+  const highestTechRate = parseFloat(s.highestTechRate || "0") || 0;
+  if (highestTechRate <= 0) return 0;
+  const annualPaidHours = parseFloat(s.annualPaidHours || "2080") || 2080;
+  const billableUtil = (parseFloat(s.billableUtilizationPercent || "65") || 65) / 100;
+  const annualTruckCost = parseFloat(s.annualTruckFieldCost || "0") || 0;
+  const overheadPct = (parseFloat(s.targetOverheadPercent || "35") || 35) / 100;
+  const opProfitPct = (parseFloat(s.targetOperatingProfitPercent || "10") || 10) / 100;
+  const roundingIncrement = parseFloat(s.laborRateRoundingIncrement || "5") || 5;
+  const burdenPct = (parseFloat(s.laborBurdenPercent || "20") || 20) / 100;
+
+  const annualBillableHours = annualPaidHours * billableUtil;
+  const burdenedHourlyWage = highestTechRate * (1 + burdenPct);
+  const laborCostPerBillableHour = billableUtil > 0 ? burdenedHourlyWage / billableUtil : 0;
+  const truckCostPerBillableHour = annualBillableHours > 0 ? annualTruckCost / annualBillableHours : 0;
+  const directCostPerBillableHour = laborCostPerBillableHour + truckCostPerBillableHour;
+  const recoveryMargin = 1 - overheadPct - opProfitPct;
+  if (recoveryMargin <= 0) return 0;
+  const rawLaborRate = directCostPerBillableHour / recoveryMargin;
+  return roundingIncrement > 0 ? Math.ceil(rawLaborRate / roundingIncrement) * roundingIncrement : rawLaborRate;
+}
 
 export default function RepairGMCalculator() {
   const { settings, isLoading: settingsLoading } = useSettings();
@@ -43,7 +66,7 @@ export default function RepairGMCalculator() {
       const defaultHighestTechRate = parseFloat(settings.highestTechRate || "0") || 0;
       if (defaultHighestTechRate > 0) {
         setHighestTechRate(defaultHighestTechRate.toFixed(2));
-        setLaborRate((defaultHighestTechRate * 3.5).toFixed(2));
+        setLaborRate(computeRecommendedLaborRate(settings).toFixed(2));
       } else {
         setLaborRate(settings.laborHourlyRate || "175.00");
       }
@@ -64,7 +87,7 @@ export default function RepairGMCalculator() {
     const defaultHighestTechRate = parseFloat(settings?.highestTechRate || "0") || 0;
     if (defaultHighestTechRate > 0) {
       setHighestTechRate(defaultHighestTechRate.toFixed(2));
-      setLaborRate((defaultHighestTechRate * 3.5).toFixed(2));
+      setLaborRate(settings ? computeRecommendedLaborRate(settings).toFixed(2) : "175.00");
     } else {
       setHighestTechRate("");
       setLaborRate(settings?.laborHourlyRate || "175.00");
