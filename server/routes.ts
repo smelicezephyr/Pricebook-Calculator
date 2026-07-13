@@ -11,6 +11,7 @@ import { pushQueue, withRetry, MAX_CONCURRENT_PUSHES } from "./pushQueue";
 import { processPush, processRepairPush, pendingPushExtras } from "./pushProcessor";
 import type { PushHistory } from "@shared/schema";
 import { sendPushCompleteNotification } from "./email";
+import { getCachedTechRate, setCachedTechRate } from "./techRateCache";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -748,7 +749,42 @@ export async function registerRoutes(
     }
   });
 
-  // Fetch the highest technician pay rate from ServiceTitan's Payroll API
+  // Background prefetch: warm the tech-rate cache for every tenant the user can access.
+  // Returns 202 immediately — no data is sent back to the client.
+  // This endpoint is intentionally opaque: callers only learn that the prefetch was accepted.
+  app.post("/api/servicetitan/prefetch-all-tech-rates", requireUserOrAdmin, async (req, res) => {
+    res.status(202).end();
+    // Resolve the tenant list for this user
+    const user = req.user!;
+    let tenantIds: number[];
+    try {
+      if (user.role === "admin") {
+        const all = await storage.getTenants();
+        tenantIds = all.filter((t) => t.isActive).map((t) => t.id);
+      } else {
+        tenantIds = await storage.getUserTenantIds(user.id);
+      }
+    } catch {
+      return;
+    }
+    // Fire background fetch for each tenant — no await, no error surface to client
+    for (const id of tenantIds) {
+      const cached = getCachedTechRate(id);
+      if (cached) continue; // already warm
+      storage.getTenant(id).then((tenant) => {
+        if (!tenant) return;
+        const api = new ServiceTitanAPI(tenant);
+        api.getHighestTechnicianRate()
+          .then(({ rate, technicianName, technicianCount }) => {
+            setCachedTechRate(id, rate, technicianName, technicianCount);
+          })
+          .catch(() => {});
+      }).catch(() => {});
+    }
+  });
+
+  // Fetch the highest technician pay rate from ServiceTitan's Payroll API.
+  // Serves from the in-memory cache when available (populated by prefetch or a prior call).
   app.get("/api/servicetitan/:tenantId/highest-tech-rate", requireUserOrAdmin, async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     if (isNaN(tenantId)) {
@@ -761,9 +797,15 @@ export async function registerRoutes(
     if (!(await canAccessTenant(req, tenantId))) {
       return res.status(403).json({ message: "You don't have access to this tenant" });
     }
+    // Serve from cache if available
+    const cached = getCachedTechRate(tenantId);
+    if (cached) {
+      return res.json({ rate: cached.rate, technicianName: cached.technicianName, technicianCount: cached.technicianCount });
+    }
     try {
       const api = new ServiceTitanAPI(tenant);
       const result = await api.getHighestTechnicianRate();
+      setCachedTechRate(tenantId, result.rate, result.technicianName, result.technicianCount);
       res.json(result);
     } catch (err: any) {
       res.status(500).json({ message: err.message });

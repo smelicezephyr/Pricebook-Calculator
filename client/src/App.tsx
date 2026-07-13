@@ -8,6 +8,7 @@ import { CalculatorProvider } from "@/contexts/CalculatorContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { VersionCheck } from "@/components/VersionCheck";
 import { InactivityTimeout } from "@/components/InactivityTimeout";
+import { usePrefetchTechRates } from "@/hooks/use-prefetch-tech-rates";
 import { Loader2 } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import Calculator from "@/pages/Calculator";
@@ -88,6 +89,7 @@ function AppRouter() {
 function Router() {
   const { user, isLoading } = useAuth();
   const [location] = useLocation();
+  usePrefetchTechRates(user?.id);
 
   if (isLoading) {
     return (
