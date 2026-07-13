@@ -14,7 +14,7 @@ This guide documents every feature in PricebookCalc, explaining how each one wor
 6. [Rebates (OEM & Utility)](#6-rebates-oem--utility)
 7. [ResultsCard Component](#7-resultscard-component)
 8. [Calculator Context (Cross-Calculator State Sharing)](#8-calculator-context)
-9. [Settings & Per-Device Cache](#9-settings--per-device-cache)
+9. [Settings & Zephyr Standards](#9-settings--zephyr-standards)
 10. [Quote Saving & History](#10-quote-saving--history)
 11. [ServiceTitan Integration](#11-servicetitan-integration)
 12. [Push to ServiceTitan (Update Pricebook)](#12-push-to-servicetitan-update-pricebook)
@@ -26,6 +26,7 @@ This guide documents every feature in PricebookCalc, explaining how each one wor
 18. [Authentication & Access Control](#18-authentication--access-control)
 19. [Version Check Banner](#19-version-check-banner)
 20. [Navigation & Routing](#20-navigation--routing)
+21. [TenantTaxSelector & Auto-Fetch Tech Rate](#21-tenanttaxselector--auto-fetch-tech-rate)
 
 ---
 
@@ -106,24 +107,59 @@ shared/
 
 ### Tables
 
-#### `settings` (Singleton)
-Stores all global calculator configuration. One row (id=1), auto-created with defaults.
+#### `users`
+Google OAuth user profiles. Created automatically on first login.
 
 | Column | Type | Default | Purpose |
 |--------|------|---------|---------|
 | `id` | serial | auto | Primary key |
+| `googleId` | text | required | Google OAuth subject identifier (unique) |
+| `email` | text | required | User's email address |
+| `name` | text | required | Display name from Google profile |
+| `avatarUrl` | text | null | Profile picture URL from Google |
+| `role` | text (enum) | "everyone" | `everyone` / `user` / `manager` / `admin` — access level |
+| `pushPermission` | text (enum) | "both" | `both` / `reprice_only` / `add_new_only` — which push tabs are accessible |
+| `emailNotifications` | boolean | false | Whether to email user when their push completes |
+| `createdAt` | timestamp | now() | First login timestamp |
+
+#### `user_tenant_access`
+Many-to-many junction — which tenants a non-admin user can see. Admins bypass this table and see all tenants.
+
+| Column | Type | Purpose |
+|--------|------|---------|
+| `id` | serial | Primary key |
+| `userId` | integer | FK → `users.id` (CASCADE DELETE) |
+| `tenantId` | integer | FK → `tenants.id` (CASCADE DELETE) |
+
+Unique index on `(userId, tenantId)` prevents duplicates.
+
+#### `settings` (Per-User)
+Calculator defaults for each user. One row per user, auto-created with defaults on first settings fetch.
+
+| Column | Type | Default | Purpose |
+|--------|------|---------|---------|
+| `id` | serial | auto | Primary key |
+| `userId` | integer | null | FK → `users.id` (CASCADE DELETE) — null for legacy rows |
 | `targetMePercent` | numeric | "23.00" | Default M&E target percentage |
 | `salesTaxPercent` | numeric | "6.35" | Default sales tax rate |
-| `laborMode` | text (enum: "hours"/"percent") | "percent" | Which labor input mode to use |
-| `laborHourlyRate` | numeric | "0.00" | Hourly rate when labor mode is "hours" |
-| `laborPercent` | numeric | "7.00" | Labor % when mode is "percent" |
-| `laborBurdenPercent` | numeric | "20.00" | Employer burden applied to labor and commission |
+| `defaultTenantId` | integer | null | Which tenant to pre-select on load |
+| `laborMode` | text (enum: "hours"/"percent") | "percent" | Labor input mode |
+| `laborHourlyRate` | numeric | "0.00" | Recommended billing rate (computed from `highestTechRate` via the Zephyr formula) |
+| `laborPercent` | numeric | "7.00" | Labor % of price when mode is "percent" |
+| `laborBurdenPercent` | numeric | "20.00" | Employer burden on labor and commission |
+| `highestTechRate` | numeric | "0.00" | Highest active technician pay rate fetched from ServiceTitan |
 | `commissionPercent` | numeric | "10.00" | Commission as % of selling price |
 | `commissionBurdenPercent` | numeric | "20.00" | Burden applied to commission |
 | `financingFeePercent` | numeric | "6.00" | Financing fee as % of price |
 | `grossMarginMinPercent` | numeric | "52.00" | Minimum GM% threshold for health indicators |
-| `serviceTitanPassword` | text | "ZephyrHome160" | Password for ServiceTitan section access |
-| `adminPin` | text | "7437" | PIN for Admin section access |
+| `serviceTitanPassword` | text | legacy | No longer used for auth — kept for backward compatibility |
+| `adminPin` | text | legacy | No longer used for auth — kept for backward compatibility |
+| `annualPaidHours` | numeric | "2080" | Locked Zephyr constant (ZEPHYR_FORM_DEFAULTS always overrides to 2080) |
+| `billableUtilizationPercent` | numeric | "65.00" | Locked Zephyr constant (always overrides to 65%) |
+| `annualTruckFieldCost` | numeric | "0.00" | Locked Zephyr constant (always overrides to 20000) |
+| `targetOverheadPercent` | numeric | "35.00" | Locked Zephyr constant (always overrides to 35%) |
+| `targetOperatingProfitPercent` | numeric | "14.00" | Locked Zephyr constant (always overrides to 14%) |
+| `laborRateRoundingIncrement` | numeric | "5" | Locked Zephyr constant (always overrides to 5) |
 
 #### `quotes`
 Saved calculation snapshots from the System, Repair, and Repair GM calculators.
@@ -176,8 +212,8 @@ Reference library mapping location names to sales tax percentages.
 | `salesTaxPercent` | numeric | "0.00" | Sales tax rate for this location |
 | `createdAt` | timestamp | now() | Creation timestamp |
 
-#### `pushHistory`
-Audit log for ServiceTitan pricebook push operations. Stores a snapshot of all settings used.
+#### `push_history`
+Audit log for ServiceTitan pricebook push operations. Stores a full snapshot of all settings used.
 
 | Column | Type | Default | Purpose |
 |--------|------|---------|---------|
@@ -196,15 +232,30 @@ Audit log for ServiceTitan pricebook push operations. Stores a snapshot of all s
 | `commissionBurdenPercent` | numeric | required | Commission burden % used |
 | `financingFeePercent` | numeric | required | Financing fee % used |
 | `roundUp` | boolean | false | Whether prices were rounded up |
+| `skipZeroEquipment` | boolean | false | Whether services with $0 equipment were skipped or zeroed |
+| `pushType` | text | "update" | `update` / `new_system` / `new_repair` — which push tab was used |
+| `pushedByUserId` | integer | null | FK → `users.id` — who initiated |
+| `pushedByName` | text | null | Display name of initiating user (denormalized for audit trail) |
 | `processedCount` | integer | 0 | How many services were examined |
 | `updatedCount` | integer | 0 | How many services were actually updated |
-| `skippedCount` | integer | 0 | How many were skipped (no M&E) |
+| `skippedCount` | integer | 0 | How many were skipped (no M&E, or zero-equipment skip) |
 | `errorCount` | integer | 0 | How many failed |
 | `errorMessages` | text (JSON) | null | JSON array of error message strings |
-| `originalValues` | text (JSON) | null | JSON array of `{serviceId, originalPrice, originalCost}` for revert |
+| `originalValues` | text (JSON) | null | JSON array of `{serviceId, originalPrice}` for revert |
 | `createdAt` | timestamp | now() | When push was initiated |
 | `startedAt` | timestamp | null | When processing began |
 | `completedAt` | timestamp | null | When processing finished |
+
+#### `login_events`
+Audit log of every Google OAuth login. Retained indefinitely.
+
+| Column | Type | Purpose |
+|--------|------|---------|
+| `id` | serial | Primary key |
+| `userId` | integer | FK → `users.id` (nullable for failed/unknown logins) |
+| `userEmail` | text | Email at login time |
+| `userName` | text | Display name at login time |
+| `createdAt` | timestamp | Login timestamp |
 
 ---
 
@@ -608,24 +659,60 @@ interface RepairCalculatorState {
 
 ---
 
-## 9. Settings & Per-Device Cache
+## 9. Settings & Zephyr Standards
 
-**Files**: `client/src/pages/Settings.tsx`, `client/src/hooks/use-settings.ts`, `server/routes.ts`, `server/storage.ts`
+**Files**: `client/src/pages/Settings.tsx`, `client/src/hooks/use-settings.ts`, `server/routes.ts`, `server/storage.ts`, `shared/schema.ts`
 
 ### Settings Page (`/settings`)
-Provides a form to configure all calculator defaults: Target M&E %, Sales Tax, Labor mode/rate, Commission, Financing, Burden rates, and Minimum GM%.
+Configures all calculator defaults for the signed-in user: Target M&E %, Sales Tax, Labor mode/rate, Commission, Financing, Burden rates, and Minimum GM%. Settings are **per-user** (one row per `userId` in the `settings` table), auto-created on first fetch.
 
-### Per-Device Cache
-**How it works:**
-1. When user saves settings, values are written to both the database AND `localStorage` (key: `pricebookcalc_settings`)
-2. On page load, the `use-settings` hook checks `localStorage` first
-3. If local settings exist, they override database values
-4. If no local settings exist, database settings are used as defaults
-5. This means each device/browser can have its own independent settings
+### Zephyr Standard Constants (`ZEPHYR_STANDARDS`)
+
+Defined in `shared/schema.ts`, these are company-wide constants that are **never editable by any user or role**. They appear in the Settings UI as locked fields with a padlock icon.
+
+| Constant | Value | Used For |
+|----------|-------|----------|
+| `ANNUAL_PAID_HOURS` | 2080 | Hours per year a tech is employed |
+| `BILLABLE_UTILIZATION_PCT` | 65% | % of paid hours that are billable |
+| `ANNUAL_TRUCK_FIELD_COST` | $20,000 | Annual vehicle/field overhead per tech |
+| `ROUNDING_INCREMENT` | $5 | Rounding step for the recommended labor rate |
+| `TARGET_OVERHEAD_PCT` | 35% | Company overhead as % of revenue |
+| `TARGET_OPERATING_PROFIT_PCT` | 14% | Target operating profit after direct costs |
+
+**Enforcement**: `ZEPHYR_FORM_DEFAULTS` in `Settings.tsx` always spreads these values over the form state before every save (both the manual "Save Settings" button and the silent auto-save triggered by the tech rate fetch). This means even if a stale database row holds a different value, the next save resets it to the constant.
+
+### Labor Rate Calculator
+
+The Settings page includes a live "Recommended Labor Rate" panel that computes the minimum billing rate needed to cover costs and hit the operating profit target.
+
+```
+annualBillableHours  = ANNUAL_PAID_HOURS × (BILLABLE_UTILIZATION_PCT / 100)
+                     = 2080 × 0.65 = 1352 hrs/year
+
+directLaborCost      = highestTechRate × annualBillableHours
+burdenedLaborCost    = directLaborCost × (1 + laborBurdenPercent / 100)
+truckCost            = ANNUAL_TRUCK_FIELD_COST ($20,000)
+
+directCostPerHour    = (burdenedLaborCost + truckCost) / annualBillableHours
+
+Overhead markup:     directCostPerHour / (1 - TARGET_OVERHEAD_PCT / 100)
+                   = directCostPerHour / 0.65
+
+Operating profit:    overheadAdjusted / (1 - TARGET_OPERATING_PROFIT_PCT / 100)
+                   = overheadAdjusted / 0.86
+
+recommendedRate      = round up to next $ROUNDING_INCREMENT
+```
+
+The `laborHourlyRate` field in settings stores this computed recommended rate (the billing rate to charge customers). `highestTechRate` stores the raw tech pay rate used as input.
+
+### Auto-Fetch Technician Rate
+
+On the Settings page, when the user taps "Refresh Rate," the app calls `GET /api/servicetitan/:tenantId/highest-tech-rate`, saves both `highestTechRate` (raw) and `laborHourlyRate` (computed recommended rate) silently to the database, then refreshes the display. The same auto-fetch happens on all calculator pages via `TenantTaxSelector` whenever the selected tenant changes (see Section 21).
 
 ### API Endpoints
-- `GET /api/settings` — Fetch current settings
-- `PUT /api/settings` — Update settings
+- `GET /api/settings` — Fetch current user's settings (auto-creates row with defaults if missing)
+- `PUT /api/settings` — Update settings (Zephyr constants enforced server-side and by form defaults)
 
 ---
 
@@ -944,55 +1031,68 @@ A Switch component labeled "Production Pay" toggles between two modes:
 
 ## 18. Authentication & Access Control
 
-### ServiceTitan Section (Password)
+### Google OAuth (Passport.js)
 
-**Files**: `client/src/contexts/ServiceTitanAuthContext.tsx`, `client/src/components/PasswordGate.tsx`, `server/routes.ts`
+**Files**: `server/routes.ts` (Passport strategy setup), `client/src/hooks/use-auth.ts`
 
-**Protected pages**: Push to ServiceTitan, Push History, Tenants, Locations
+All authentication is Google OAuth only — there are no passwords or PINs for page access.
 
-**How it works:**
-1. Pages are wrapped in `<PasswordGate>` component in `App.tsx`
-2. `PasswordGate` checks `useServiceTitanAuth()` context
-3. If not unlocked, shows a password prompt card
-4. Password is verified server-side against `settings.serviceTitanPassword`
-5. On success, the client's IP is stored in a server-side `Map` with 8-hour expiration
-6. Subsequent requests from the same IP are auto-authenticated
+**Flow:**
+1. User visits `/auth/google` → redirected to Google consent screen
+2. Google redirects back to `/auth/google/callback`
+3. Passport `GoogleStrategy` upserts a `users` row (creates on first login, updates name/avatar on subsequent logins)
+4. A `login_events` row is inserted for audit trail
+5. If the user's role is `everyone`, they are shown a "pending approval" screen and cannot access any data
+6. Session is persisted server-side (express-session + PostgreSQL session store)
 
-**Server-side IP tracking:**
-```typescript
-const unlockedIPs = new Map<string, number>(); // IP -> expiration timestamp
-const AUTH_DURATION = 8 * 60 * 60 * 1000; // 8 hours
-```
+**Environment variables required:** `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
 
-**API Endpoints:**
-- `GET /api/admin/check-auth` — Check if current IP is authenticated
-- `POST /api/admin/verify-password` — Verify password and unlock IP
-- `POST /api/admin/change-password` — Change the ServiceTitan password
+### Role-Based Access Control (RBAC)
 
-### Admin Section (PIN)
+| Role | Description | Calculators | Push | Admin Pages |
+|------|-------------|------------|------|-------------|
+| `everyone` | Newly signed-up, not yet approved | None (holding screen) | No | No |
+| `user` | Standard user | Yes (with Reveal Price gate) | Yes (per `pushPermission`) | No |
+| `manager` | Reporting/read-only (not currently used in UI) | Yes | No | No |
+| `admin` | Full access | Yes | Yes | Yes |
 
-**Files**: `client/src/contexts/AdminAuthContext.tsx`, `client/src/components/Navigation.tsx`
+**Tenant scoping:** `user` and `manager` roles only see tenants granted to them via `user_tenant_access`. Admins see all tenants.
 
-**Protected features**: Change Password, Change PIN, Clear History, Lock Push Section
+### Push Permission Flag
 
-**How it works:**
-1. Admin section is in the sidebar navigation
-2. Expanding it shows a PIN input form
-3. PIN is verified server-side against `settings.adminPin`
-4. Same IP-based authentication with 8-hour expiration
-5. Once unlocked, admin actions are available inline in the sidebar
+The `pushPermission` column on `users` controls which push tabs a non-admin user can access:
 
-**Admin capabilities:**
-- Change ServiceTitan password
-- Change Admin PIN
-- Clear all saved quote history
-- Lock/unlock the ServiceTitan push section
+| Value | Accessible Tabs |
+|-------|----------------|
+| `both` | Update Pricebook, New System Task, New Repair Task |
+| `reprice_only` | Update Pricebook only |
+| `add_new_only` | New System Task and New Repair Task only |
 
-**API Endpoints:**
-- `GET /api/admin/check-admin-auth` — Check admin auth status
-- `POST /api/admin/verify-pin` — Verify PIN
-- `POST /api/admin/change-pin` — Change admin PIN
-- `DELETE /api/admin/clear-history` — Delete all quotes
+### Reveal Price Gate
+
+**File**: `client/src/components/RevealPriceGate.tsx`
+
+For `user` and `everyone` roles, the calculated price on System GM, System M&E, Repair, and Repair GM calculators is hidden behind a "Reveal Price" button. Clicking it opens a dialog requiring:
+- **Job Number** (required) — saved as the quote title
+- **Customer Name** (optional)
+
+Confirming saves a quote automatically (no PNG generated) then reveals the result. The result re-locks if the calculated price changes after reveal. The Reverse Calculator is excluded — the user enters the price directly there.
+
+### Admin Dashboard & User Management
+
+**Routes**: `/admin/dashboard`, `/admin/users` — `admin` role only
+
+- **Dashboard**: Aggregates push history stats by type and status; shows recent login events.
+- **User Management**: Admins can change user roles, toggle push permissions, grant/revoke tenant access, and toggle email notification preferences.
+
+### API Endpoints
+- `GET /auth/google` — Initiate OAuth flow
+- `GET /auth/google/callback` — OAuth callback
+- `GET /api/auth/me` — Return current session user (null if not logged in)
+- `POST /api/auth/logout` — Destroy session
+- `GET /api/admin/users` — List all users (admin only)
+- `PUT /api/admin/users/:id` — Update user role/permissions (admin only)
+- `PUT /api/admin/users/:id/tenants` — Set tenant access for a user (admin only)
 
 ---
 
@@ -1024,37 +1124,80 @@ Notifies users when a new version of the app has been published.
 
 ### Route Map
 
-| Path | Page | Protection |
-|------|------|-----------|
-| `/` | System Calculator | None |
-| `/repair` | Repair Calculator | None |
-| `/reverse` | Reverse Calculator | None |
-| `/push` | Push to ServiceTitan | Password |
-| `/push-history` | Push History | Password |
-| `/tenants` | Manage Tenants | Password |
-| `/locations` | Manage Locations | Password |
-| `/history` | Saved Quotes | None |
-| `/settings` | Calculator Settings | None |
+| Path | Page | Role Required |
+|------|------|--------------|
+| `/` | System GM Calculator | `user`, `admin` |
+| `/system-me` | System M&E Calculator | `user`, `admin` |
+| `/repair` | Repair Calculator | `user`, `admin` |
+| `/reverse` | Reverse Calculator | `user`, `admin` |
+| `/push` | Push to ServiceTitan | `user` (with push permission), `admin` |
+| `/push-history` | Push History & Revert | `user` (with push permission), `admin` |
+| `/tenants` | Manage Tenants | `admin` |
+| `/locations` | Manage Locations | `admin` |
+| `/history` | Saved Quotes | `user`, `admin` |
+| `/settings` | Calculator Settings | `user`, `admin` |
+| `/admin/dashboard` | Analytics Dashboard | `admin` |
+| `/admin/users` | User Management | `admin` |
+
+Users with role `everyone` see a "pending approval" holding screen regardless of route.
 
 ### Navigation Component
-- **Desktop**: Fixed sidebar on the left (264px wide)
+- **Desktop**: Fixed sidebar on the left
 - **Mobile**: Hamburger menu that slides in from the left
-- **ServiceTitan section**: Collapsible group with lock icon when locked
-- **Admin section**: Collapsible group at bottom with PIN-gated access
+- **ServiceTitan section**: Collapsible group; only shown to users with push permission or admin
+- **Admin section**: Shown only to `admin` role — links to Dashboard, User Management, Tenant Management, Location Management
 
 ### Provider Hierarchy (App.tsx)
 ```
 QueryClientProvider
   └── TooltipProvider
-      └── ServiceTitanAuthProvider
-          └── AdminAuthProvider
-              └── CalculatorProvider
-                  ├── VersionCheck
-                  ├── Toaster
-                  └── Router
-                      ├── Navigation (sidebar)
-                      └── <main> (page content)
+      └── AuthProvider (useAuth / useUser)
+          └── CalculatorProvider
+              ├── VersionCheck
+              ├── Toaster
+              └── Router
+                  ├── Navigation (sidebar)
+                  └── <main> (page content)
 ```
+
+---
+
+## 21. TenantTaxSelector & Auto-Fetch Tech Rate
+
+**File**: `client/src/components/TenantTaxSelector.tsx`
+
+`TenantTaxSelector` is a shared component rendered at the top of every calculator page. It combines tenant selection, sales tax auto-fill, and technician rate auto-fetch into a single place.
+
+### Responsibilities
+
+1. **Tenant dropdown** — shows tenants available to the current user (role-scoped via `GET /api/tenants`). Persists the last selection to `localStorage` key `pbc_last_active_tenant_id` so it survives page navigations and refreshes.
+
+2. **Sales tax auto-fill** — when a tenant is selected, its assigned location's `salesTaxPercent` (via `GET /api/locations`) is applied to the calculator's sales tax input. Resets to the user's saved settings default when "No Tenant" is chosen.
+
+3. **Auto-fetch tech rate** — when the selected tenant changes, `TenantTaxSelector` calls `GET /api/servicetitan/:tenantId/highest-tech-rate` to fetch the pay rate of the highest-paid active technician from ServiceTitan. It then:
+   - Computes the recommended billing labor rate using `computeRecommendedLaborRate()` (mirrors the Settings.tsx formula exactly, using `ZEPHYR_STANDARDS` constants — not the DB values, which are always in sync with the constants anyway)
+   - Silently saves both `highestTechRate` and `laborHourlyRate` to the user's settings via `PUT /api/settings`
+   - Does **not** show a toast or loading indicator — the fetch is invisible to the user
+
+### `computeRecommendedLaborRate` Formula
+
+Uses `ZEPHYR_STANDARDS` constants directly (not settings DB values, which are always locked to the same values):
+
+```
+annualBillableHours = ANNUAL_PAID_HOURS × (BILLABLE_UTILIZATION_PCT / 100)
+directCostPerHr     = (techRate × annualBillableHours × (1 + burden) + ANNUAL_TRUCK_FIELD_COST)
+                       / annualBillableHours
+withOverhead        = directCostPerHr / (1 − TARGET_OVERHEAD_PCT / 100)
+withProfit          = withOverhead / (1 − TARGET_OPERATING_PROFIT_PCT / 100)
+recommendedRate     = ceil(withProfit / ROUNDING_INCREMENT) × ROUNDING_INCREMENT
+```
+
+### Active-Only Filter
+
+The ServiceTitan technician endpoint returns all technicians. The server-side `getHighestTechnicianRate()` method in `server/servicetitan.ts` skips any record where `active === false`, ensuring only currently employed techs influence the rate.
+
+### API Endpoint
+- `GET /api/servicetitan/:tenantId/highest-tech-rate` — Returns `{ rate, technicianName, technicianCount }`
 
 ---
 
