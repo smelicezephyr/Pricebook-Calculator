@@ -522,33 +522,75 @@ export class ServiceTitanAPI {
     technicianName: string;
     technicianCount: number;
   }> {
-    // Step 1: page through all technicians via the dispatch API
-    const allTechs: any[] = [];
-    let page = 1;
-    let hasMore = true;
+    // Step 1: get technician list — try multiple ST API modules in priority order
+    // since different app configurations expose different modules.
+    const listEndpoints = [
+      // Payroll module — technicians list (same module as payroll-settings)
+      `/payroll/v2/tenant/${this.tenant.tenantId}/technicians`,
+      // HRM module
+      `/hrm/v2/tenant/${this.tenant.tenantId}/employees`,
+      // Dispatch module
+      `/dispatch/v2/tenant/${this.tenant.tenantId}/technicians`,
+      // Settings module
+      `/settings/v2/tenant/${this.tenant.tenantId}/employees`,
+      // Job & project management module
+      `/jpm/v2/tenant/${this.tenant.tenantId}/technicians`,
+    ];
 
-    while (hasMore) {
-      const response = await this.request<{ data: any[]; hasMore: boolean }>(
-        `/dispatch/v2/tenant/${this.tenant.tenantId}/technicians?pageSize=200&page=${page}&active=true`
-      );
-      allTechs.push(...(response.data ?? []));
-      hasMore = response.hasMore ?? false;
-      page++;
-      if (page > 20) break;
+    const allTechs: any[] = [];
+    let usedEndpoint = "";
+
+    for (const endpoint of listEndpoints) {
+      try {
+        console.log(`[ServiceTitan] Trying technician list endpoint: ${endpoint}`);
+        let page = 1;
+        let hasMore = true;
+        const fetched: any[] = [];
+        while (hasMore) {
+          const response = await this.request<{ data: any[]; hasMore: boolean }>(
+            `${endpoint}?pageSize=200&page=${page}`
+          );
+          fetched.push(...(response.data ?? []));
+          hasMore = response.hasMore ?? false;
+          page++;
+          if (page > 20) break;
+        }
+        if (fetched.length > 0) {
+          allTechs.push(...fetched);
+          usedEndpoint = endpoint;
+          console.log(`[ServiceTitan] Tech list success: ${fetched.length} records from ${endpoint}`);
+          break;
+        }
+      } catch (err: any) {
+        console.log(`[ServiceTitan] Tech list endpoint failed (${endpoint}): ${err?.message}`);
+        // this module isn't enabled — try the next one
+      }
     }
 
     if (allTechs.length === 0) {
       throw new Error(
-        "No technician records returned from ServiceTitan. " +
-        "Verify the API credentials have Dispatch access."
+        "None of the ServiceTitan technician list APIs are accessible with these credentials. " +
+        "To use Fetch Rate, go to developer.servicetitan.io → your API app → add the " +
+        "\"Payroll\" or \"HRM\" (Human Resources) module, then save. " +
+        "The app currently only has the Pricebook module enabled."
       );
     }
+
+    console.log(`[ServiceTitan] Got ${allTechs.length} tech(s) from ${usedEndpoint}`);
+
+    // Filter to technician-type records when the endpoint returns mixed employee types
+    const techs = allTechs.filter((e) => {
+      const type = String(e.type ?? e.employeeType ?? e.role ?? "").toLowerCase();
+      return type === "" || type.includes("tech");
+    });
 
     // Step 2: fetch payroll-settings for each technician in parallel (batches of 5)
     const results: Array<{ rate: number; name: string }> = [];
     const BATCH = 5;
-    for (let i = 0; i < allTechs.length; i += BATCH) {
-      const batch = allTechs.slice(i, i + BATCH);
+    const techsToQuery = techs.length > 0 ? techs : allTechs;
+
+    for (let i = 0; i < techsToQuery.length; i += BATCH) {
+      const batch = techsToQuery.slice(i, i + BATCH);
       const settled = await Promise.allSettled(
         batch.map(async (tech) => {
           const settings = await this.request<any>(
@@ -570,9 +612,9 @@ export class ServiceTitanAPI {
     }
 
     if (results.length === 0) {
-      const firstTechId = allTechs[0]?.id;
+      const firstTechId = techsToQuery[0]?.id;
       throw new Error(
-        `Found ${allTechs.length} technician(s) but could not retrieve payroll-settings for any of them. ` +
+        `Found ${techsToQuery.length} technician(s) but could not retrieve payroll-settings for any of them. ` +
         `(First tech id tried: ${firstTechId}) ` +
         "Check that the API app has Payroll read permissions."
       );
@@ -585,7 +627,7 @@ export class ServiceTitanAPI {
 
     if (highest.rate <= 0) {
       throw new Error(
-        `Found ${allTechs.length} technician(s) but all hourlyRate values are $0. ` +
+        `Found ${techsToQuery.length} technician(s) but all hourlyRate values are $0. ` +
         "Ensure technician pay rates are entered in ServiceTitan Payroll settings."
       );
     }
@@ -593,7 +635,7 @@ export class ServiceTitanAPI {
     return {
       rate: highest.rate,
       technicianName: highest.name,
-      technicianCount: allTechs.length,
+      technicianCount: techsToQuery.length,
     };
   }
 
