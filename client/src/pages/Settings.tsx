@@ -1,5 +1,6 @@
 import { useSettings } from "@/hooks/use-settings";
 import { useTenants } from "@/hooks/use-tenants";
+import { useAuth } from "@/contexts/AuthContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertSettingsSchema, ZEPHYR_STANDARDS } from "@shared/schema";
@@ -57,6 +58,7 @@ const ZEPHYR_FORM_DEFAULTS = {
 export default function Settings() {
   const { settings, isLoading, updateSettings, isUpdating } = useSettings();
   const { tenants } = useTenants();
+  const { isReporting } = useAuth(); // manager + admin can edit leadership targets
   const [, setLocation] = useLocation();
 
   const form = useForm<SettingsFormValues>({
@@ -437,55 +439,85 @@ export default function Settings() {
                 </div>
               </div>
 
-              {/* Leadership Target editable fields */}
-              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 mb-4">
+              {/* Leadership Target fields — editable for manager/admin, locked for user/everyone */}
+              <div className={`rounded-xl border p-4 mb-4 ${isReporting ? "border-primary/20 bg-primary/5" : "border-border bg-muted/40"}`}>
                 <div className="flex items-center gap-2 mb-3">
-                  <Target size={14} className="text-primary" />
-                  <span className="text-xs font-bold text-primary uppercase tracking-wider">Leadership Targets</span>
-                  <span className="ml-auto text-xs text-muted-foreground">Adjustable profitability goals</span>
+                  {isReporting
+                    ? <Target size={14} className="text-primary" />
+                    : <Lock size={14} className="text-muted-foreground" />}
+                  <span className={`text-xs font-bold uppercase tracking-wider ${isReporting ? "text-primary" : "text-muted-foreground"}`}>
+                    Leadership Targets
+                  </span>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {isReporting ? "Adjustable profitability goals" : "Set by leadership — not editable at your access level"}
+                  </span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="targetOverheadPercent"
-                    render={({ field }) => (
-                      <FormItem>
-                        <div className="flex items-center gap-2">
-                          <FormLabel className="text-sm">Target Overhead</FormLabel>
-                          <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Leadership Target</Badge>
-                        </div>
-                        <FormControl>
-                          <div className="relative">
-                            <Input {...field} type="number" step="0.1" min="0" max="99" className="pr-8 bg-background" data-testid="input-target-overhead" />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+
+                {isReporting ? (
+                  /* Editable inputs for manager / admin */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="targetOverheadPercent"
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="flex items-center gap-2">
+                            <FormLabel className="text-sm">Target Overhead</FormLabel>
+                            <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Leadership Target</Badge>
                           </div>
-                        </FormControl>
-                        <FormDescription>% of revenue allocated to cover company overhead.</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="targetOperatingProfitPercent"
-                    render={({ field }) => (
-                      <FormItem>
-                        <div className="flex items-center gap-2">
-                          <FormLabel className="text-sm">Target Operating Profit</FormLabel>
-                          <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Leadership Target</Badge>
-                        </div>
-                        <FormControl>
-                          <div className="relative">
-                            <Input {...field} type="number" step="0.1" min="0" max="99" className="pr-8 bg-background" data-testid="input-target-op-profit" />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                          <FormControl>
+                            <div className="relative">
+                              <Input {...field} type="number" step="0.1" min="0" max="99" className="pr-8 bg-background" data-testid="input-target-overhead" />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                            </div>
+                          </FormControl>
+                          <FormDescription>% of revenue allocated to cover company overhead.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="targetOperatingProfitPercent"
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="flex items-center gap-2">
+                            <FormLabel className="text-sm">Target Operating Profit</FormLabel>
+                            <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Leadership Target</Badge>
                           </div>
-                        </FormControl>
-                        <FormDescription>Target operating profit retained after direct costs and overhead.</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                          <FormControl>
+                            <div className="relative">
+                              <Input {...field} type="number" step="0.1" min="0" max="99" className="pr-8 bg-background" data-testid="input-target-op-profit" />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                            </div>
+                          </FormControl>
+                          <FormDescription>Target operating profit retained after direct costs and overhead.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                ) : (
+                  /* Locked display for user / everyone */
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Target Overhead</p>
+                      <div className="flex items-center gap-1.5 bg-background border border-border rounded-md px-3 py-2 text-sm font-medium text-muted-foreground" data-testid="locked-target-overhead">
+                        <Lock size={11} className="text-muted-foreground/60 shrink-0" />
+                        {watchedValues.targetOverheadPercent ?? "35"}%
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">% of revenue for company overhead</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Target Operating Profit</p>
+                      <div className="flex items-center gap-1.5 bg-background border border-border rounded-md px-3 py-2 text-sm font-medium text-muted-foreground" data-testid="locked-target-op-profit">
+                        <Lock size={11} className="text-muted-foreground/60 shrink-0" />
+                        {watchedValues.targetOperatingProfitPercent ?? "14"}%
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Target operating profit after costs and overhead</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Live Output Panel */}
