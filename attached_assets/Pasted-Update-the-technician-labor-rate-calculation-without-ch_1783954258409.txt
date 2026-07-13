@@ -1,0 +1,71 @@
+Update the technician labor-rate calculation without changing the existing “Highest Paid Field Technician” input or its current behavior.
+
+The app already supports:
+
+A default “Highest Paid Field Technician” value in Settings
+An override of that value directly on the calculator
+Automatic use of the calculator override when one is entered, otherwise use of the Settings default
+
+Preserve that behavior exactly.
+
+Use the app’s existing resolved highest-paid technician value as the wage input for the labor-rate calculation. Do not create a new technician wage field and do not duplicate the setting.
+
+Define:
+
+effectiveHighestPaidRate = calculatorOverride ?? settingsHighestPaidFieldTechnician
+
+Use the app’s existing null, blank, or override handling conventions if they differ from the example above.
+
+Replace the current fixed multiplier calculation:
+
+laborRate = effectiveHighestPaidRate * 3.5
+
+with the following calculation:
+
+annualBillableHours = annualPaidHours * billableUtilization
+
+burdenedHourlyWage = effectiveHighestPaidRate * (1 + payrollBurdenPercent)
+
+laborCostPerBillableHour = burdenedHourlyWage / billableUtilization
+
+truckCostPerBillableHour = annualTruckFieldCost / annualBillableHours
+
+directCostPerBillableHour = laborCostPerBillableHour + truckCostPerBillableHour
+
+recoveryMargin = 1 - targetOverheadPercent - targetOperatingProfitPercent
+
+rawLaborRate = directCostPerBillableHour / recoveryMargin
+
+recommendedLaborRate = Math.ceil(rawLaborRate / roundingIncrement) * roundingIncrement
+
+impliedWageMultiplier = recommendedLaborRate / effectiveHighestPaidRate
+
+Add the following as global configurable standards in Settings if they do not already exist:
+
+Payroll burden percentage
+Annual paid hours
+Billable utilization percentage
+Annual truck and field cost
+Target overhead percentage
+Target operating profit percentage
+Labor-rate rounding increment
+
+These values should act as company standards and flow into the calculator automatically, while still allowing calculator-level overrides where the app already supports overrides.
+
+Display the following outputs:
+
+Recommended hourly labor rate
+Implied wage multiplier
+Annual billable hours
+Direct cost per billable hour
+
+Add validation so:
+
+Effective highest-paid rate must be greater than zero
+Billable utilization must be greater than 0 and no more than 100%
+Annual paid hours must be greater than zero
+Payroll burden cannot be negative
+Overhead plus target profit must be less than 100%
+Rounding increment must be greater than zero
+
+Preserve all existing styling, settings inheritance, calculator overrides, and unrelated calculations.
