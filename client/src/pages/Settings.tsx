@@ -107,6 +107,16 @@ export default function Settings() {
   const watchedValues = form.watch();
   const liveOutputs = computeLaborRateOutputs(watchedValues);
 
+  // When switching to hourly mode, auto-fill the rate field with the recommended labor rate
+  const laborMode = form.watch("laborMode");
+  useEffect(() => {
+    if (laborMode === "hours" && liveOutputs.recommendedLaborRate > 0) {
+      form.setValue("laborHourlyRate", String(liveOutputs.recommendedLaborRate), { shouldDirty: true });
+    }
+  // Only fire when laborMode changes direction — not on every liveOutputs recalc
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [laborMode]);
+
   const onSubmit = (data: SettingsFormValues) => {
     // Ensure Zephyr constants are always submitted, regardless of any form state
     updateSettings({ ...data, ...ZEPHYR_FORM_DEFAULTS });
