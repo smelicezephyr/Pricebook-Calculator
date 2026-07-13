@@ -56,6 +56,8 @@ const ZEPHYR_FORM_DEFAULTS = {
   annualTruckFieldCost: String(ZEPHYR_STANDARDS.ANNUAL_TRUCK_FIELD_COST),
   laborRateRoundingIncrement: String(ZEPHYR_STANDARDS.ROUNDING_INCREMENT),
   targetOverheadPercent: String(ZEPHYR_STANDARDS.TARGET_OVERHEAD_PCT),
+  laborBurdenPercent: String(ZEPHYR_STANDARDS.LABOR_BURDEN_PCT),
+  commissionBurdenPercent: String(ZEPHYR_STANDARDS.LABOR_BURDEN_PCT),
   targetOperatingProfitPercent: String(ZEPHYR_STANDARDS.TARGET_OPERATING_PROFIT_PCT),
 };
 
@@ -391,23 +393,14 @@ export default function Settings() {
                     )}
                   />
                   
-                  <FormField
-                    control={form.control}
-                    name="laborBurdenPercent"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Payroll Burden</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Input {...field} type="number" step="0.01" className="pr-8" />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
-                          </div>
-                        </FormControl>
-                        <FormDescription>Employer taxes & benefits on top of wages.</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium leading-none">Payroll Burden</label>
+                    <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-border bg-muted/50">
+                      <span className="text-sm font-mono font-semibold">{ZEPHYR_STANDARDS.LABOR_BURDEN_PCT}%</span>
+                      <span className="text-xs text-muted-foreground">— Zephyr standard (locked)</span>
+                    </div>
+                    <p className="text-[0.8rem] text-muted-foreground">Employer taxes &amp; benefits on top of wages.</p>
+                  </div>
 
                   <FormField
                     control={form.control}
@@ -604,22 +597,13 @@ export default function Settings() {
                   )}
                 />
                 
-                <FormField
-                  control={form.control}
-                  name="commissionBurdenPercent"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Commission Burden</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Input {...field} type="number" step="0.01" className="pr-8" />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="space-y-1">
+                  <label className="text-sm font-medium leading-none">Commission Burden</label>
+                  <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-border bg-muted/50">
+                    <span className="text-sm font-mono font-semibold">{ZEPHYR_STANDARDS.LABOR_BURDEN_PCT}%</span>
+                    <span className="text-xs text-muted-foreground">— Zephyr standard (locked)</span>
+                  </div>
+                </div>
                 
                 <FormField
                   control={form.control}

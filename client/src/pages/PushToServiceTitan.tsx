@@ -4,6 +4,7 @@ import { useTenants, useServiceTitan } from "@/hooks/use-tenants";
 import { useSettings } from "@/hooks/use-settings";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Location } from "@shared/schema";
+import { ZEPHYR_STANDARDS } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -250,7 +251,6 @@ export default function PushToServiceTitan() {
   const [repairMaterialsCost, setRepairMaterialsCost] = useState("");
   const [repairMaterialMarkup, setRepairMaterialMarkup] = useState("200");
   const [repairSalesTaxPercent, setRepairSalesTaxPercent] = useState(settings?.salesTaxPercent || "6.35");
-  const [repairBurdenPercent, setRepairBurdenPercent] = useState("20.00");
   const [repairCommissionPercent, setRepairCommissionPercent] = useState("10.00");
   const [repairFinancingFeePercent, setRepairFinancingFeePercent] = useState("4");
   const [repairHighestTechRate, setRepairHighestTechRate] = useState("");
@@ -335,7 +335,7 @@ export default function PushToServiceTitan() {
     const markupRate = (parseFloat(repairMaterialMarkup) || 200) / 100;
     const laborRateVal = parseFloat(repairLaborRate) || 0;
     const laborHoursVal = parseFloat(repairLaborHours) || 0;
-    const burdenRate = (parseFloat(repairBurdenPercent) || 0) / 100;
+    const burdenRate = ZEPHYR_STANDARDS.LABOR_BURDEN_PCT / 100;
     const taxRate = (parseFloat(repairSalesTaxPercent) || 0) / 100;
     const commissionRate = (parseFloat(repairCommissionPercent) || 0) / 100;
     const financingRate = (parseFloat(repairFinancingFeePercent) || 0) / 100;
@@ -422,7 +422,7 @@ export default function PushToServiceTitan() {
       grossMarginPercent,
       laborHours: laborHoursVal,
     };
-  }, [repairMaterialsCost, repairMaterialMarkup, repairLaborRate, repairLaborHours, repairBurdenPercent, repairSalesTaxPercent, repairCommissionPercent, repairFinancingFeePercent, repairHighestTechRate, roundUp, repairLaborMode]);
+  }, [repairMaterialsCost, repairMaterialMarkup, repairLaborRate, repairLaborHours, repairSalesTaxPercent, repairCommissionPercent, repairFinancingFeePercent, repairHighestTechRate, roundUp, repairLaborMode]);
 
   const repairCalculatedPrice = repairCalculations.price;
 
@@ -835,7 +835,7 @@ export default function PushToServiceTitan() {
           laborHourlyRate: repairLaborRate,
           laborHours: repairLaborHours,
           laborPercent,
-          laborBurdenPercent: repairBurdenPercent,
+          laborBurdenPercent: String(ZEPHYR_STANDARDS.LABOR_BURDEN_PCT),
           commissionPercent: repairCommissionPercent,
           commissionBurdenPercent,
           financingFeePercent: repairFinancingFeePercent,
@@ -2943,20 +2943,10 @@ export default function PushToServiceTitan() {
                       {/* Fees Row */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="repairBurden">Burden %</Label>
-                          <div className="relative">
-                            <Input
-                              id="repairBurden"
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              max="100"
-                              value={repairBurdenPercent}
-                              onChange={(e) => setRepairBurdenPercent(e.target.value)}
-                              className="pr-7"
-                              data-testid="input-repair-burden"
-                            />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                          <Label>Burden %</Label>
+                          <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-border bg-muted/50">
+                            <span className="text-sm font-mono font-semibold">{ZEPHYR_STANDARDS.LABOR_BURDEN_PCT}%</span>
+                            <span className="text-xs text-muted-foreground">locked</span>
                           </div>
                         </div>
                         <div className="space-y-2">

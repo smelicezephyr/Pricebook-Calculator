@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { ZEPHYR_STANDARDS } from "@shared/schema";
 import { useSettings } from "@/hooks/use-settings";
 import { useCalculatorState } from "@/contexts/CalculatorContext";
 import { InputMoney } from "@/components/InputMoney";
@@ -61,7 +62,6 @@ export default function ReverseCalculator() {
   const [repairPartsCost, setRepairPartsCost] = useState("");
   const [repairMaterialMarkup, setRepairMaterialMarkup] = useState("200");
   const [repairLaborHours, setRepairLaborHours] = useState("");
-  const [repairBurdenPercent, setRepairBurdenPercent] = useState("20.00");
   const [repairSalesTaxPercent, setRepairSalesTaxPercent] = useState("6.35");
   const [repairCommissionPercent, setRepairCommissionPercent] = useState("10.00");
   const [repairFinancingFeePercent, setRepairFinancingFeePercent] = useState("4.00");
@@ -82,7 +82,6 @@ export default function ReverseCalculator() {
       setCommissionPercent(parseFloat(settings.commissionPercent).toFixed(2));
       setFinancingFeePercent(parseFloat(settings.financingFeePercent).toFixed(2));
       setRepairCommissionPercent(settings.commissionPercent || "10.00");
-      setRepairBurdenPercent(settings.laborBurdenPercent || "20.00");
       setRepairFinancingFeePercent(settings.financingFeePercent || "4.00");
       setHasInitialized(true);
     }
@@ -155,7 +154,7 @@ export default function ReverseCalculator() {
   const repairMarkupRate = (parseFloat(repairMaterialMarkup) || 200) / 100;
   const repairHighestTechRateVal = parseFloat(repairHighestTechRate) || 0;
   const repairLaborHoursVal = parseFloat(repairLaborHours) || 0;
-  const repairBurdenRate = (parseFloat(repairBurdenPercent) || 0) / 100;
+  const repairBurdenRate = ZEPHYR_STANDARDS.LABOR_BURDEN_PCT / 100;
   const repairTaxRate = (parseFloat(repairSalesTaxPercent) || 0) / 100;
   const repairCommissionRate = (parseFloat(repairCommissionPercent) || 0) / 100;
   const repairFinancingRate = (parseFloat(repairFinancingFeePercent) || 0) / 100;
@@ -264,7 +263,6 @@ export default function ReverseCalculator() {
     setRepairPartsCost(repairState.partsCost || "");
     setRepairMaterialMarkup(repairState.materialMarkup || "200");
     setRepairLaborHours(repairState.laborHours || "");
-    setRepairBurdenPercent(repairState.burdenPercent || "20.00");
     setRepairSalesTaxPercent(repairState.salesTaxPercent || "6.35");
     setRepairCommissionPercent(repairState.commissionPercent || "10.00");
     setRepairFinancingFeePercent(repairState.financingFeePercent || "4.00");
@@ -634,7 +632,6 @@ export default function ReverseCalculator() {
                   <h2 className="font-display font-semibold text-sm">Fees & Burden</h2>
                 </div>
                 <div className="space-y-2">
-                  <InputMoney label="Burden %" type="percent" placeholder="20.00" value={repairBurdenPercent} onChange={(e) => setRepairBurdenPercent(e.target.value)} data-testid="input-reverse-burden" />
                   <InputMoney label="Commission %" type="percent" placeholder="10.00" value={repairCommissionPercent} onChange={(e) => setRepairCommissionPercent(e.target.value)} data-testid="input-reverse-commission" />
                   <InputMoney label="Finance Fee %" type="percent" placeholder="6.00" value={repairFinancingFeePercent} onChange={(e) => setRepairFinancingFeePercent(e.target.value)} data-testid="input-reverse-financing-fee" />
                   <p className="text-xs text-muted-foreground -mt-1">Financing fee and/or credit card processing fee</p>
@@ -954,7 +951,7 @@ export default function ReverseCalculator() {
                             <div className="ml-5 space-y-0.5 pt-1 border-l-2 border-emerald-100/50 dark:border-emerald-900/30 pl-3">
                               {[
                                 { label: `Labor (${repairLaborHoursVal} hrs x ${formatCurrency(repairHighestTechRateVal)}/hr)`, value: repairDirectLaborCost },
-                                { label: `Labor Burden (${repairBurdenPercent}%)`, value: repairLaborBurden },
+                                { label: `Labor Burden (${ZEPHYR_STANDARDS.LABOR_BURDEN_PCT}%)`, value: repairLaborBurden },
                               ].map((sub) => (
                                 <div key={sub.label} className="flex justify-between items-center py-0.5">
                                   <span className="text-xs text-muted-foreground">{sub.label}</span>
@@ -984,7 +981,7 @@ export default function ReverseCalculator() {
                           <div className="ml-5 space-y-0.5 pt-1 border-l-2 border-amber-100/50 dark:border-amber-900/30 pl-3">
                             {[
                               { label: `Commission (${repairCommissionPercent}%)`, value: repairDirectCommission },
-                              { label: `Commission Burden (${repairBurdenPercent}%)`, value: repairCommissionBurden },
+                              { label: `Commission Burden (${ZEPHYR_STANDARDS.LABOR_BURDEN_PCT}%)`, value: repairCommissionBurden },
                             ].map((sub) => (
                               <div key={sub.label} className="flex justify-between items-center py-0.5">
                                 <span className="text-xs text-muted-foreground">{sub.label}</span>

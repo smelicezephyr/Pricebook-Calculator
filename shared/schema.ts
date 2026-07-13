@@ -171,6 +171,7 @@ export const ZEPHYR_STANDARDS = {
   ROUNDING_INCREMENT: 5,
   TARGET_OVERHEAD_PCT: 35,        // percentage (35 = 35%)
   TARGET_OPERATING_PROFIT_PCT: 14, // percentage (14 = 14%)
+  LABOR_BURDEN_PCT: 20,           // percentage (20 = 20%)
 } as const;
 
 export const insertSettingsSchema = createInsertSchema(settings).superRefine((data, ctx) => {

@@ -59,7 +59,6 @@ export default function RepairGMCalculator() {
   const [highestTechRate, setHighestTechRate] = useState("");
   const [laborHours, setLaborHours] = useState("");
   const [numTechs, setNumTechs] = useState("1");
-  const [burdenPercent, setBurdenPercent] = useState("20.00");
   const [commissionPercent, setCommissionPercent] = useState("10.00");
   const [financingFeePercent, setFinancingFeePercent] = useState("4.00");
   const [targetGm, setTargetGm] = useState("");
@@ -76,7 +75,6 @@ export default function RepairGMCalculator() {
       } else {
         setLaborRate(settings.laborHourlyRate || "175.00");
       }
-      setBurdenPercent(settings.laborBurdenPercent || "20.00");
       setCommissionPercent(settings.commissionPercent || "10.00");
       setFinancingFeePercent(settings.financingFeePercent || "4.00");
       setTargetGm((parseFloat(settings.grossMarginMinPercent || "52") + 10).toFixed(1));
@@ -110,7 +108,6 @@ export default function RepairGMCalculator() {
       setHighestTechRate("");
       setLaborRate(settings?.laborHourlyRate || "175.00");
     }
-    setBurdenPercent(settings?.laborBurdenPercent || "20.00");
     setCommissionPercent(settings?.commissionPercent || "10.00");
     setFinancingFeePercent(settings?.financingFeePercent || "4.00");
     setTargetGm((parseFloat(settings?.grossMarginMinPercent || "52") + 10).toFixed(1));
@@ -123,7 +120,7 @@ export default function RepairGMCalculator() {
   const effectiveLaborRate = highestTechRateVal > 0 ? highestTechRateVal : laborRateVal;
   const hoursVal = parseFloat(laborHours) || 0;
   const numTechsVal = Math.max(1, parseFloat(numTechs) || 1);
-  const burdenRate = (parseFloat(burdenPercent) || 0) / 100;
+  const burdenRate = ZEPHYR_STANDARDS.LABOR_BURDEN_PCT / 100;
   const taxRate = (parseFloat(salesTaxPercent) || 0) / 100;
   const commissionRate = (parseFloat(commissionPercent) || 0) / 100;
   const financingRate = (parseFloat(financingFeePercent) || 0) / 100;
@@ -395,14 +392,6 @@ export default function RepairGMCalculator() {
             </div>
             <div className="space-y-2">
               <InputMoney
-                label="Burden %"
-                type="percent"
-                placeholder="20.00"
-                value={burdenPercent}
-                onChange={(e) => setBurdenPercent(e.target.value)}
-                data-testid="input-burden"
-              />
-              <InputMoney
                 label="Commission %"
                 type="percent"
                 placeholder="10.00"
@@ -462,7 +451,7 @@ export default function RepairGMCalculator() {
                       hours: hoursVal,
                       numTechs: numTechsVal,
                       hourlyRate: effectiveLaborRate,
-                      burdenPercent: parseFloat(burdenPercent) || 0,
+                      burdenPercent: ZEPHYR_STANDARDS.LABOR_BURDEN_PCT,
                     }
                   : undefined
               }

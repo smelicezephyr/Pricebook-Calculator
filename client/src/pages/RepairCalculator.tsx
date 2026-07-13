@@ -61,7 +61,6 @@ export default function RepairCalculator() {
   const [laborRate, setLaborRate] = useState("175.00");
   const [laborHours, setLaborHours] = useState("");
   const [numTechs, setNumTechs] = useState("1");
-  const [burdenPercent, setBurdenPercent] = useState("20.00");
   const [salesTaxPercent, setSalesTaxPercent] = useState("6.35");
   const [commissionPercent, setCommissionPercent] = useState("10.00");
   const [financingFeePercent, setFinancingFeePercent] = useState("4.00");
@@ -83,7 +82,6 @@ export default function RepairCalculator() {
       } else {
         setLaborRate(settings.laborHourlyRate || "175.00");
       }
-      setBurdenPercent(settings.laborBurdenPercent || "20.00");
       setFinancingFeePercent(settings.financingFeePercent || "4.00");
     }
   }, [settings]);
@@ -95,21 +93,21 @@ export default function RepairCalculator() {
       laborRate,
       laborHours,
       numTechs,
-      burdenPercent,
+      burdenPercent: String(ZEPHYR_STANDARDS.LABOR_BURDEN_PCT),
       salesTaxPercent,
       commissionPercent,
       financingFeePercent,
       highestTechRate,
       laborMode,
     });
-  }, [partsCost, materialMarkup, laborRate, laborHours, numTechs, burdenPercent, salesTaxPercent, commissionPercent, financingFeePercent, highestTechRate, laborMode, setRepairState]);
+  }, [partsCost, materialMarkup, laborRate, laborHours, numTechs, salesTaxPercent, commissionPercent, financingFeePercent, highestTechRate, laborMode, setRepairState]);
 
   const partsTotal = parseFloat(partsCost) || 0;
   const markupRate = (parseFloat(materialMarkup) || 200) / 100;
   const laborRateVal = parseFloat(laborRate) || 0;
   const laborHoursVal = parseFloat(laborHours) || 0;
   const numTechsVal = Math.max(1, parseFloat(numTechs) || 1);
-  const burdenRate = (parseFloat(burdenPercent) || 0) / 100;
+  const burdenRate = ZEPHYR_STANDARDS.LABOR_BURDEN_PCT / 100;
   const taxRate = (parseFloat(salesTaxPercent) || 0) / 100;
   const commissionRate = (parseFloat(commissionPercent) || 0) / 100;
   const financingRate = (parseFloat(financingFeePercent) || 0) / 100;
@@ -208,7 +206,6 @@ export default function RepairCalculator() {
       setHighestTechRate("");
       setLaborRate(settings?.laborHourlyRate || "175.00");
     }
-    setBurdenPercent(settings?.laborBurdenPercent || "20.00");
     setFinancingFeePercent(settings?.financingFeePercent || "4.00");
     setRoundUp(false);
   };
@@ -472,15 +469,6 @@ export default function RepairCalculator() {
 
             <div className="space-y-2">
               <InputMoney
-                label="Burden %"
-                type="percent"
-                placeholder="20.00"
-                value={burdenPercent}
-                onChange={(e) => setBurdenPercent(e.target.value)}
-                data-testid="input-burden"
-              />
-
-              <InputMoney
                 label="Commission %"
                 type="percent"
                 placeholder="10.00"
@@ -639,7 +627,7 @@ export default function RepairCalculator() {
                     <div className="ml-5 space-y-0.5 pt-1 border-l-2 border-emerald-100/50 dark:border-emerald-900/30 pl-3">
                       {[
                         { label: numTechsVal > 1 ? `Labor (${numTechsVal} techs × ${laborHoursVal} hrs × ${formatCurrency(laborRateVal)}/hr)` : `Labor (${laborHoursVal} hrs × ${formatCurrency(laborRateVal)}/hr)`, value: directLaborCost },
-                        { label: `Labor Burden (${burdenPercent}%)`, value: laborBurden },
+                        { label: `Labor Burden (${ZEPHYR_STANDARDS.LABOR_BURDEN_PCT}%)`, value: laborBurden },
                       ].map((sub) => (
                         <div key={sub.label} className="flex justify-between items-center py-0.5">
                           <span className="text-xs text-muted-foreground">{sub.label}</span>
@@ -673,7 +661,7 @@ export default function RepairCalculator() {
                   <div className="ml-5 space-y-0.5 pt-1 border-l-2 border-amber-100/50 dark:border-amber-900/30 pl-3">
                     {[
                       { label: `Commission (${commissionPercent}%)`, value: directCommission },
-                      { label: `Commission Burden (${burdenPercent}%)`, value: commissionBurden },
+                      { label: `Commission Burden (${ZEPHYR_STANDARDS.LABOR_BURDEN_PCT}%)`, value: commissionBurden },
                     ].map((sub) => (
                       <div key={sub.label} className="flex justify-between items-center py-0.5">
                         <span className="text-xs text-muted-foreground">{sub.label}</span>
