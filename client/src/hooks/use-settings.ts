@@ -51,11 +51,30 @@ export function useSettings() {
     },
   });
 
+  const silentUpdateSettingsMutation = useMutation({
+    mutationFn: async (data: InsertSettings) => {
+      const res = await fetch(api.settings.update.path, {
+        method: api.settings.update.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+
+      if (!res.ok) throw new Error("Failed to update settings");
+
+      return api.settings.update.responses[200].parse(await res.json());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.settings.get.path] });
+    },
+  });
+
   return {
     settings: settingsQuery.data,
     isLoading: settingsQuery.isLoading,
     isError: settingsQuery.isError,
     updateSettings: updateSettingsMutation.mutate,
     isUpdating: updateSettingsMutation.isPending,
+    silentUpdateSettings: silentUpdateSettingsMutation.mutate,
   };
 }

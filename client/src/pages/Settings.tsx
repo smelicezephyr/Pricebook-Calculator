@@ -58,7 +58,7 @@ const ZEPHYR_FORM_DEFAULTS = {
 };
 
 export default function Settings() {
-  const { settings, isLoading, updateSettings, isUpdating } = useSettings();
+  const { settings, isLoading, updateSettings, isUpdating, silentUpdateSettings } = useSettings();
   const { tenants } = useTenants();
   const { isReporting } = useAuth(); // manager + admin can edit leadership targets
   const [, setLocation] = useLocation();
@@ -158,6 +158,7 @@ export default function Settings() {
   }
 
   // Auto-fetch whenever the page loads and a tenant is available — silently pre-fills the field
+  // and persists the new rate to the database so calculators always reflect the latest value
   useEffect(() => {
     if (!settings || !tenants.length) return;
     const tenantId = settings.defaultTenantId ?? tenants[0]?.id;
@@ -167,6 +168,9 @@ export default function Settings() {
       .then((data: { rate: number }) => {
         if (typeof data.rate === "number" && data.rate > 0) {
           form.setValue("highestTechRate", String(data.rate), { shouldDirty: true, shouldValidate: true });
+          // Silently persist so calculator pages always load the latest rate
+          const currentValues = form.getValues();
+          silentUpdateSettings({ ...currentValues, ...ZEPHYR_FORM_DEFAULTS, highestTechRate: String(data.rate) });
         }
       })
       .catch(() => {}); // Silent fail — user can still type manually
