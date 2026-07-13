@@ -254,8 +254,12 @@ export class ServiceTitanAPI {
     }
     
     console.log(`[ServiceTitan] Total categories (including subcategories): ${allCategories.length}`);
-    // Smoke-test log: show first 10 items with id, name, parentId to verify hierarchy
-    console.log(`[ServiceTitan] Category sample (first 10):`, allCategories.slice(0, 10).map(c => ({ id: c.id, name: c.name, active: c.active, parentId: c.parentId ?? null })));
+    // Log sort-related fields so we can determine which to use for ordering
+    console.log(`[ServiceTitan] Category sort fields (first 15):`, allCategories.slice(0, 15).map(c => ({
+      id: c.id, name: c.name, parentId: c.parentId ?? null,
+      sortOrder: c.sortOrder, displayOrder: c.displayOrder, order: c.order,
+      position: c.position, rank: c.rank, index: c.index, apiOrder: c.apiOrder
+    })));
     return allCategories;
   }
   
