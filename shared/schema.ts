@@ -168,6 +168,9 @@ export const insertSettingsSchema = createInsertSchema(settings).superRefine((da
     return Number.isNaN(n) ? fallback : n;
   };
 
+  if (toNum(data.highestTechRate) <= 0) {
+    ctx.addIssue({ code: "custom", path: ["highestTechRate"], message: "Highest tech pay rate must be greater than 0 to use the labor rate formula" });
+  }
   if (toNum(data.annualPaidHours) <= 0) {
     ctx.addIssue({ code: "custom", path: ["annualPaidHours"], message: "Annual paid hours must be greater than 0" });
   }
