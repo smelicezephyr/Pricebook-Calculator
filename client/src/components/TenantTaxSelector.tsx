@@ -7,9 +7,31 @@ import { apiRequest } from "@/lib/queryClient";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Building2 } from "lucide-react";
-import type { Tenant, Location } from "@shared/schema";
+import { ZEPHYR_STANDARDS } from "@shared/schema";
+import type { Tenant, Location, Settings } from "@shared/schema";
 
 const LAST_TENANT_KEY = "pbc_last_active_tenant_id";
+
+/** Mirrors the formula in Settings.tsx — computes the recommended billing labor rate
+ *  from the highest tech pay rate and the user's overhead / profit targets. */
+function computeRecommendedLaborRate(techRate: number, s: Settings): number {
+  const burdenPct = parseFloat(s.laborBurdenPercent) / 100 || 0;
+  const overheadPct = parseFloat(s.targetOverheadPercent) / 100 || 0;
+  const opProfitPct = parseFloat(s.targetOperatingProfitPercent) / 100 || 0;
+  const billableUtil = ZEPHYR_STANDARDS.BILLABLE_UTILIZATION_PCT / 100;
+  const annualPaidHours = ZEPHYR_STANDARDS.ANNUAL_PAID_HOURS;
+  const annualBillableHours = annualPaidHours * billableUtil;
+  const truckCost = ZEPHYR_STANDARDS.ANNUAL_TRUCK_FIELD_COST;
+  const rounding = ZEPHYR_STANDARDS.ROUNDING_INCREMENT;
+
+  const burdenedWage = techRate * (1 + burdenPct);
+  const laborCostPerBillHr = billableUtil > 0 ? burdenedWage / billableUtil : 0;
+  const truckCostPerBillHr = annualBillableHours > 0 ? truckCost / annualBillableHours : 0;
+  const directCost = laborCostPerBillHr + truckCostPerBillHr;
+  const recoveryMargin = 1 - overheadPct - opProfitPct;
+  const raw = recoveryMargin > 0 ? directCost / recoveryMargin : 0;
+  return rounding > 0 ? Math.ceil(raw / rounding) * rounding : raw;
+}
 
 function normalize(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -107,10 +129,16 @@ export function TenantTaxSelector({
       .then((res) => res.json())
       .then((data: { rate: number }) => {
         if (typeof data.rate === "number" && data.rate > 0) {
-          return apiRequest("PUT", "/api/settings", {
-            ...settingsForUpdate,
+          // Also compute and save the recommended billing labor rate so all
+          // calculator pages immediately reflect the new tenant's rate.
+          const recommendedRate = computeRecommendedLaborRate(data.rate, settings!);
+          const updates: Record<string, string> = {
             highestTechRate: String(data.rate),
-          });
+          };
+          if (recommendedRate > 0) {
+            updates.laborHourlyRate = String(recommendedRate);
+          }
+          return apiRequest("PUT", "/api/settings", { ...settingsForUpdate, ...updates });
         }
       })
       .then(() => {
