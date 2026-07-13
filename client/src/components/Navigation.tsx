@@ -50,12 +50,13 @@ export function Navigation() {
     }
   };
 
-  const isServiceTitanPath =
-    location.startsWith("/push") ||
+  const isServiceTitanPath = location.startsWith("/push");
+  const isAdminPath =
+    location.startsWith("/admin") ||
     location.startsWith("/tenants") ||
     location.startsWith("/locations");
   const [stExpanded, setStExpanded] = useState(() => isServiceTitanPath);
-  const [adminExpanded, setAdminExpanded] = useState(() => location.startsWith("/admin"));
+  const [adminExpanded, setAdminExpanded] = useState(() => isAdminPath);
   const [reportingExpanded, setReportingExpanded] = useState(() => location.startsWith("/reporting"));
 
   const handleSignOut = async () => {
@@ -94,13 +95,6 @@ export function Navigation() {
     { href: "/push", label: "Push to Pricebook", icon: Upload },
     { href: "/push-history", label: "Push History", icon: Clock },
   ];
-
-  if (isAdmin) {
-    stNavItems.push(
-      { href: "/tenants", label: "Manage Tenants", icon: Building2 },
-      { href: "/locations", label: "Manage Locations", icon: MapPin }
-    );
-  }
 
   const isStActive = isServiceTitanPath;
 
@@ -267,14 +261,14 @@ export function Navigation() {
                   onClick={() => setAdminExpanded(!adminExpanded)}
                   className={clsx(
                     "w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer font-medium",
-                    location.startsWith("/admin")
+                    isAdminPath
                       ? "bg-primary/10 text-primary shadow-sm"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   )}
                   data-testid="button-admin-section"
                 >
                   <div className="flex items-center gap-3">
-                    <Shield size={20} className={location.startsWith("/admin") ? "stroke-[2.5px]" : "stroke-2"} />
+                    <Shield size={20} className={isAdminPath ? "stroke-[2.5px]" : "stroke-2"} />
                     Admin
                   </div>
                   <ChevronDown
@@ -301,6 +295,36 @@ export function Navigation() {
                       >
                         <Users size={16} />
                         Manage Users
+                      </div>
+                    </Link>
+                    <Link href="/tenants">
+                      <div
+                        className={clsx(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer text-sm",
+                          location === "/tenants"
+                            ? "bg-primary/10 text-primary font-medium"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        )}
+                        onClick={close}
+                        data-testid="link-admin-tenants"
+                      >
+                        <Building2 size={16} />
+                        Manage Tenants
+                      </div>
+                    </Link>
+                    <Link href="/locations">
+                      <div
+                        className={clsx(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer text-sm",
+                          location === "/locations"
+                            ? "bg-primary/10 text-primary font-medium"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        )}
+                        onClick={close}
+                        data-testid="link-admin-locations"
+                      >
+                        <MapPin size={16} />
+                        Manage Locations
                       </div>
                     </Link>
                   </div>
