@@ -556,6 +556,8 @@ export class ServiceTitanAPI {
               rec.name ?? rec.displayName ?? rec.fullName ??
               rec.technicianName ?? rec.technician?.name ??
               `Technician ${id}`;
+            // Skip inactive technicians — only price off active employees
+            if (rec.active === false) continue;
             // hourlyRate is often embedded directly on the technician record
             const rate: number | null =
               rec.hourlyRate != null ? Number(rec.hourlyRate) : null;
