@@ -128,22 +128,20 @@ export default function Settings() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [laborMode]);
 
-  // Open dialog — priority: last active tenant (from any calculator page) → saved default → first tenant
+  // Open dialog — priority: saved default tenant → last active tenant → first tenant
   function openFetchDialog() {
+    const defaultId = form.getValues("defaultTenantId");
     const lastActive = localStorage.getItem("pbc_last_active_tenant_id");
     const lastActiveId = lastActive ? parseInt(lastActive, 10) : null;
 
-    if (lastActiveId != null && tenants.some((t) => t.id === lastActiveId)) {
+    if (defaultId != null && tenants.some((t) => t.id === defaultId)) {
+      setFetchTenantId(String(defaultId));
+    } else if (lastActiveId != null && tenants.some((t) => t.id === lastActiveId)) {
       setFetchTenantId(String(lastActiveId));
+    } else if (tenants.length > 0) {
+      setFetchTenantId(String(tenants[0].id));
     } else {
-      const defaultId = form.getValues("defaultTenantId");
-      if (defaultId != null && tenants.some((t) => t.id === defaultId)) {
-        setFetchTenantId(String(defaultId));
-      } else if (tenants.length > 0) {
-        setFetchTenantId(String(tenants[0].id));
-      } else {
-        setFetchTenantId("");
-      }
+      setFetchTenantId("");
     }
     setFetchDialogOpen(true);
   }
