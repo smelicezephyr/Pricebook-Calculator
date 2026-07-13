@@ -553,19 +553,29 @@ export class ServiceTitanAPI {
         let page = 1;
         let hasMore = true;
         while (hasMore && page <= 20) {
-          const resp = await this.request<{ data: any[]; hasMore: boolean }>(
+          const resp = await this.request<any>(
             `${source}?pageSize=200&page=${page}`
           );
-          for (const rec of resp.data ?? []) {
+          // Log raw structure on first page so we can see the shape
+          if (page === 1) {
+            const keys = Object.keys(resp ?? {});
+            const sample = Array.isArray(resp) ? resp[0] : (resp?.data?.[0] ?? resp?.items?.[0] ?? resp?.result?.[0]);
+            console.log(`[ServiceTitan] ${source} page1 keys:`, keys, `| sample keys:`, sample ? Object.keys(sample) : "no items");
+          }
+          // Handle various response shapes
+          const items: any[] = Array.isArray(resp)
+            ? resp
+            : (resp?.data ?? resp?.items ?? resp?.result ?? resp?.technicians ?? resp?.employees ?? []);
+          for (const rec of items) {
             const id: number | undefined =
-              rec.technicianId ?? rec.technician?.id;
+              rec.id ?? rec.technicianId ?? rec.technician?.id ?? rec.employeeId;
             const name: string =
-              rec.technicianName ??
-              rec.technician?.name ??
+              rec.name ?? rec.displayName ?? rec.fullName ??
+              rec.technicianName ?? rec.technician?.name ??
               `Technician ${id}`;
             if (id != null) techIdMap.set(id, name);
           }
-          hasMore = resp.hasMore ?? false;
+          hasMore = resp?.hasMore ?? resp?.more ?? false;
           page++;
         }
         console.log(`[ServiceTitan] Found ${techIdMap.size} unique tech IDs from ${source}`);
