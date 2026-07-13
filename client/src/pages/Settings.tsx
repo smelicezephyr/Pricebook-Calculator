@@ -15,15 +15,20 @@ import type { z } from "zod";
 
 type SettingsFormValues = z.infer<typeof insertSettingsSchema>;
 
+function safeNum(raw: string | null | undefined, fallback: number): number {
+  const n = parseFloat(raw ?? "");
+  return Number.isNaN(n) ? fallback : n;
+}
+
 function computeLaborRateOutputs(values: SettingsFormValues) {
-  const highestTechRate = parseFloat(values.highestTechRate || "0") || 0;
-  const annualPaidHours = parseFloat(values.annualPaidHours || "2080") || 2080;
-  const billableUtil = (parseFloat(values.billableUtilizationPercent || "65") || 65) / 100;
-  const annualTruckCost = parseFloat(values.annualTruckFieldCost || "0") || 0;
-  const overheadPct = (parseFloat(values.targetOverheadPercent || "35") || 35) / 100;
-  const opProfitPct = (parseFloat(values.targetOperatingProfitPercent || "10") || 10) / 100;
-  const roundingIncrement = parseFloat(values.laborRateRoundingIncrement || "5") || 5;
-  const burdenPct = (parseFloat(values.laborBurdenPercent || "20") || 20) / 100;
+  const highestTechRate = safeNum(values.highestTechRate, 0);
+  const annualPaidHours = safeNum(values.annualPaidHours, 2080);
+  const billableUtil = safeNum(values.billableUtilizationPercent, 65) / 100;
+  const annualTruckCost = safeNum(values.annualTruckFieldCost, 0);
+  const overheadPct = safeNum(values.targetOverheadPercent, 35) / 100;
+  const opProfitPct = safeNum(values.targetOperatingProfitPercent, 10) / 100;
+  const roundingIncrement = safeNum(values.laborRateRoundingIncrement, 5);
+  const burdenPct = safeNum(values.laborBurdenPercent, 20) / 100;
 
   const annualBillableHours = annualPaidHours * billableUtil;
   const burdenedHourlyWage = highestTechRate * (1 + burdenPct);

@@ -162,7 +162,31 @@ export const insertLocationSchema = createInsertSchema(locations).omit({
   createdAt: true,
 });
 
-export const insertSettingsSchema = createInsertSchema(settings);
+export const insertSettingsSchema = createInsertSchema(settings).superRefine((data, ctx) => {
+  const toNum = (v: unknown, fallback = 0) => {
+    const n = parseFloat(String(v ?? ""));
+    return Number.isNaN(n) ? fallback : n;
+  };
+
+  if (toNum(data.annualPaidHours) <= 0) {
+    ctx.addIssue({ code: "custom", path: ["annualPaidHours"], message: "Annual paid hours must be greater than 0" });
+  }
+  const util = toNum(data.billableUtilizationPercent);
+  if (util <= 0 || util > 100) {
+    ctx.addIssue({ code: "custom", path: ["billableUtilizationPercent"], message: "Billable utilization must be between 0% (exclusive) and 100%" });
+  }
+  if (toNum(data.laborBurdenPercent) < 0) {
+    ctx.addIssue({ code: "custom", path: ["laborBurdenPercent"], message: "Payroll burden cannot be negative" });
+  }
+  if (toNum(data.laborRateRoundingIncrement) <= 0) {
+    ctx.addIssue({ code: "custom", path: ["laborRateRoundingIncrement"], message: "Rounding increment must be greater than 0" });
+  }
+  const overhead = toNum(data.targetOverheadPercent);
+  const opProfit = toNum(data.targetOperatingProfitPercent);
+  if (overhead + opProfit >= 100) {
+    ctx.addIssue({ code: "custom", path: ["targetOperatingProfitPercent"], message: "Target Overhead + Target Operating Profit must be less than 100%" });
+  }
+});
 export const insertQuoteSchema = createInsertSchema(quotes).omit({ 
   id: true,
   userId: true,

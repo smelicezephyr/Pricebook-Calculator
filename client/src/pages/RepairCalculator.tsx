@@ -16,26 +16,32 @@ import { toPng } from "html-to-image";
 import { useToast } from "@/hooks/use-toast";
 import type { Settings } from "@shared/schema";
 
-function computeRecommendedLaborRate(s: Settings): number {
-  const highestTechRate = parseFloat(s.highestTechRate || "0") || 0;
-  if (highestTechRate <= 0) return 0;
-  const annualPaidHours = parseFloat(s.annualPaidHours || "2080") || 2080;
-  const billableUtil = (parseFloat(s.billableUtilizationPercent || "65") || 65) / 100;
-  const annualTruckCost = parseFloat(s.annualTruckFieldCost || "0") || 0;
-  const overheadPct = (parseFloat(s.targetOverheadPercent || "35") || 35) / 100;
-  const opProfitPct = (parseFloat(s.targetOperatingProfitPercent || "10") || 10) / 100;
-  const roundingIncrement = parseFloat(s.laborRateRoundingIncrement || "5") || 5;
-  const burdenPct = (parseFloat(s.laborBurdenPercent || "20") || 20) / 100;
+function safeNum(raw: string | null | undefined, fallback: number): number {
+  const n = parseFloat(raw ?? "");
+  return Number.isNaN(n) ? fallback : n;
+}
 
+function computeRecommendedLaborRate(s: Settings): number {
+  const highestTechRate = safeNum(s.highestTechRate, 0);
+  if (highestTechRate <= 0) return 0;
+  const annualPaidHours = safeNum(s.annualPaidHours, 2080);
+  const billableUtil = safeNum(s.billableUtilizationPercent, 65) / 100;
+  const annualTruckCost = safeNum(s.annualTruckFieldCost, 0);
+  const overheadPct = safeNum(s.targetOverheadPercent, 35) / 100;
+  const opProfitPct = safeNum(s.targetOperatingProfitPercent, 10) / 100;
+  const roundingIncrement = safeNum(s.laborRateRoundingIncrement, 5);
+  const burdenPct = safeNum(s.laborBurdenPercent, 20) / 100;
+
+  if (annualPaidHours <= 0 || billableUtil <= 0 || roundingIncrement <= 0) return 0;
   const annualBillableHours = annualPaidHours * billableUtil;
   const burdenedHourlyWage = highestTechRate * (1 + burdenPct);
-  const laborCostPerBillableHour = billableUtil > 0 ? burdenedHourlyWage / billableUtil : 0;
+  const laborCostPerBillableHour = burdenedHourlyWage / billableUtil;
   const truckCostPerBillableHour = annualBillableHours > 0 ? annualTruckCost / annualBillableHours : 0;
   const directCostPerBillableHour = laborCostPerBillableHour + truckCostPerBillableHour;
   const recoveryMargin = 1 - overheadPct - opProfitPct;
   if (recoveryMargin <= 0) return 0;
   const rawLaborRate = directCostPerBillableHour / recoveryMargin;
-  return roundingIncrement > 0 ? Math.ceil(rawLaborRate / roundingIncrement) * roundingIncrement : rawLaborRate;
+  return Math.ceil(rawLaborRate / roundingIncrement) * roundingIncrement;
 }
 
 export default function RepairCalculator() {
