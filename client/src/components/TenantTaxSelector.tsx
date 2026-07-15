@@ -115,6 +115,18 @@ export function TenantTaxSelector({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenants, locations, user?.email, selectedTenantId, settings]);
 
+  // Always keep the tax rate in sync with the selected tenant.
+  // This covers the race condition where locations hadn't finished loading
+  // when the auto-select fired (autoAppliedRef would already be true by then,
+  // so the auto-select effect can't retry). Also covers any future case where
+  // selectedTenantId is set externally by the parent.
+  useEffect(() => {
+    if (!selectedTenantId || locations.length === 0 || tenants.length === 0) return;
+    const tenant = tenants.find((t) => t.id === selectedTenantId);
+    applyTenantTax(tenant);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTenantId, locations]);
+
   // Auto-fetch highest tech rate from ServiceTitan whenever the tenant changes.
   // Silently persists the result so all calculator pages always reflect the
   // latest rate without requiring the user to visit Settings.

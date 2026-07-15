@@ -83,9 +83,20 @@ export default function ReverseCalculator() {
       setFinancingFeePercent(parseFloat(settings.financingFeePercent).toFixed(2));
       setRepairCommissionPercent(settings.commissionPercent || "10.00");
       setRepairFinancingFeePercent(settings.financingFeePercent || "4.00");
+      const initRate = parseFloat(settings.highestTechRate || "0") || 0;
+      if (initRate > 0) setRepairHighestTechRate(initRate.toFixed(2));
       setHasInitialized(true);
     }
   }, [settings, hasInitialized, laborPercent]);
+
+  // After initialization, keep repairHighestTechRate in sync when the selected
+  // tenant's highest tech rate is fetched and saved back to settings.
+  useEffect(() => {
+    if (!hasInitialized || !settings) return;
+    const newRate = parseFloat(settings.highestTechRate || "0") || 0;
+    if (newRate > 0) setRepairHighestTechRate(newRate.toFixed(2));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings?.highestTechRate]);
 
   const markupOptions = Array.from({ length: 30 }, (_, i) => 300 - i * 10);
 
