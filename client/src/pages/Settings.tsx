@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertSettingsSchema, ZEPHYR_STANDARDS } from "@shared/schema";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Location } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
@@ -67,6 +67,7 @@ export default function Settings() {
   const { settings, isLoading, updateSettings, isUpdating, silentUpdateSettings } = useSettings();
   const { tenants } = useTenants();
   const { data: locations = [] } = useQuery<Location[]>({ queryKey: ["/api/locations"] });
+  const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -270,15 +271,30 @@ export default function Settings() {
                           onValueChange={(v) => {
                             const id = v === "none" ? null : parseInt(v, 10);
                             field.onChange(id);
-                            if (id != null) {
-                              const tenant = tenants.find((t) => t.id === id);
-                              const loc = tenant?.locationId != null
-                                ? locations.find((l) => l.id === tenant.locationId)
-                                : undefined;
-                              if (loc) {
-                                form.setValue("salesTaxPercent", loc.salesTaxPercent.toString(), { shouldDirty: true });
-                              }
+                            if (id == null) return;
+
+                            // Sync tax rate from the tenant's linked location
+                            const tenant = tenants.find((t) => t.id === id);
+                            const loc = tenant?.locationId != null
+                              ? locations.find((l) => l.id === tenant.locationId)
+                              : undefined;
+                            if (loc) {
+                              form.setValue("salesTaxPercent", loc.salesTaxPercent.toString(), { shouldDirty: true });
                             }
+
+                            // Immediately fetch the highest tech rate for the selected tenant.
+                            // queryClient.fetchQuery reuses any cached result (from TenantTaxSelector
+                            // on a calculator page) so it's instant when the data is already warm.
+                            queryClient.fetchQuery<{ rate: number }>({
+                              queryKey: ["/api/servicetitan", id, "highest-tech-rate"],
+                              queryFn: () =>
+                                apiRequest("GET", `/api/servicetitan/${id}/highest-tech-rate`).then((r) => r.json()),
+                              staleTime: 60 * 60 * 1000,
+                            }).then((data) => {
+                              if (typeof data.rate === "number" && data.rate > 0) {
+                                form.setValue("highestTechRate", String(data.rate), { shouldDirty: true, shouldValidate: true });
+                              }
+                            }).catch(() => {});
                           }}
                         >
                           <SelectTrigger data-testid="select-default-tenant">

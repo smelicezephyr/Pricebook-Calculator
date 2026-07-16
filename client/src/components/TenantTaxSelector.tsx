@@ -82,9 +82,17 @@ export function TenantTaxSelector({
   const { data: locations = [] } = useQuery<Location[]>({ queryKey: ["/api/locations"] });
   const queryClient = useQueryClient();
   const autoAppliedRef = useRef(false);
-  // Track which tenant we've already fetched the rate for — prevents re-fetching on
-  // every settings invalidation and avoids an infinite update loop.
-  const rateFetchedForTenantRef = useRef<number | null>(null);
+
+  // React Query caches the rate per tenant — switching back to a previously-seen
+  // tenant is instant (no network round-trip). staleTime matches the server-side
+  // cache TTL so we don't over-fetch.
+  const { data: rateData } = useQuery<{ rate: number; technicianName?: string; technicianCount?: number }>({
+    queryKey: ["/api/servicetitan", selectedTenantId, "highest-tech-rate"],
+    enabled: !!selectedTenantId,
+    staleTime: 60 * 60 * 1000,  // 1 hour — matches server cache TTL
+    gcTime: 2 * 60 * 60 * 1000,
+    retry: false,
+  });
 
   const applyTenantTax = (tenant: Tenant | undefined) => {
     if (!tenant) return;
@@ -92,6 +100,7 @@ export function TenantTaxSelector({
     if (loc) onTaxChange(loc.salesTaxPercent.toString());
   };
 
+  // Auto-select the best tenant when the page first loads (selectedTenantId is null).
   useEffect(() => {
     if (autoAppliedRef.current || selectedTenantId != null || tenants.length === 0) return;
     if (settings === undefined) return; // wait for settings to load before guessing
@@ -127,38 +136,25 @@ export function TenantTaxSelector({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTenantId, locations]);
 
-  // Auto-fetch highest tech rate from ServiceTitan whenever the tenant changes.
-  // Silently persists the result so all calculator pages always reflect the
-  // latest rate without requiring the user to visit Settings.
+  // When the rate arrives (from React Query cache instantly, or network on first
+  // fetch), persist it to settings so all calculator pages reflect the new value.
+  // The equality guard prevents an infinite PUT loop when settings already match.
   useEffect(() => {
-    if (!selectedTenantId || !settings) return;
-    // Only fetch once per tenant selection — don't re-run on settings invalidation
-    if (rateFetchedForTenantRef.current === selectedTenantId) return;
-    rateFetchedForTenantRef.current = selectedTenantId;
+    if (!rateData || !settings || !selectedTenantId) return;
+    const rate = rateData.rate;
+    if (typeof rate !== "number" || rate <= 0) return;
+    if (parseFloat(settings.highestTechRate || "0") === rate) return; // already up-to-date
 
     const { id: _id, ...settingsForUpdate } = settings as any;
-    apiRequest("GET", `/api/servicetitan/${selectedTenantId}/highest-tech-rate`)
-      .then((res) => res.json())
-      .then((data: { rate: number }) => {
-        if (typeof data.rate === "number" && data.rate > 0) {
-          // Also compute and save the recommended billing labor rate so all
-          // calculator pages immediately reflect the new tenant's rate.
-          const recommendedRate = computeRecommendedLaborRate(data.rate, settings!);
-          const updates: Record<string, string> = {
-            highestTechRate: String(data.rate),
-          };
-          if (recommendedRate > 0) {
-            updates.laborHourlyRate = String(recommendedRate);
-          }
-          return apiRequest("PUT", "/api/settings", { ...settingsForUpdate, ...updates });
-        }
-      })
-      .then(() => {
-        queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
-      })
+    const recommendedRate = computeRecommendedLaborRate(rate, settings!);
+    const updates: Record<string, string> = { highestTechRate: String(rate) };
+    if (recommendedRate > 0) updates.laborHourlyRate = String(recommendedRate);
+
+    apiRequest("PUT", "/api/settings", { ...settingsForUpdate, ...updates })
+      .then(() => queryClient.invalidateQueries({ queryKey: ["/api/settings"] }))
       .catch(() => {}); // Silent fail — never blocks the calculator UI
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTenantId, settings]);
+  }, [rateData, selectedTenantId]);
 
   if (tenants.length === 0) return null;
 
