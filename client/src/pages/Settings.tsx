@@ -4,6 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertSettingsSchema, ZEPHYR_STANDARDS } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
+import type { Location } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -64,6 +66,7 @@ const ZEPHYR_FORM_DEFAULTS = {
 export default function Settings() {
   const { settings, isLoading, updateSettings, isUpdating, silentUpdateSettings } = useSettings();
   const { tenants } = useTenants();
+  const { data: locations = [] } = useQuery<Location[]>({ queryKey: ["/api/locations"] });
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -264,7 +267,19 @@ export default function Settings() {
                       <FormControl>
                         <Select
                           value={field.value != null ? field.value.toString() : "none"}
-                          onValueChange={(v) => field.onChange(v === "none" ? null : parseInt(v, 10))}
+                          onValueChange={(v) => {
+                            const id = v === "none" ? null : parseInt(v, 10);
+                            field.onChange(id);
+                            if (id != null) {
+                              const tenant = tenants.find((t) => t.id === id);
+                              const loc = tenant?.locationId != null
+                                ? locations.find((l) => l.id === tenant.locationId)
+                                : undefined;
+                              if (loc) {
+                                form.setValue("salesTaxPercent", loc.salesTaxPercent.toString(), { shouldDirty: true });
+                              }
+                            }
+                          }}
                         >
                           <SelectTrigger data-testid="select-default-tenant">
                             <SelectValue placeholder="Auto-detect" />
