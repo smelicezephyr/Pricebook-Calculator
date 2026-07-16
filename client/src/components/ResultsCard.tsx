@@ -13,6 +13,7 @@ interface ResultsCardProps {
   grossMarginMinPercent?: number;
   oemRebate?: number;
   utilityRebate?: number;
+  partsOnly?: boolean;
   laborBreakdown?: {
     hours: number;
     numTechs: number;
@@ -43,7 +44,7 @@ const formatCurrency = (val: number) =>
 const formatPercent = (val: number) => 
   `${val.toFixed(2)}%`;
 
-export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTaxRate, discount = 0, roundUp = false, onRoundUpChange, grossMarginMinPercent = 52, oemRebate = 0, utilityRebate = 0, laborBreakdown }: ResultsCardProps) {
+export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTaxRate, discount = 0, roundUp = false, onRoundUpChange, grossMarginMinPercent = 52, oemRebate = 0, utilityRebate = 0, partsOnly = false, laborBreakdown }: ResultsCardProps) {
   // price is already rounded if roundUp is enabled (handled in Calculator)
   const totalOtherCogs = (breakdown.financing || 0) + (breakdown.subcontractor || 0) + (breakdown.crane || 0) + (breakdown.permit || 0);
   const mAndECost = (breakdown.materials || 0) + (breakdown.equipment || 0) + (breakdown.tax || 0);
@@ -200,12 +201,16 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
           <div className="space-y-4">
             {/* M&E Group */}
             <div className="space-y-1.5">
-              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">M&E (Includes Tax)</h4>
+              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">
+                {partsOnly ? "Parts (Includes Tax)" : "M&E (Includes Tax)"}
+              </h4>
               <div className="space-y-1">
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/30">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                    <span className="text-sm font-semibold text-blue-900 dark:text-blue-300">Total M&E</span>
+                    <span className="text-sm font-semibold text-blue-900 dark:text-blue-300">
+                      {partsOnly ? "Total Parts" : "Total M&E"}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-muted-foreground font-medium">
@@ -216,19 +221,32 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
                     </span>
                   </div>
                 </div>
-                
-                {/* M&E Breakdown Sub-items */}
+
+                {/* Sub-items */}
                 <div className="ml-5 space-y-0.5 pt-1 border-l-2 border-blue-100/50 dark:border-blue-900/30 pl-3">
-                  {[
-                    { label: "Materials", value: breakdown.materials },
-                    { label: "Equipment", value: breakdown.equipment },
-                    { label: `Sales Tax (${salesTaxRate || "6.35"}%)`, value: breakdown.tax },
-                  ].map((sub) => (
-                    <div key={sub.label} className="flex justify-between items-center py-0.5">
-                      <span className="text-xs text-muted-foreground">{sub.label}</span>
-                      <span className="text-xs font-mono text-muted-foreground">{formatCurrency(sub.value)}</span>
-                    </div>
-                  ))}
+                  {partsOnly ? (
+                    <>
+                      <div className="flex justify-between items-center py-0.5">
+                        <span className="text-xs text-muted-foreground">Parts</span>
+                        <span className="text-xs font-mono text-muted-foreground">{formatCurrency(breakdown.materials)}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-0.5">
+                        <span className="text-xs text-muted-foreground">Sales Tax ({salesTaxRate || "6.35"}%)</span>
+                        <span className="text-xs font-mono text-muted-foreground">{formatCurrency(breakdown.tax)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    [
+                      { label: "Materials", value: breakdown.materials },
+                      { label: "Equipment", value: breakdown.equipment },
+                      { label: `Sales Tax (${salesTaxRate || "6.35"}%)`, value: breakdown.tax },
+                    ].map((sub) => (
+                      <div key={sub.label} className="flex justify-between items-center py-0.5">
+                        <span className="text-xs text-muted-foreground">{sub.label}</span>
+                        <span className="text-xs font-mono text-muted-foreground">{formatCurrency(sub.value)}</span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>

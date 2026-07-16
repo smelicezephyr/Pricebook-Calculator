@@ -441,6 +441,7 @@ export default function RepairGMCalculator() {
               estimatedLabor={results.estimatedLabor}
               breakdown={results.breakdown}
               metrics={results.metrics}
+              partsOnly
               salesTaxRate={salesTaxPercent}
               roundUp={roundUp}
               onRoundUpChange={setRoundUp}
