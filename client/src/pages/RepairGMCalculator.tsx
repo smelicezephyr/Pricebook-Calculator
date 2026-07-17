@@ -179,8 +179,10 @@ export default function RepairGMCalculator() {
     const financingCost = price * f;
     const estimatedLabor = laborCost + commissionCost + tax + financingCost;
     const totalHours = hoursVal * numTechsVal;
+    // Use the actual billing rate per hour — not a blended (labor + commission) / hours
+    // figure, which incorrectly changes whenever parts cost (and thus price) changes.
     const laborRate = laborMode === "dollars" && totalHours > 0
-      ? (laborCost + commissionCost) / totalHours
+      ? effectiveLaborRate
       : 0;
 
     const totalAllCogs = totalParts + laborCost + commissionCost + financingCost;
