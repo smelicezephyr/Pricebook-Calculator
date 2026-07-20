@@ -207,6 +207,11 @@ export async function registerRoutes(
       if (startDate) { tenantDateConds.push(`ph.created_at >= $${tenantParams.push(startDate)}`); }
       if (endDate)   { tenantDateConds.push(`ph.created_at <= ($${tenantParams.push(endDate)}::date + INTERVAL '1 day')`); }
       const tenantDateWhere = tenantDateConds.join(" AND ");
+      // Quote date conditions for the tenant JOIN (appended to same tenantParams)
+      const quoteTenantDateConds: string[] = [];
+      if (startDate) { quoteTenantDateConds.push(`q.created_at >= $${tenantParams.push(startDate)}`); }
+      if (endDate)   { quoteTenantDateConds.push(`q.created_at <= ($${tenantParams.push(endDate)}::date + INTERVAL '1 day')`); }
+      const quoteTenantDateWhere = quoteTenantDateConds.length ? `AND ${quoteTenantDateConds.join(" AND ")}` : "";
       const tenantRowFilter = tenantFilterId !== undefined ? `WHERE t.id = $${tenantParams.push(String(tenantFilterId))}` : "";
 
       // Monthly chart: use the date range if provided, else last 6 months
@@ -220,6 +225,23 @@ export async function registerRoutes(
       if (tenantFilterId !== undefined) { monthlyConds.push(`tenant_id = $${monthlyParams.push(String(tenantFilterId))}`); }
       const monthlyWhere = monthlyConds.join(" AND ");
 
+      // Monthly quotes (separate params)
+      const monthlyQuoteParams: string[] = [];
+      const monthlyQuoteConds: string[] = [];
+      if (monthlyStart) { monthlyQuoteConds.push(`created_at >= $${monthlyQuoteParams.push(monthlyStart)}`); }
+      else               { monthlyQuoteConds.push(`created_at >= NOW() - INTERVAL '6 months'`); }
+      if (monthlyEnd)   { monthlyQuoteConds.push(`created_at <= ($${monthlyQuoteParams.push(monthlyEnd)}::date + INTERVAL '1 day')`); }
+      if (tenantFilterId !== undefined) { monthlyQuoteConds.push(`tenant_id = $${monthlyQuoteParams.push(String(tenantFilterId))}`); }
+      const monthlyQuoteWhere = monthlyQuoteConds.join(" AND ");
+
+      // Overall quote count params
+      const quoteParams: string[] = [];
+      const quoteConds: string[] = [];
+      if (startDate) { quoteConds.push(`created_at >= $${quoteParams.push(startDate)}`); }
+      if (endDate)   { quoteConds.push(`created_at <= ($${quoteParams.push(endDate)}::date + INTERVAL '1 day')`); }
+      if (tenantFilterId !== undefined) { quoteConds.push(`tenant_id = $${quoteParams.push(String(tenantFilterId))}`); }
+      const quoteWhere = quoteConds.length ? quoteConds.join(" AND ") : "TRUE";
+
       // Build login date conditions (login_events uses created_at), scoped to tenant's users when filtering
       const loginParams: string[] = [];
       const loginConds: string[] = [];
@@ -230,7 +252,7 @@ export async function registerRoutes(
       }
       const loginWhere = loginConds.length ? `WHERE ${loginConds.join(" AND ")}` : "";
 
-      const [overallResult, tenantResult, monthlyResult, userResult, typeResult, loginCountResult, recentLoginsResult] = await Promise.all([
+      const [overallResult, tenantResult, monthlyResult, userResult, typeResult, loginCountResult, recentLoginsResult, quotesOverallResult, monthlyQuotesResult] = await Promise.all([
         pool.query(
           `SELECT
             COUNT(*) AS total_pushes,
@@ -246,14 +268,16 @@ export async function registerRoutes(
           `SELECT
             t.id,
             t.name,
-            COUNT(ph.id) AS total_pushes,
-            COUNT(ph.id) FILTER (WHERE ph.status = 'completed') AS completed,
-            COUNT(ph.id) FILTER (WHERE ph.status = 'failed') AS failed,
+            COUNT(DISTINCT ph.id) AS total_pushes,
+            COUNT(DISTINCT ph.id) FILTER (WHERE ph.status = 'completed') AS completed,
+            COUNT(DISTINCT ph.id) FILTER (WHERE ph.status = 'failed') AS failed,
             COALESCE(SUM(ph.updated_count), 0) AS total_updated,
-            MAX(ph.created_at) AS last_push
+            MAX(ph.created_at) AS last_push,
+            COUNT(DISTINCT q.id) AS total_quotes
           FROM tenants t
           LEFT JOIN push_history ph ON ph.tenant_id = t.id
             AND ${tenantDateWhere}
+          LEFT JOIN quotes q ON q.tenant_id = t.id ${quoteTenantDateWhere}
           ${tenantRowFilter}
           GROUP BY t.id, t.name
           ORDER BY total_updated DESC`,
@@ -299,6 +323,21 @@ export async function registerRoutes(
            ORDER BY le.created_at DESC LIMIT 30`,
           loginParams,
         ),
+        pool.query(
+          `SELECT COUNT(*) AS total_quotes FROM quotes WHERE ${quoteWhere}`,
+          quoteParams,
+        ),
+        pool.query(
+          `SELECT
+            TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YY') AS month,
+            DATE_TRUNC('month', created_at) AS month_date,
+            COUNT(*) AS quotes
+          FROM quotes
+          WHERE ${monthlyQuoteWhere}
+          GROUP BY DATE_TRUNC('month', created_at)
+          ORDER BY month_date ASC`,
+          monthlyQuoteParams,
+        ),
       ]);
 
       const o = overallResult.rows[0];
@@ -311,6 +350,32 @@ export async function registerRoutes(
         if (row.push_type === 'new_repair') byType.newRepair  = Number(row.cnt);
       }
 
+      // Merge monthly push + quote data by month key
+      const monthlyQuoteMap = new Map<string, number>();
+      for (const r of monthlyQuotesResult.rows) {
+        monthlyQuoteMap.set(r.month, Number(r.quotes));
+      }
+      // Also collect months that only have quotes (no pushes)
+      const pushMonths = new Set(monthlyResult.rows.map((r: any) => r.month));
+      const quoteOnlyRows = monthlyQuotesResult.rows.filter((r: any) => !pushMonths.has(r.month));
+
+      const monthlyMerged = [
+        ...monthlyResult.rows.map((r: any) => ({
+          month: r.month,
+          monthDate: r.month_date,
+          pushes: Number(r.pushes),
+          updated: Number(r.updated),
+          quotes: monthlyQuoteMap.get(r.month) ?? 0,
+        })),
+        ...quoteOnlyRows.map((r: any) => ({
+          month: r.month,
+          monthDate: r.month_date,
+          pushes: 0,
+          updated: 0,
+          quotes: Number(r.quotes),
+        })),
+      ].sort((a, b) => new Date(a.monthDate).getTime() - new Date(b.monthDate).getTime());
+
       res.json({
         totalPushes: Number(o.total_pushes),
         completedPushes: Number(o.completed),
@@ -320,6 +385,7 @@ export async function registerRoutes(
         activeTenants: Number(o.active_tenants),
         activeUsers: Number(userResult.rows[0].active_users),
         loginCount: Number(loginCountResult.rows[0].login_count),
+        totalQuotes: Number(quotesOverallResult.rows[0].total_quotes),
         byType,
         recentLogins: recentLoginsResult.rows.map(r => ({
           id: Number(r.id),
@@ -336,14 +402,16 @@ export async function registerRoutes(
           failed: Number(r.failed),
           totalUpdated: Number(r.total_updated),
           lastPush: r.last_push,
+          totalQuotes: Number(r.total_quotes),
           successRate: (Number(r.completed) + Number(r.failed)) > 0
             ? Math.round((Number(r.completed) / (Number(r.completed) + Number(r.failed))) * 100)
             : null,
         })),
-        monthly: monthlyResult.rows.map(r => ({
+        monthly: monthlyMerged.map(r => ({
           month: r.month,
-          pushes: Number(r.pushes),
-          updated: Number(r.updated),
+          pushes: r.pushes,
+          updated: r.updated,
+          quotes: r.quotes,
         })),
       });
     } catch (err: any) {

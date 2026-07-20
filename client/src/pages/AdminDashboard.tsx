@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import {
   Loader2, BarChart2, CheckCircle2, Building2, Users,
   TrendingUp, FileDown, CalendarRange, RotateCcw, LogIn,
-  RefreshCw, Plus, Wrench,
+  RefreshCw, Plus, Wrench, FileText,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format, subDays, subMonths, startOfYear } from "date-fns";
@@ -27,6 +27,7 @@ type DashboardData = {
   activeTenants: number;
   activeUsers: number;
   loginCount: number;
+  totalQuotes: number;
   byType: { update: number; newSystem: number; newRepair: number };
   recentLogins: { id: number; name: string; email: string; role: string; createdAt: string }[];
   byTenant: {
@@ -37,9 +38,10 @@ type DashboardData = {
     failed: number;
     totalUpdated: number;
     lastPush: string | null;
+    totalQuotes: number;
     successRate: number | null;
   }[];
-  monthly: { month: string; pushes: number; updated: number }[];
+  monthly: { month: string; pushes: number; updated: number; quotes: number }[];
 };
 
 type DateRange = { startDate: string; endDate: string };
@@ -364,8 +366,8 @@ export default function AdminDashboard() {
           />
         </div>
 
-        {/* Stat Cards — row 2: push type breakdown + logins */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Stat Cards — row 2: push type breakdown + logins + quotes */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <StatCard
             title="Pricebook Updates"
             value={fmtNum(byType.update)}
@@ -387,6 +389,13 @@ export default function AdminDashboard() {
             accent="text-violet-600"
           />
           <StatCard
+            title="Quotes Saved"
+            value={fmtNum(data.totalQuotes)}
+            sub="calculations saved in period"
+            icon={FileText}
+            accent="text-orange-600"
+          />
+          <StatCard
             title="Logins"
             value={fmtNum(loginCount)}
             sub="user sign-ins in period"
@@ -398,12 +407,12 @@ export default function AdminDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Monthly Activity</CardTitle>
-            <CardDescription>Services updated and push operations by month.</CardDescription>
+            <CardDescription>Services updated, push operations, and quotes saved by month.</CardDescription>
           </CardHeader>
           <CardContent>
             {data.monthly.length === 0 ? (
               <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
-                No push activity in this period.
+                No activity in this period.
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={220}>
@@ -415,14 +424,15 @@ export default function AdminDashboard() {
                     contentStyle={{ fontSize: 12, borderRadius: 8 }}
                     formatter={(val: number, name: string) => [
                       val.toLocaleString(),
-                      name === "updated" ? "Services Updated" : "Push Operations",
+                      name === "updated" ? "Services Updated" : name === "quotes" ? "Quotes Saved" : "Push Operations",
                     ]}
                   />
                   <Legend
-                    formatter={(value) => value === "updated" ? "Services Updated" : "Push Operations"}
+                    formatter={(value) => value === "updated" ? "Services Updated" : value === "quotes" ? "Quotes Saved" : "Push Operations"}
                     wrapperStyle={{ fontSize: 12 }}
                   />
                   <Bar dataKey="updated" name="updated" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="quotes" name="quotes" fill="#f97316" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="pushes" name="pushes" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} opacity={0.4} />
                 </BarChart>
               </ResponsiveContainer>
@@ -445,6 +455,7 @@ export default function AdminDashboard() {
                   <thead>
                     <tr className="border-b border-border text-muted-foreground text-left">
                       <th className="pb-3 font-medium">Tenant</th>
+                      <th className="pb-3 font-medium text-right">Quotes Saved</th>
                       <th className="pb-3 font-medium text-right">Pushes</th>
                       <th className="pb-3 font-medium text-right">Services Updated</th>
                       <th className="pb-3 font-medium text-right">Success Rate</th>
@@ -455,6 +466,9 @@ export default function AdminDashboard() {
                     {data.byTenant.map((t) => (
                       <tr key={t.id} className="hover:bg-muted/40 transition-colors" data-testid={`row-tenant-${t.id}`}>
                         <td className="py-3 font-medium">{t.name}</td>
+                        <td className="py-3 text-right tabular-nums text-orange-600 font-semibold">
+                          {fmtNum(t.totalQuotes)}
+                        </td>
                         <td className="py-3 text-right tabular-nums">
                           <span>{t.totalPushes}</span>
                           {t.failed > 0 && (
@@ -491,6 +505,7 @@ export default function AdminDashboard() {
                   <tfoot>
                     <tr className="border-t-2 border-b-2 border-border font-semibold">
                       <td className="pt-3">Total</td>
+                      <td className="pt-3 text-right tabular-nums text-orange-600">{fmtNum(data.totalQuotes)}</td>
                       <td className="pt-3 text-right tabular-nums">{fmtNum(data.totalPushes)}</td>
                       <td className="pt-3 text-right tabular-nums text-emerald-600">{fmtNum(data.totalUpdated)}</td>
                       <td className="pt-3 text-right">
