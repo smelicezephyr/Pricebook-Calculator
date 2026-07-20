@@ -67,6 +67,11 @@ export function configurePassport() {
             name: profile.displayName,
             avatarUrl,
           });
+          // Auto-assign tenant access based on email domain (e.g. psihomeservices.com → PSI).
+          // Runs on every login so existing users get picked up too. Fire-and-forget.
+          storage.autoGrantTenantByDomain(user.id, email).catch(err =>
+            console.error("[Auth] Failed to auto-grant tenant by domain:", err)
+          );
           // Fire-and-forget login event — never block auth on this
           storage.logLoginEvent(user.id, user.email, user.name).catch(err =>
             console.error("[Auth] Failed to log login event:", err)

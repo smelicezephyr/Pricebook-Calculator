@@ -67,6 +67,8 @@ export interface IStorage {
   deleteUser(id: number): Promise<void>;
   getUserTenantIds(userId: number): Promise<number[]>;
   setUserTenantAccess(userId: number, tenantIds: number[]): Promise<void>;
+  grantTenantAccess(userId: number, tenantId: number): Promise<void>;
+  autoGrantTenantByDomain(userId: number, email: string): Promise<void>;
   getUsersByTenant(tenantId: number): Promise<User[]>;
   getQuotesByUserIds(userIds: number[]): Promise<Quote[]>;
 
@@ -366,6 +368,28 @@ export class DatabaseStorage implements IStorage {
     if (tenantIds.length > 0) {
       await db.insert(userTenantAccess)
         .values(tenantIds.map(tid => ({ userId, tenantId: tid })));
+    }
+  }
+
+  async grantTenantAccess(userId: number, tenantId: number): Promise<void> {
+    await db.insert(userTenantAccess)
+      .values({ userId, tenantId })
+      .onConflictDoNothing();
+  }
+
+  async autoGrantTenantByDomain(userId: number, email: string): Promise<void> {
+    const domain = (email.split("@")[1] ?? "").toLowerCase();
+    if (!domain) return;
+    const domainKey = domain.replace(/[^a-z0-9]/g, ""); // e.g. "psihomeservices"
+
+    const allTenants = await this.getTenants();
+    for (const tenant of allTenants) {
+      const tenantKey = (tenant.name ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (!tenantKey) continue;
+      // Match if domain starts with or contains the tenant's normalized name, or vice-versa
+      if (domainKey.includes(tenantKey) || tenantKey.includes(domainKey)) {
+        await this.grantTenantAccess(userId, tenant.id);
+      }
     }
   }
 
