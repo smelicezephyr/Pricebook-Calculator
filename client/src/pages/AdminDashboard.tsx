@@ -14,7 +14,7 @@ import {
   RefreshCw, Plus, Wrench, FileText, DatabaseZap,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { format, subDays, subMonths, startOfYear } from "date-fns";
+import { format, subDays, subMonths, startOfYear, startOfMonth, startOfWeek, endOfWeek, subWeeks } from "date-fns";
 import { toPng } from "html-to-image";
 import { jsPDF } from "jspdf";
 
@@ -54,6 +54,11 @@ const fmt = (d: Date) => format(d, "yyyy-MM-dd");
 const today = () => fmt(new Date());
 
 const PRESETS = [
+  { label: "Prev week", range: () => {
+    const lastWeek = subWeeks(new Date(), 1);
+    return { startDate: fmt(startOfWeek(lastWeek, { weekStartsOn: 1 })), endDate: fmt(endOfWeek(lastWeek, { weekStartsOn: 1 })) };
+  }},
+  { label: "Month to date", range: () => ({ startDate: fmt(startOfMonth(new Date())), endDate: today() }) },
   { label: "Last 30 days", range: () => ({ startDate: fmt(subDays(new Date(), 29)), endDate: today() }) },
   { label: "Last 90 days", range: () => ({ startDate: fmt(subDays(new Date(), 89)), endDate: today() }) },
   { label: "Last 6 months", range: () => ({ startDate: fmt(subMonths(new Date(), 6)), endDate: today() }) },
