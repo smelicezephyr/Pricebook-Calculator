@@ -54,16 +54,19 @@ const fmt = (d: Date) => format(d, "yyyy-MM-dd");
 const today = () => fmt(new Date());
 
 const PRESETS = [
-  { label: "Prev week", range: () => {
+  { label: "Today",         range: () => ({ startDate: today(), endDate: today() }) },
+  { label: "Yesterday",     range: () => ({ startDate: fmt(subDays(new Date(), 1)), endDate: fmt(subDays(new Date(), 1)) }) },
+  { label: "Week to date",  range: () => ({ startDate: fmt(startOfWeek(new Date(), { weekStartsOn: 1 })), endDate: today() }) },
+  { label: "Prev week",     range: () => {
     const lastWeek = subWeeks(new Date(), 1);
     return { startDate: fmt(startOfWeek(lastWeek, { weekStartsOn: 1 })), endDate: fmt(endOfWeek(lastWeek, { weekStartsOn: 1 })) };
   }},
   { label: "Month to date", range: () => ({ startDate: fmt(startOfMonth(new Date())), endDate: today() }) },
-  { label: "Last 30 days", range: () => ({ startDate: fmt(subDays(new Date(), 29)), endDate: today() }) },
-  { label: "Last 90 days", range: () => ({ startDate: fmt(subDays(new Date(), 89)), endDate: today() }) },
+  { label: "Last 30 days",  range: () => ({ startDate: fmt(subDays(new Date(), 29)), endDate: today() }) },
+  { label: "Last 90 days",  range: () => ({ startDate: fmt(subDays(new Date(), 89)), endDate: today() }) },
   { label: "Last 6 months", range: () => ({ startDate: fmt(subMonths(new Date(), 6)), endDate: today() }) },
-  { label: "This year", range: () => ({ startDate: fmt(startOfYear(new Date())), endDate: today() }) },
-  { label: "All time", range: () => ({ startDate: "", endDate: "" }) },
+  { label: "This year",     range: () => ({ startDate: fmt(startOfYear(new Date())), endDate: today() }) },
+  { label: "All time",      range: () => ({ startDate: "", endDate: "" }) },
 ];
 
 const ROLE_LABEL: Record<string, string> = {
@@ -306,23 +309,25 @@ export default function AdminDashboard() {
       <Card>
         <CardContent className="pt-4 pb-4">
           <div className="flex flex-col gap-3">
-            {/* Preset buttons */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+            {/* Preset dropdown */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground font-medium flex items-center gap-1 shrink-0">
                 <CalendarRange size={13} /> Period:
               </span>
-              {PRESETS.map(p => (
-                <Button
-                  key={p.label}
-                  size="sm"
-                  variant={activePreset === p.label ? "default" : "outline"}
-                  className="h-7 text-xs"
-                  onClick={() => setRange(p.range())}
-                  data-testid={`button-preset-${p.label.toLowerCase().replace(/\s+/g, "-")}`}
-                >
-                  {p.label}
-                </Button>
-              ))}
+              <select
+                value={activePreset}
+                onChange={e => {
+                  const preset = PRESETS.find(p => p.label === e.target.value);
+                  if (preset) setRange(preset.range());
+                }}
+                className="h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                data-testid="select-period-preset"
+              >
+                {activePreset === "Custom" && <option value="Custom">Custom</option>}
+                {PRESETS.map(p => (
+                  <option key={p.label} value={p.label}>{p.label}</option>
+                ))}
+              </select>
             </div>
 
             {/* Custom date inputs */}
