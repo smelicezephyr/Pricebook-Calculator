@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import {
   Loader2, BarChart2, CheckCircle2, Building2, Users,
   TrendingUp, FileDown, CalendarRange, RotateCcw, LogIn,
-  RefreshCw, Plus, Wrench, FileText,
+  RefreshCw, Plus, Wrench, FileText, DatabaseZap,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format, subDays, subMonths, startOfYear } from "date-fns";
@@ -95,8 +97,10 @@ function StatCard({
 
 export default function AdminDashboard() {
   const { isAdmin, isManager, isReporting, isLoading: authLoading } = useAuth();
+  const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
   const [selectedTenantId, setSelectedTenantId] = useState<string>("");
 
   const { data: tenants = [] } = useQuery<{ id: number; name: string }[]>({
@@ -195,6 +199,20 @@ export default function AdminDashboard() {
     }
   }, [data, range]);
 
+  const handleBackfillTenants = useCallback(async () => {
+    if (!confirm("This will assign a tenant to any quote that was saved without one, but only when the author has exactly one tenant. Safe to run multiple times. Continue?")) return;
+    setBackfilling(true);
+    try {
+      const res = await apiRequest("POST", "/api/admin/backfill-quote-tenants");
+      const json = await res.json();
+      toast({ title: `Backfill complete`, description: `${json.fixed} quote(s) updated.` });
+    } catch {
+      toast({ title: "Backfill failed", description: "Check console for details.", variant: "destructive" });
+    } finally {
+      setBackfilling(false);
+    }
+  }, [toast]);
+
   // ── Guards ──────────────────────────────────────────────────────────────────
   if (authLoading) return <Spinner />;
   if (!isReporting) return <Center>Admin or manager access required.</Center>;
@@ -226,18 +244,35 @@ export default function AdminDashboard() {
               : "Push performance and adoption metrics across all tenants."}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleExportPdf}
-          disabled={exporting || !data}
-          data-testid="button-export-pdf"
-        >
-          {exporting
-            ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            : <FileDown className="w-4 h-4 mr-2" />}
-          Export PDF
-        </Button>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBackfillTenants}
+              disabled={backfilling}
+              data-testid="button-backfill-tenants"
+              title="Assign tenant to quotes saved without one (safe to run multiple times)"
+            >
+              {backfilling
+                ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                : <DatabaseZap className="w-4 h-4 mr-2" />}
+              Fix Unlinked Quotes
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportPdf}
+            disabled={exporting || !data}
+            data-testid="button-export-pdf"
+          >
+            {exporting
+              ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              : <FileDown className="w-4 h-4 mr-2" />}
+            Export PDF
+          </Button>
+        </div>
       </div>
 
       {/* Tenant Selector — admin (optional filter) or manager (required) */}

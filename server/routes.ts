@@ -508,6 +508,29 @@ export async function registerRoutes(
     }
   });
 
+  // Backfill tenant_id on quotes that were saved without one.
+  // Safe: only assigns tenantId when the quote author has exactly one tenant — no guessing.
+  app.post("/api/admin/backfill-quote-tenants", requireAdmin, async (_req, res) => {
+    try {
+      const result = await pool.query(`
+        UPDATE quotes q
+        SET tenant_id = single.tenant_id
+        FROM (
+          SELECT uta.user_id, uta.tenant_id
+          FROM user_tenant_access uta
+          GROUP BY uta.user_id, uta.tenant_id
+          HAVING COUNT(*) OVER (PARTITION BY uta.user_id) = 1
+        ) single
+        WHERE q.user_id = single.user_id
+          AND q.tenant_id IS NULL
+        RETURNING q.id
+      `);
+      res.json({ fixed: result.rowCount ?? 0 });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // My accessible tenant IDs (used by frontend to filter dropdowns)
   app.get("/api/my/tenant-ids", requireUserOrAdmin, async (req, res) => {
     const user = req.user!;
@@ -551,6 +574,12 @@ export async function registerRoutes(
   app.post(api.quotes.create.path, requireAuth, async (req, res) => {
     try {
       const input = api.quotes.create.input.parse(req.body);
+      // If the frontend didn't send a tenantId (e.g. tenant selector wasn't visible),
+      // auto-assign from the user's access when they have exactly one tenant.
+      if (input.tenantId == null) {
+        const allowedIds = await storage.getUserTenantIds(req.user!.id);
+        if (allowedIds.length === 1) input.tenantId = allowedIds[0];
+      }
       const quote = await storage.createQuote(input, req.user!.id);
       res.status(201).json(quote);
     } catch (err) {
@@ -659,13 +688,16 @@ export async function registerRoutes(
   });
 
   // Tenant Routes
-  app.get(api.tenants.list.path, requireUserOrAdmin, async (req, res) => {
+  // Uses requireAuth (not requireUserOrAdmin) so that `everyone` role users can
+  // see their assigned tenants — this populates the tenant selector on calculators
+  // and ensures saved quotes carry the correct tenant_id.
+  app.get(api.tenants.list.path, requireAuth, async (req, res) => {
     const allTenants = await storage.getTenants();
     const user = req.user!;
     if (user.role === "admin") {
       return res.json(allTenants.map(sanitizeTenant));
     }
-    // user role: only return tenants they're assigned to
+    // All non-admin roles: return only tenants the user is assigned to
     const allowedIds = await storage.getUserTenantIds(user.id);
     res.json(allTenants.filter(t => allowedIds.includes(t.id)).map(sanitizeTenant));
   });
