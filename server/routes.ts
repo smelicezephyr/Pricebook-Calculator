@@ -539,7 +539,13 @@ export async function registerRoutes(
         if (row.cnt === "1") singleTenantMap.set(row.user_id, row.tenant_id);
       }
 
-      // Domain-match helper (mirrors autoGrantTenantByDomain)
+      // Domain-match helper — mirrors the updated autoGrantTenantByDomain logic.
+      // Three-way match: substring contains OR shared prefix ≥6 chars.
+      const commonPrefixLen = (a: string, b: string) => {
+        let i = 0;
+        while (i < a.length && i < b.length && a[i] === b[i]) i++;
+        return i;
+      };
       const domainMatchTenant = (email: string): number | null => {
         const domain = email.split("@")[1];
         if (!domain) return null;
@@ -547,7 +553,11 @@ export async function registerRoutes(
         const normalizedDomain = domainRoot.toLowerCase().replace(/[^a-z0-9]/g, "");
         const matches = allTenants.filter(t => {
           const normalizedName = t.name.toLowerCase().replace(/[^a-z0-9]/g, "");
-          return normalizedName.includes(normalizedDomain) || normalizedDomain.includes(normalizedName);
+          return (
+            normalizedName.includes(normalizedDomain) ||
+            normalizedDomain.includes(normalizedName) ||
+            commonPrefixLen(normalizedDomain, normalizedName) >= 6
+          );
         });
         return matches.length === 1 ? matches[0].id : null;
       };

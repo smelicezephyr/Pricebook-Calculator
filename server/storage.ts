@@ -380,14 +380,31 @@ export class DatabaseStorage implements IStorage {
   async autoGrantTenantByDomain(userId: number, email: string): Promise<void> {
     const domain = (email.split("@")[1] ?? "").toLowerCase();
     if (!domain) return;
-    const domainKey = domain.replace(/[^a-z0-9]/g, ""); // e.g. "psihomeservices"
+    // Use only the part before the first dot: "bluevalleyenergy.com" → "bluevalleyenergy"
+    const domainRoot = domain.split(".")[0];
+    const domainKey = domainRoot.replace(/[^a-z0-9]/g, "");
+
+    const commonPrefixLen = (a: string, b: string) => {
+      let i = 0;
+      while (i < a.length && i < b.length && a[i] === b[i]) i++;
+      return i;
+    };
 
     const allTenants = await this.getTenants();
     for (const tenant of allTenants) {
       const tenantKey = (tenant.name ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
       if (!tenantKey) continue;
-      // Match if domain starts with or contains the tenant's normalized name, or vice-versa
-      if (domainKey.includes(tenantKey) || tenantKey.includes(domainKey)) {
+      // Three-way match: substring contains OR shared prefix of ≥6 chars
+      // Examples:
+      //   bonsby ⊂ michaelbonsbyhvac…          → contains ✓
+      //   bluevalleyenergy vs bluevalleyhorizon → prefix "bluevalley" (10) ✓
+      //   degreeheatingandcooling vs degreeheatingcooling → prefix "degreeheating" (13) ✓
+      //   zephyrlocal vs zephyrtesting          → prefix "zephyr" (6) ✓
+      const isMatch =
+        domainKey.includes(tenantKey) ||
+        tenantKey.includes(domainKey) ||
+        commonPrefixLen(domainKey, tenantKey) >= 6;
+      if (isMatch) {
         await this.grantTenantAccess(userId, tenant.id);
       }
     }
