@@ -509,23 +509,71 @@ export async function registerRoutes(
   });
 
   // Backfill tenant_id on quotes that were saved without one.
-  // Safe: only assigns tenantId when the quote author has exactly one tenant — no guessing.
+  // Two-pass strategy:
+  //   1. Single-tenant access: if the user is assigned to exactly one tenant, use it.
+  //   2. Domain matching: normalize the email domain against tenant names using the
+  //      same logic as autoGrantTenantByDomain (no guessing on multi-match).
+  // Safe to run multiple times — only touches rows where tenant_id IS NULL.
   app.post("/api/admin/backfill-quote-tenants", requireAdmin, async (_req, res) => {
     try {
-      const result = await pool.query(`
-        UPDATE quotes q
-        SET tenant_id = single.tenant_id
-        FROM (
-          SELECT uta.user_id, uta.tenant_id
-          FROM user_tenant_access uta
-          GROUP BY uta.user_id, uta.tenant_id
-          HAVING COUNT(*) OVER (PARTITION BY uta.user_id) = 1
-        ) single
-        WHERE q.user_id = single.user_id
-          AND q.tenant_id IS NULL
-        RETURNING q.id
+      // Fetch all null-tenant quotes with their author's email
+      const { rows: nullQuotes } = await pool.query<{ id: number; user_id: number; email: string }>(`
+        SELECT q.id, q.user_id, u.email
+        FROM quotes q
+        JOIN users u ON u.id = q.user_id
+        WHERE q.tenant_id IS NULL
       `);
-      res.json({ fixed: result.rowCount ?? 0 });
+
+      if (nullQuotes.length === 0) return res.json({ fixed: 0 });
+
+      // Fetch all tenants and all user→tenant assignments
+      const allTenants = await storage.getTenants();
+      const { rows: accessRows } = await pool.query<{ user_id: number; tenant_id: number; cnt: string }>(`
+        SELECT user_id, tenant_id, COUNT(*) OVER (PARTITION BY user_id)::text AS cnt
+        FROM user_tenant_access
+      `);
+
+      // Build maps for fast lookup
+      const singleTenantMap = new Map<number, number>(); // user_id → tenant_id (only when cnt=1)
+      for (const row of accessRows) {
+        if (row.cnt === "1") singleTenantMap.set(row.user_id, row.tenant_id);
+      }
+
+      // Domain-match helper (mirrors autoGrantTenantByDomain)
+      const domainMatchTenant = (email: string): number | null => {
+        const domain = email.split("@")[1];
+        if (!domain) return null;
+        const domainRoot = domain.split(".")[0];
+        const normalizedDomain = domainRoot.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const matches = allTenants.filter(t => {
+          const normalizedName = t.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+          return normalizedName.includes(normalizedDomain) || normalizedDomain.includes(normalizedName);
+        });
+        return matches.length === 1 ? matches[0].id : null;
+      };
+
+      // Resolve a tenant for each null-tenant quote
+      const updates: Array<{ id: number; tenantId: number }> = [];
+      for (const q of nullQuotes) {
+        const tenantId =
+          singleTenantMap.get(q.user_id) ??   // pass 1: single-tenant access
+          domainMatchTenant(q.email);           // pass 2: email domain match
+        if (tenantId != null) updates.push({ id: q.id, tenantId });
+      }
+
+      if (updates.length === 0) return res.json({ fixed: 0 });
+
+      // Batch-update using unnest
+      const ids = updates.map(u => u.id);
+      const tenantIds = updates.map(u => u.tenantId);
+      await pool.query(
+        `UPDATE quotes SET tenant_id = v.tid
+         FROM unnest($1::int[], $2::int[]) AS v(qid, tid)
+         WHERE quotes.id = v.qid`,
+        [ids, tenantIds]
+      );
+
+      res.json({ fixed: updates.length });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
