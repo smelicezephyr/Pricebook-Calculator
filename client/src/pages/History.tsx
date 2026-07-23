@@ -1,7 +1,7 @@
 import { useQuotes, useDeleteQuote, useClearQuotes } from "@/hooks/use-quotes";
 import { useTenants } from "@/hooks/use-tenants";
 import { format } from "date-fns";
-import { Loader2, Trash2, Search, Calendar, DollarSign, Users, User, Wrench, Flame, ArrowUpDown, Building2 } from "lucide-react";
+import { Loader2, Trash2, Search, Calendar, DollarSign, Users, User, Wrench, Flame, ArrowUpDown, Building2, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useMemo } from "react";
@@ -182,6 +182,15 @@ export default function History() {
                       <Calendar className="w-3 h-3 mr-1" />
                       {quote.createdAt ? format(new Date(quote.createdAt), "MMM d, yyyy") : "Unknown"}
                     </div>
+                    {(quote as any).afterHours && (
+                      <div
+                        className="flex items-center text-xs font-bold whitespace-nowrap px-2 py-0.5 rounded-full bg-red-600 text-white"
+                        data-testid={`badge-after-hours-${quote.id}`}
+                      >
+                        <Moon className="w-3 h-3 mr-1" />
+                        After Hours
+                      </div>
+                    )}
                   </div>
                 </div>
 

@@ -83,6 +83,7 @@ app.use((req, res, next) => {
   // Schema migrations — safe to run on every startup
   await pool.query(`
     ALTER TABLE tenants ADD COLUMN IF NOT EXISTS after_hours_multiplier REAL NOT NULL DEFAULT 1.5;
+    ALTER TABLE quotes ADD COLUMN IF NOT EXISTS after_hours BOOLEAN NOT NULL DEFAULT FALSE;
   `);
 
   // Session store backed by PostgreSQL

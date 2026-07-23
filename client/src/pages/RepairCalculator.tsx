@@ -247,7 +247,8 @@ export default function RepairCalculator() {
       subcontractorCost: "0",
       craneCost: "0",
       permitCost: "0",
-    }, {
+      afterHours,
+    } as any, {
       onSuccess: async () => {
         await downloadImage();
         setIsSaveOpen(false);
@@ -278,7 +279,8 @@ export default function RepairCalculator() {
       subcontractorCost: "0",
       craneCost: "0",
       permitCost: "0",
-    });
+      afterHours,
+    } as any);
     setRevealedKey(priceKey);
   };
 
@@ -319,7 +321,7 @@ export default function RepairCalculator() {
               <DialogTrigger asChild>
                 <Button className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30" data-testid="button-save-repair">
                   <Save size={16} />
-                  Save Calc
+                  Save Quote
                 </Button>
               </DialogTrigger>
             )}
@@ -521,6 +523,12 @@ export default function RepairCalculator() {
         </div>
 
         <div className="lg:col-span-9 space-y-4" ref={resultsRef}>
+          {afterHours && (
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-red-600 text-white font-bold text-sm shadow-lg shadow-red-600/30">
+              <Moon size={16} />
+              After Hours Pricing Active
+            </div>
+          )}
         <RevealPriceGate locked={locked} onReveal={handleReveal} isSaving={createQuote.isPending}>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="md:col-span-3 bg-primary text-primary-foreground rounded-xl p-5 shadow-xl shadow-primary/20 relative overflow-hidden group">

@@ -10,7 +10,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Target, Loader2 } from "lucide-react";
+import { RefreshCw, Target, Loader2, Save } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toPng } from "html-to-image";
 import { useToast } from "@/hooks/use-toast";
 import type { Settings } from "@shared/schema";
@@ -50,6 +51,8 @@ export default function RepairGMCalculator() {
   const createQuote = useCreateQuote();
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const [isSaveOpen, setIsSaveOpen] = useState(false);
+  const [quoteTitle, setQuoteTitle] = useState("");
 
   const [partsCost, setPartsCost] = useState("");
   const [salesTaxPercent, setSalesTaxPercent] = useState("6.35");
@@ -224,6 +227,30 @@ export default function RepairGMCalculator() {
     }
   };
 
+  const handleSave = () => {
+    createQuote.mutate({
+      title: quoteTitle || "Untitled Repair GM Quote",
+      tenantId: selectedTenantId,
+      materialsCost: partsVal.toString(),
+      equipmentCost: "0",
+      laborHoursInput: laborMode === "dollars" ? hoursVal.toString() : "0",
+      calculatedPrice: results.price.toFixed(2),
+      calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
+      calculatedEstimatedLabor: results.directLaborCost.toFixed(2),
+      calculatedMePercent: results.metrics.mePercent.toFixed(2),
+      calculatedLaborRate: results.laborRate > 0 ? results.laborRate.toFixed(2) : null,
+      subcontractorCost: "0",
+      craneCost: "0",
+      permitCost: "0",
+    }, {
+      onSuccess: async () => {
+        await downloadImage();
+        setIsSaveOpen(false);
+        setQuoteTitle("");
+      },
+    });
+  };
+
   if (settingsLoading || !settings) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -269,9 +296,48 @@ export default function RepairGMCalculator() {
             <RefreshCw size={16} />
             Reset
           </Button>
-          <Button variant="outline" onClick={downloadImage} className="gap-2" data-testid="button-download-png">
-            Export PNG
-          </Button>
+          <Dialog open={isSaveOpen} onOpenChange={setIsSaveOpen}>
+            {!isPriceGated && (
+              <DialogTrigger asChild>
+                <Button className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30" data-testid="button-save-repair-gm">
+                  <Save size={16} />
+                  Save Quote
+                </Button>
+              </DialogTrigger>
+            )}
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Save Quote</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Quote Title</Label>
+                  <Input
+                    placeholder="e.g. Smith Residence - Repair"
+                    value={quoteTitle}
+                    onChange={(e) => setQuoteTitle(e.target.value)}
+                    data-testid="input-quote-title"
+                  />
+                </div>
+                <div className="bg-muted p-4 rounded-lg space-y-3 text-sm">
+                  <div className="pt-2 flex justify-between items-baseline">
+                    <span className="text-muted-foreground font-bold">Total Price:</span>
+                    <span className="text-xl font-bold text-primary">${results.price.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-baseline border-t border-border/50 pt-2">
+                    <span className="text-muted-foreground font-bold">Gross Margin:</span>
+                    <span className="text-lg font-bold text-emerald-600">{results.metrics.grossMarginPercent.toFixed(1)}%</span>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsSaveOpen(false)}>Cancel</Button>
+                <Button onClick={handleSave} disabled={createQuote.isPending}>
+                  {createQuote.isPending ? "Saving..." : "Save & Download"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 

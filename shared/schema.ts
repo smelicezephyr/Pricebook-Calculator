@@ -154,7 +154,10 @@ export const quotes = pgTable("quotes", {
   subcontractorCost: numeric("subcontractor_cost").notNull().default("0.00"),
   craneCost: numeric("crane_cost").notNull().default("0.00"),
   permitCost: numeric("permit_cost").notNull().default("0.00"),
-  
+
+  // After Hours flag — set when the repair was priced with After Hours mode on
+  afterHours: boolean("after_hours").notNull().default(false),
+
   createdAt: timestamp("created_at").defaultNow(),
 });
 

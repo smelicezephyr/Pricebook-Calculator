@@ -10,7 +10,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Target } from "lucide-react";
+import { RefreshCw, Target, Save } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const formatCurrency = (val: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(val);
@@ -22,6 +23,8 @@ export default function AutoMECalculator() {
   const { isPriceGated } = useAuth();
   const createQuote = useCreateQuote();
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  const [isSaveOpen, setIsSaveOpen] = useState(false);
+  const [quoteTitle, setQuoteTitle] = useState("");
 
   const [materials, setMaterials] = useState("");
   const [equipment, setEquipment] = useState("");
@@ -221,6 +224,29 @@ export default function AutoMECalculator() {
     setRevealedKey(priceKey);
   };
 
+  const handleSave = () => {
+    createQuote.mutate({
+      title: quoteTitle || "Untitled System Quote",
+      tenantId: selectedTenantId,
+      materialsCost: matVal.toString(),
+      equipmentCost: equipVal.toString(),
+      laborHoursInput: laborMode === "hours" ? hoursVal.toString() : "0",
+      calculatedPrice: results.price.toFixed(2),
+      calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
+      calculatedEstimatedLabor: results.directLaborCost.toFixed(2),
+      calculatedMePercent: results.computedMePercent.toFixed(2),
+      calculatedLaborRate: results.laborRate > 0 ? results.laborRate.toFixed(2) : null,
+      subcontractorCost: subVal.toString(),
+      craneCost: craneVal.toString(),
+      permitCost: permitVal.toString(),
+    }, {
+      onSuccess: () => {
+        setIsSaveOpen(false);
+        setQuoteTitle("");
+      },
+    });
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
       {/* Header */}
@@ -231,10 +257,54 @@ export default function AutoMECalculator() {
             Enter your costs — the calculator finds the M&E% needed to hit your target gross margin.
           </p>
         </div>
-        <Button variant="outline" onClick={resetInputs} className="gap-2 self-start md:self-auto">
-          <RefreshCw size={16} />
-          Reset
-        </Button>
+        <div className="flex items-center gap-2 self-start md:self-auto">
+          <Button variant="outline" onClick={resetInputs} className="gap-2">
+            <RefreshCw size={16} />
+            Reset
+          </Button>
+          <Dialog open={isSaveOpen} onOpenChange={setIsSaveOpen}>
+            {!isPriceGated && (
+              <DialogTrigger asChild>
+                <Button className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30" data-testid="button-save-system-gm">
+                  <Save size={16} />
+                  Save Quote
+                </Button>
+              </DialogTrigger>
+            )}
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Save Quote</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Quote Title</Label>
+                  <Input
+                    placeholder="e.g. Smith Residence - 3 Ton Unit"
+                    value={quoteTitle}
+                    onChange={(e) => setQuoteTitle(e.target.value)}
+                    data-testid="input-quote-title"
+                  />
+                </div>
+                <div className="bg-muted p-4 rounded-lg space-y-3 text-sm">
+                  <div className="pt-2 flex justify-between items-baseline">
+                    <span className="text-muted-foreground font-bold">Total Price:</span>
+                    <span className="text-xl font-bold text-primary">${results.price.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-baseline border-t border-border/50 pt-2">
+                    <span className="text-muted-foreground font-bold">Gross Margin:</span>
+                    <span className="text-lg font-bold text-emerald-600">{results.metrics.grossMarginPercent.toFixed(1)}%</span>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsSaveOpen(false)}>Cancel</Button>
+                <Button onClick={handleSave} disabled={createQuote.isPending}>
+                  {createQuote.isPending ? "Saving..." : "Save Quote"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Target GM% banner */}
