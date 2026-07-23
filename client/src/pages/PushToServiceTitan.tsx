@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign, ArrowUp, Plus, ImagePlus, Search, Check, ChevronsUpDown, Wrench, MapPin, Edit, Trash2, ListOrdered, Info } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign, ArrowUp, Plus, ImagePlus, Search, Check, ChevronsUpDown, Wrench, MapPin, Edit, Trash2, ListOrdered, Info, Moon } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -168,6 +168,7 @@ export default function PushToServiceTitan() {
   const [repairUpdateFinancingFeePercent, setRepairUpdateFinancingFeePercent] = useState<string>("4.00");
   const [repairUpdateRoundUp, setRepairUpdateRoundUp] = useState<boolean>(false);
   const [repairUpdateSkipNoMaterials, setRepairUpdateSkipNoMaterials] = useState<boolean>(false);
+  const [repairUpdateAfterHours, setRepairUpdateAfterHours] = useState<boolean>(false);
   const [isRepairPushing, setIsRepairPushing] = useState<boolean>(false);
   const [repairPushSubmitted, setRepairPushSubmitted] = useState<boolean>(false);
   const [repairPushStatusMessage, setRepairPushStatusMessage] = useState<string>("");
@@ -984,6 +985,7 @@ export default function PushToServiceTitan() {
           financingFeePercent: parseFloat(repairUpdateFinancingFeePercent),
           roundUp: repairUpdateRoundUp,
           skipNoMaterials: repairUpdateSkipNoMaterials,
+          afterHours: repairUpdateAfterHours,
         }),
       });
 
@@ -2177,6 +2179,29 @@ export default function PushToServiceTitan() {
                       </div>
                     </div>
 
+                    {/* After Hours Toggle */}
+                    <div className="space-y-3 pt-4 border-t">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label className="text-sm font-bold text-red-600 cursor-pointer flex items-center gap-1.5">
+                            <Moon className="w-4 h-4" />
+                            After Hours
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Applies 1.5× to labor rate and a per-tenant pricing multiplier to final price.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setRepairUpdateAfterHours(v => !v)}
+                          data-testid="button-repair-after-hours"
+                          className={`relative inline-flex h-8 items-center rounded-full px-4 text-sm font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 ${repairUpdateAfterHours ? "bg-red-600 text-white shadow-lg shadow-red-600/30" : "bg-muted text-muted-foreground"}`}
+                        >
+                          {repairUpdateAfterHours ? "ON" : "OFF"}
+                        </button>
+                      </div>
+                    </div>
+
                     {/* Skip No-M&E Toggle */}
                     <div className="space-y-3 pt-4 border-t">
                       <div className="flex items-center justify-between">
@@ -2217,6 +2242,9 @@ export default function PushToServiceTitan() {
                       <Badge variant="secondary" className="text-xs">Financing: {repairUpdateFinancingFeePercent}%</Badge>
                       {repairUpdateRoundUp && (
                         <Badge variant="secondary" className="text-xs">Round Up: On</Badge>
+                      )}
+                      {repairUpdateAfterHours && (
+                        <Badge className="text-xs bg-red-600 text-white hover:bg-red-600">After Hours: ON</Badge>
                       )}
                     </div>
                   </CardContent>

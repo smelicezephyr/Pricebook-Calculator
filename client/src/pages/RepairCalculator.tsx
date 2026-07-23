@@ -3,6 +3,7 @@ import { useSettings } from "@/hooks/use-settings";
 import { useCalculatorState } from "@/contexts/CalculatorContext";
 import { useCreateQuote } from "@/hooks/use-quotes";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenants } from "@/hooks/use-tenants";
 import { InputMoney } from "@/components/InputMoney";
 import { RevealPriceGate } from "@/components/RevealPriceGate";
 import { TenantTaxSelector } from "@/components/TenantTaxSelector";
@@ -11,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { RefreshCw, Loader2, DollarSign, TrendingUp, Save } from "lucide-react";
+import { RefreshCw, Loader2, DollarSign, TrendingUp, Save, Moon } from "lucide-react";
 import { toPng } from "html-to-image";
 import { useToast } from "@/hooks/use-toast";
 import type { Settings } from "@shared/schema";
@@ -50,6 +51,8 @@ export default function RepairCalculator() {
   const createQuote = useCreateQuote();
   const { toast } = useToast();
   const { isPriceGated } = useAuth();
+  const { tenants: tenantList } = useTenants();
+  const [afterHours, setAfterHours] = useState(false);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -102,9 +105,13 @@ export default function RepairCalculator() {
     });
   }, [partsCost, materialMarkup, laborRate, laborHours, numTechs, salesTaxPercent, commissionPercent, financingFeePercent, highestTechRate, laborMode, setRepairState]);
 
+  const selectedTenant = tenantList.find(t => t.id === selectedTenantId);
+  const afterHoursPricingMultiplier = (selectedTenant as any)?.afterHoursMultiplier ?? 1.5;
+
   const partsTotal = parseFloat(partsCost) || 0;
   const markupRate = (parseFloat(materialMarkup) || 200) / 100;
-  const laborRateVal = parseFloat(laborRate) || 0;
+  const baseLaborRateVal = parseFloat(laborRate) || 0;
+  const laborRateVal = afterHours ? baseLaborRateVal * 1.5 : baseLaborRateVal;
   const laborHoursVal = parseFloat(laborHours) || 0;
   const numTechsVal = Math.max(1, parseFloat(numTechs) || 1);
   const burdenRate = ZEPHYR_STANDARDS.LABOR_BURDEN_PCT / 100;
@@ -161,7 +168,8 @@ export default function RepairCalculator() {
     totalBeforeRounding = subtotal4 + financingFee;
   }
 
-  const totalPrice = roundUp ? Math.ceil(totalBeforeRounding) : totalBeforeRounding;
+  const ahAdjusted = afterHours ? totalBeforeRounding * afterHoursPricingMultiplier : totalBeforeRounding;
+  const totalPrice = roundUp ? Math.ceil(ahAdjusted) : ahAdjusted;
 
   const totalLaborHours = laborHoursVal * numTechsVal;
   const laborRateResult = laborMode === "dollars" && totalLaborHours > 0
@@ -291,6 +299,16 @@ export default function RepairCalculator() {
         </div>
 
         <div className="flex items-center gap-4">
+          <Button
+            variant={afterHours ? "default" : "outline"}
+            onClick={() => setAfterHours(ah => !ah)}
+            className={`gap-2 font-bold transition-all ${afterHours ? "bg-red-600 hover:bg-red-700 text-white border-red-600 shadow-lg shadow-red-600/30" : "border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"}`}
+            data-testid="button-after-hours"
+          >
+            <Moon size={16} />
+            After Hours
+          </Button>
+
           <Button variant="outline" onClick={handleReset} className="gap-2" data-testid="button-reset">
             <RefreshCw size={16} />
             Reset

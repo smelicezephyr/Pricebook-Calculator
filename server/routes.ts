@@ -680,6 +680,7 @@ export async function registerRoutes(
     locationId: tenant.locationId,
     isActive: tenant.isActive,
     sortOrder: tenant.sortOrder,
+    afterHoursMultiplier: tenant.afterHoursMultiplier ?? 1.5,
     createdAt: tenant.createdAt,
   });
 
@@ -1800,6 +1801,7 @@ export async function registerRoutes(
       materialMarkupPercent,
       salesTaxPercent: clientSalesTaxPercent,
       laborMode: clientLaborMode,
+      afterHours: clientAfterHours,
       laborHourlyRate: clientLaborHourlyRate,
       numTechs: clientRepairNumTechs,
       laborBurdenPercent: clientLaborBurdenPercent,
@@ -1809,6 +1811,7 @@ export async function registerRoutes(
       roundUp,
       skipNoMaterials: clientSkipNoMaterials,
     } = req.body;
+    const afterHours = Boolean(clientAfterHours);
 
     if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
       return res.status(400).json({ message: "No categories selected" });
@@ -1894,6 +1897,8 @@ export async function registerRoutes(
       financingFeePercent,
       roundUp: shouldRoundUp,
       skipNoMaterials,
+      afterHours,
+      afterHoursPricingMultiplier: afterHours ? (tenant.afterHoursMultiplier ?? 1.5) : 1,
     }, tenant).then(async (results) => {
       const finalStatus: 'completed' | 'cancelled' = results.cancelled ? 'cancelled' : 'completed';
       await storage.updatePushHistory(historyId, {

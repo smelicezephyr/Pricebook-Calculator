@@ -88,7 +88,8 @@ export default function Tenants() {
       appKey: "",
       locationId: null,
       isActive: true,
-    });
+      afterHoursMultiplier: 1.5,
+    } as any);
     setIsOpen(true);
   };
 
@@ -106,7 +107,8 @@ export default function Tenants() {
           appKey: fullTenant.appKey,
           locationId: fullTenant.locationId ?? null,
           isActive: fullTenant.isActive,
-        });
+          afterHoursMultiplier: fullTenant.afterHoursMultiplier ?? 1.5,
+        } as any);
       } else {
         form.reset({
           name: tenant.name,
@@ -116,7 +118,8 @@ export default function Tenants() {
           appKey: "",
           locationId: tenant.locationId ?? null,
           isActive: tenant.isActive,
-        });
+          afterHoursMultiplier: (tenant as any).afterHoursMultiplier ?? 1.5,
+        } as any);
       }
     } catch {
       form.reset({
@@ -442,6 +445,32 @@ export default function Tenants() {
                       </SelectContent>
                     </Select>
                     <FormDescription>Assigns a sales tax rate to this tenant</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name={"afterHoursMultiplier" as any}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1.5 text-red-600 font-bold">
+                      After Hours Pricing Multiplier
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="1"
+                        {...field}
+                        value={field.value ?? 1.5}
+                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 1.5)}
+                        data-testid="input-after-hours-multiplier"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Final price is multiplied by this value when After Hours mode is active (e.g. 1.5 = 50% surcharge).
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

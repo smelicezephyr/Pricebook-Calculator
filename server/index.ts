@@ -80,6 +80,11 @@ app.use((req, res, next) => {
     CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
   `);
 
+  // Schema migrations — safe to run on every startup
+  await pool.query(`
+    ALTER TABLE tenants ADD COLUMN IF NOT EXISTS after_hours_multiplier REAL NOT NULL DEFAULT 1.5;
+  `);
+
   // Session store backed by PostgreSQL
   const PgSession = connectPgSimple(session);
   app.use(

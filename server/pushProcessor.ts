@@ -529,6 +529,8 @@ interface RepairPushParams {
   financingFeePercent: number;
   roundUp: boolean;
   skipNoMaterials?: boolean;
+  afterHours?: boolean;
+  afterHoursPricingMultiplier?: number;
 }
 
 export async function processRepairPush(params: RepairPushParams, tenant: Tenant): Promise<PushResult> {
@@ -539,14 +541,19 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
     materialMarkupPercent,
     salesTaxPercent,
     laborMode,
-    laborHourlyRate,
+    laborHourlyRate: baseLaborHourlyRate,
     numTechs = 1,
     laborBurdenPercent,
     commissionPercent,
     financingFeePercent,
     roundUp,
     skipNoMaterials = false,
+    afterHours = false,
+    afterHoursPricingMultiplier = 1,
   } = params;
+
+  // After Hours: 1.5× labor rate; separate pricing multiplier applied to final price
+  const laborHourlyRate = afterHours ? baseLaborHourlyRate * 1.5 : baseLaborHourlyRate;
 
   const markupRate = materialMarkupPercent / 100;
   const taxRate = salesTaxPercent / 100;
@@ -728,7 +735,8 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
 
       // Same denominator as RepairCalculator.tsx: burden applies to both labor and commission
       const denominator = 1 - commissionRate * (1 + burdenRate) - financingRate;
-      const totalPrice = denominator > 0 ? subtotal3 / denominator : subtotal3;
+      const basePrice = denominator > 0 ? subtotal3 / denominator : subtotal3;
+      const totalPrice = afterHours ? basePrice * afterHoursPricingMultiplier : basePrice;
       const roundedPrice = roundUp ? Math.ceil(totalPrice) : Math.round(totalPrice * 100) / 100;
 
       const currentPrice = service.price || 0;
