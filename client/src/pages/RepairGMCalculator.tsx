@@ -10,10 +10,11 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Target, Loader2, Save } from "lucide-react";
+import { RefreshCw, Target, Loader2, Save, Moon } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toPng } from "html-to-image";
 import { useToast } from "@/hooks/use-toast";
+import { useTenants } from "@/hooks/use-tenants";
 import type { Settings } from "@shared/schema";
 import { ZEPHYR_STANDARDS } from "@shared/schema";
 
@@ -49,10 +50,12 @@ export default function RepairGMCalculator() {
   const { toast } = useToast();
   const { isPriceGated } = useAuth();
   const createQuote = useCreateQuote();
+  const { tenants: tenantList } = useTenants();
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const [isSaveOpen, setIsSaveOpen] = useState(false);
   const [quoteTitle, setQuoteTitle] = useState("");
+  const [afterHours, setAfterHours] = useState(false);
 
   const [partsCost, setPartsCost] = useState("");
   const [salesTaxPercent, setSalesTaxPercent] = useState("6.35");
@@ -117,6 +120,9 @@ export default function RepairGMCalculator() {
     setRoundUp(false);
   };
 
+  const selectedTenant = tenantList.find(t => t.id === selectedTenantId);
+  const afterHoursPricingMultiplier = (selectedTenant as any)?.afterHoursMultiplier ?? 1.5;
+
   const partsVal = parseFloat(partsCost) || 0;
   const laborRateVal = parseFloat(laborRate) || 0;
   const highestTechRateVal = parseFloat(highestTechRate) || 0;
@@ -155,24 +161,47 @@ export default function RepairGMCalculator() {
     const totalParts = partsVal + tax;
     const c = commissionRate * (1 + burdenRate);
     const f = financingRate;
+    const denom = 1 - g - c - f;
 
     let price = 0;
     let laborCost = 0;
     let directLaborCost = 0;
 
     if (laborMode === "dollars") {
-      directLaborCost = hoursVal * numTechsVal * effectiveLaborRate;
-      laborCost = directLaborCost * (1 + burdenRate);
-      const denom = 1 - g - c - f;
+      // Regular (non-AH) labor cost
+      const baseDirectLabor = hoursVal * numTechsVal * effectiveLaborRate;
+      const baseLaborCost = baseDirectLabor * (1 + burdenRate);
+
       if (denom > 0) {
-        price = (totalParts + laborCost) / denom;
+        const regularPrice = (totalParts + baseLaborCost) / denom;
+
+        if (afterHours) {
+          // 1.5x labor rate for after-hours costs
+          const ahDirectLabor = baseDirectLabor * 1.5;
+          const ahLaborCost = ahDirectLabor * (1 + burdenRate);
+          // Price needed to hit target GM with higher AH labor cost
+          const ahSolvedPrice = (totalParts + ahLaborCost) / denom;
+          // Pricing multiplier applied to regular price
+          const multipliedPrice = regularPrice * afterHoursPricingMultiplier;
+          // Use the higher of the two: if multiplied price already covers AH costs
+          // at target GM, keep it (higher GM is fine); otherwise use AH solved price
+          price = Math.max(multipliedPrice, ahSolvedPrice);
+          // Labor breakdown uses AH costs (what we actually pay the tech)
+          directLaborCost = ahDirectLabor;
+          laborCost = ahLaborCost;
+        } else {
+          price = regularPrice;
+          directLaborCost = baseDirectLabor;
+          laborCost = baseLaborCost;
+        }
       }
     } else {
       laborCost = 0;
       directLaborCost = 0;
-      const denom = 1 - g - c - f;
       if (denom > 0) {
-        price = totalParts / denom;
+        const regularPrice = totalParts / denom;
+        // In percent mode, no hourly labor to 1.5x — just apply pricing multiplier
+        price = afterHours ? regularPrice * afterHoursPricingMultiplier : regularPrice;
       }
     }
 
@@ -182,10 +211,8 @@ export default function RepairGMCalculator() {
     const financingCost = price * f;
     const estimatedLabor = laborCost + commissionCost + tax + financingCost;
     const totalHours = hoursVal * numTechsVal;
-    // Use the actual billing rate per hour — not a blended (labor + commission) / hours
-    // figure, which incorrectly changes whenever parts cost (and thus price) changes.
     const laborRate = laborMode === "dollars" && totalHours > 0
-      ? effectiveLaborRate
+      ? effectiveLaborRate * (afterHours ? 1.5 : 1)
       : 0;
 
     const totalAllCogs = totalParts + laborCost + commissionCost + financingCost;
@@ -210,7 +237,7 @@ export default function RepairGMCalculator() {
     });
   }, [
     partsVal, taxRate, laborMode, hoursVal, numTechsVal, effectiveLaborRate,
-    burdenRate, commissionRate, financingRate, g, roundUp,
+    burdenRate, commissionRate, financingRate, g, roundUp, afterHours, afterHoursPricingMultiplier,
   ]);
 
   const downloadImage = async () => {
@@ -242,7 +269,8 @@ export default function RepairGMCalculator() {
       subcontractorCost: "0",
       craneCost: "0",
       permitCost: "0",
-    }, {
+      afterHours,
+    } as any, {
       onSuccess: async () => {
         await downloadImage();
         setIsSaveOpen(false);
@@ -278,7 +306,8 @@ export default function RepairGMCalculator() {
       subcontractorCost: "0",
       craneCost: "0",
       permitCost: "0",
-    });
+      afterHours,
+    } as any);
     setRevealedKey(priceKey);
   };
 
@@ -291,7 +320,16 @@ export default function RepairGMCalculator() {
             Enter your repair costs — the calculator solves for the price needed to hit your target gross margin.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <Button
+            variant={afterHours ? "default" : "outline"}
+            onClick={() => setAfterHours(v => !v)}
+            className={`gap-2 font-bold transition-all ${afterHours ? "bg-red-600 hover:bg-red-700 text-white border-red-600 shadow-lg shadow-red-600/30" : "border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"}`}
+            data-testid="button-after-hours"
+          >
+            <Moon size={16} />
+            After Hours
+          </Button>
           <Button variant="outline" onClick={resetInputs} className="gap-2" data-testid="button-reset">
             <RefreshCw size={16} />
             Reset
@@ -481,6 +519,12 @@ export default function RepairGMCalculator() {
 
         {/* Results Column */}
         <div className="lg:col-span-9 space-y-3" ref={resultsRef}>
+          {afterHours && (
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-red-600 text-white font-bold text-sm shadow-lg shadow-red-600/30">
+              <Moon size={16} />
+              After Hours Pricing Active
+            </div>
+          )}
           <RevealPriceGate locked={locked} onReveal={handleReveal} isSaving={createQuote.isPending}>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="col-span-2 bg-primary/5 border border-primary/20 rounded-xl p-4 flex flex-col justify-center">
