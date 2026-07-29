@@ -70,7 +70,7 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
   const chartData = [
     { name: 'Gross Margin', value: grossMargin, color: '#f59e0b', percent: price > 0 ? (grossMargin / price) * 100 : 0 },
     { name: 'M&E', value: mAndECost, color: '#3b82f6', percent: price > 0 ? (mAndECost / price) * 100 : 0 }, 
-    { name: 'Direct Labor', value: directLaborCost, color: '#10b981', percent: price > 0 ? (directLaborCost / price) * 100 : 0 },
+    { name: 'Labor & Comm.', value: directLaborCost, color: '#10b981', percent: price > 0 ? (directLaborCost / price) * 100 : 0 },
     { name: 'Other COGS', value: totalOtherCogs, color: '#8b5cf6', percent: price > 0 ? (totalOtherCogs / price) * 100 : 0 },
   ].filter(d => d.value > 0);
 
@@ -178,7 +178,7 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
           <p className="text-lg font-bold text-foreground">{formatPercent(metrics.mePercent)}</p>
         </div>
         <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
-          <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Direct Labor</p>
+          <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Labor & Comm.</p>
           <p className="text-lg font-bold text-foreground">{formatCurrency(directLaborCost)}</p>
         </div>
         <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
