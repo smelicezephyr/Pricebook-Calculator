@@ -577,7 +577,7 @@ export default function RepairCalculator() {
               <p className="text-lg font-bold text-foreground" data-testid="text-cogs">{formatCurrency(cogs)}</p>
             </div>
             <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
-              <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Direct Labor</p>
+              <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Labor & Comm.</p>
               <p className="text-lg font-bold text-foreground" data-testid="text-direct-labor">{formatCurrency(burdenedTechLabor + burdenedCommission)}</p>
               <p className="text-xs text-muted-foreground">{formatPercent(totalPrice > 0 ? ((burdenedTechLabor + burdenedCommission) / totalPrice) * 100 : 0)}</p>
             </div>

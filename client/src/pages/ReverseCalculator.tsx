@@ -364,7 +364,7 @@ export default function ReverseCalculator() {
   const systemChartData = [
     { name: 'Gross Margin', value: systemResults.metrics.grossMarginAmount, color: '#f59e0b', percent: systemEffectiveRevenue > 0 ? (systemResults.metrics.grossMarginAmount / systemEffectiveRevenue) * 100 : 0 },
     { name: 'M&E', value: systemMAndECost, color: '#3b82f6', percent: systemEffectiveRevenue > 0 ? (systemMAndECost / systemEffectiveRevenue) * 100 : 0 },
-    { name: 'Direct Labor', value: systemDirectLabor, color: '#10b981', percent: systemEffectiveRevenue > 0 ? (systemDirectLabor / systemEffectiveRevenue) * 100 : 0 },
+    { name: 'Labor & Comm.', value: systemDirectLabor, color: '#10b981', percent: systemEffectiveRevenue > 0 ? (systemDirectLabor / systemEffectiveRevenue) * 100 : 0 },
     { name: 'Other COGS', value: systemOtherCogs, color: '#8b5cf6', percent: systemEffectiveRevenue > 0 ? (systemOtherCogs / systemEffectiveRevenue) * 100 : 0 },
   ].filter(d => d.value > 0);
 
@@ -691,7 +691,7 @@ export default function ReverseCalculator() {
                         <span className="font-medium" data-testid="text-reverse-me-dollar">{formatCurrency(systemMAndECost)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Direct Labor</span>
+                        <span className="text-muted-foreground">Labor & Comm.</span>
                         <span className="font-medium text-emerald-600" data-testid="text-reverse-direct-labor">{formatCurrency(systemDirectLabor)}</span>
                       </div>
                     </div>
@@ -725,7 +725,7 @@ export default function ReverseCalculator() {
                     <p className="text-lg font-bold text-foreground">{formatPercent(systemResults.metrics.mePercent)}</p>
                   </div>
                   <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Direct Labor</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Labor & Comm.</p>
                     <p className="text-lg font-bold text-foreground">{formatCurrency(systemDirectLabor)}</p>
                   </div>
                   <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
@@ -894,7 +894,7 @@ export default function ReverseCalculator() {
                     <p className="text-lg font-bold text-foreground">{formatCurrency(repairCogs)}</p>
                   </div>
                   <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Direct Labor</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Labor & Comm.</p>
                     <p className="text-lg font-bold text-foreground">{formatCurrency(repairDirectLaborCost + repairDirectCommission)}</p>
                     <p className="text-xs text-muted-foreground">{formatPercent(repairPriceVal > 0 ? ((repairDirectLaborCost + repairDirectCommission) / repairPriceVal) * 100 : 0)}</p>
                   </div>
