@@ -163,7 +163,7 @@ export default function Calculator() {
     }
 
     // 7. Estimated Labor (The Output)
-    const estimatedLabor = laborCost + commissionCost + tax + financingCost;
+    const estimatedLabor = laborCost + commissionCost + tax + financingCost + totalOtherCogs;
     const totalHours = hoursVal * numTechsVal;
     const laborRate = laborMode === 'hours' && totalHours > 0
       ? (laborCost + commissionCost) / totalHours
@@ -238,7 +238,7 @@ export default function Calculator() {
       laborHoursInput: laborMode === 'hours' ? hoursVal.toString() : laborPercent,
       calculatedPrice: results.price.toFixed(2),
       calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
-      calculatedEstimatedLabor: results.directLaborCost.toFixed(2),
+      calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
       calculatedMePercent: targetMe,
       calculatedLaborRate: results.laborRate > 0 ? results.laborRate.toFixed(2) : null,
       subcontractorCost: subVal.toString(),
@@ -289,7 +289,7 @@ export default function Calculator() {
       laborHoursInput: laborMode === 'hours' ? hoursVal.toString() : laborPercent,
       calculatedPrice: results.price.toFixed(2),
       calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
-      calculatedEstimatedLabor: results.directLaborCost.toFixed(2),
+      calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
       calculatedMePercent: targetMe,
       calculatedLaborRate: results.laborRate > 0 ? results.laborRate.toFixed(2) : null,
       subcontractorCost: subVal.toString(),

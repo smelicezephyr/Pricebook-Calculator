@@ -170,6 +170,8 @@ export default function RepairCalculator() {
 
   const ahAdjusted = afterHours ? totalBeforeRounding * afterHoursPricingMultiplier : totalBeforeRounding;
   const totalPrice = roundUp ? Math.ceil(ahAdjusted) : ahAdjusted;
+  // Estimated Labor Field = everything except raw parts cost (tax, markup, labor, commission, financing)
+  const estimatedLaborField = totalPrice - partsTotal;
 
   const totalLaborHours = laborHoursVal * numTechsVal;
   const laborRateResult = laborMode === "dollars" && totalLaborHours > 0
@@ -241,7 +243,7 @@ export default function RepairCalculator() {
       laborHoursInput: laborMode === "percent" ? "0" : laborHoursVal.toString(),
       calculatedPrice: totalPrice.toFixed(2),
       calculatedGrossMargin: grossMarginPercent.toFixed(2),
-      calculatedEstimatedLabor: directLaborCost.toFixed(2),
+      calculatedEstimatedLabor: estimatedLaborField.toFixed(2),
       calculatedMePercent: materialMarkup,
       calculatedLaborRate: laborRateResult > 0 ? laborRateResult.toFixed(2) : null,
       subcontractorCost: "0",
@@ -273,7 +275,7 @@ export default function RepairCalculator() {
       laborHoursInput: laborMode === "percent" ? "0" : laborHoursVal.toString(),
       calculatedPrice: totalPrice.toFixed(2),
       calculatedGrossMargin: grossMarginPercent.toFixed(2),
-      calculatedEstimatedLabor: directLaborCost.toFixed(2),
+      calculatedEstimatedLabor: estimatedLaborField.toFixed(2),
       calculatedMePercent: materialMarkup,
       calculatedLaborRate: laborRateResult > 0 ? laborRateResult.toFixed(2) : null,
       subcontractorCost: "0",

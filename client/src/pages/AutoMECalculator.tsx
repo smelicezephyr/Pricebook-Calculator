@@ -162,7 +162,7 @@ export default function AutoMECalculator() {
 
     if (roundUp) price = Math.ceil(price);
 
-    const estimatedLabor = laborCost + commissionCost + tax + financingCost;
+    const estimatedLabor = laborCost + commissionCost + tax + financingCost + otherCogs;
     const totalHours = hoursVal * numTechsVal;
     const laborRate = laborMode === "hours" && totalHours > 0
       ? (laborCost + commissionCost) / totalHours
@@ -214,7 +214,7 @@ export default function AutoMECalculator() {
       laborHoursInput: laborMode === "hours" ? hoursVal.toString() : "0",
       calculatedPrice: results.price.toFixed(2),
       calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
-      calculatedEstimatedLabor: results.directLaborCost.toFixed(2),
+      calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
       calculatedMePercent: results.computedMePercent.toFixed(2),
       calculatedLaborRate: results.laborRate > 0 ? results.laborRate.toFixed(2) : null,
       subcontractorCost: subVal.toString(),
@@ -233,7 +233,7 @@ export default function AutoMECalculator() {
       laborHoursInput: laborMode === "hours" ? hoursVal.toString() : "0",
       calculatedPrice: results.price.toFixed(2),
       calculatedGrossMargin: results.metrics.grossMarginPercent.toFixed(2),
-      calculatedEstimatedLabor: results.directLaborCost.toFixed(2),
+      calculatedEstimatedLabor: results.estimatedLabor.toFixed(2),
       calculatedMePercent: results.computedMePercent.toFixed(2),
       calculatedLaborRate: results.laborRate > 0 ? results.laborRate.toFixed(2) : null,
       subcontractorCost: subVal.toString(),
