@@ -163,7 +163,7 @@ export default function Calculator() {
     }
 
     // 7. Estimated Labor (The Output)
-    const estimatedLabor = laborCost + commissionCost + tax + financingCost + totalOtherCogs;
+    const estimatedLabor = laborCost + commissionCost + tax + financingCost;
     const totalHours = hoursVal * numTechsVal;
     const laborRate = laborMode === 'hours' && totalHours > 0
       ? (laborCost + commissionCost) / totalHours

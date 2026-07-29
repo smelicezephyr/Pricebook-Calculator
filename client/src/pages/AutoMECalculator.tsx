@@ -162,7 +162,7 @@ export default function AutoMECalculator() {
 
     if (roundUp) price = Math.ceil(price);
 
-    const estimatedLabor = laborCost + commissionCost + tax + financingCost + otherCogs;
+    const estimatedLabor = laborCost + commissionCost + tax + financingCost;
     const totalHours = hoursVal * numTechsVal;
     const laborRate = laborMode === "hours" && totalHours > 0
       ? (laborCost + commissionCost) / totalHours
