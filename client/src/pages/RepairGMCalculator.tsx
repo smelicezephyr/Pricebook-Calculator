@@ -563,7 +563,7 @@ export default function RepairGMCalculator() {
                   ? {
                       hours: hoursVal,
                       numTechs: numTechsVal,
-                      hourlyRate: effectiveLaborRate,
+                      hourlyRate: effectiveLaborRate * (afterHours ? 1.5 : 1),
                       burdenPercent: ZEPHYR_STANDARDS.LABOR_BURDEN_PCT,
                     }
                   : undefined
