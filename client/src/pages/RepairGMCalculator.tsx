@@ -48,7 +48,7 @@ function computeRecommendedLaborRate(s: Settings): number {
 export default function RepairGMCalculator() {
   const { settings, isLoading: settingsLoading } = useSettings();
   const { toast } = useToast();
-  const { isPriceGated } = useAuth();
+  const { isPriceGated, isReporting } = useAuth();
   const createQuote = useCreateQuote();
   const { tenants: tenantList } = useTenants();
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
@@ -391,11 +391,20 @@ export default function RepairGMCalculator() {
             <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none text-xs font-mono">%</div>
             <Input
               type="number"
-              step="0.1"
-              min="1"
+              step="0.5"
+              min={isReporting ? "1" : (settings?.grossMarginMinPercent ?? "1")}
               max="99"
               value={targetGm}
-              onChange={(e) => setTargetGm(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                const minGm = isReporting ? 1 : (parseFloat(settings?.grossMarginMinPercent ?? "1") || 1);
+                const num = parseFloat(val);
+                if (!isNaN(num) && num < minGm) {
+                  setTargetGm(minGm.toFixed(1));
+                } else {
+                  setTargetGm(val);
+                }
+              }}
               data-testid="input-target-gm"
               className="pl-8 h-10 w-28 text-sm font-bold text-primary border-primary/30 bg-background"
             />

@@ -327,7 +327,7 @@ export default function Settings() {
                           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
                         </div>
                       </FormControl>
-                      <FormDescription>Target minimum for margin health indicator.</FormDescription>
+                      <FormDescription>Enforced floor on the GM calculators for Everyone and User roles. Managers and Admins can go below.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
