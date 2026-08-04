@@ -164,9 +164,10 @@ export default function RepairGMCalculator() {
     const c = commissionRate * (1 + burdenRate);
     const f = financingRate;
 
-    // Solve denominator: price × (1 − g − c − f) = partsAtCost + techLabor
-    // This gives exactly targetGM when tech rate is used as the true labor cost.
-    const denomGM = 1 - g - c - f;
+    // Solve denominator matching the Repair Calculator's COGS definition:
+    // COGS = partsAtCost + techLabor + commission  (financing is a pass-through, excluded from COGS)
+    // GM% = (price − COGS) / price = g  →  price × (1 − g − c) = partsAtCost + techLabor
+    const denomGM = 1 - g - c;
 
     // Billing-rate denominator used only to back-compute the implied markup for display.
     const denomBilling = 1 - c - f;
@@ -223,11 +224,12 @@ export default function RepairGMCalculator() {
       ? laborRateVal * (afterHours ? 1.5 : 1)
       : 0;
 
-    // Achieved GM% — verify against actual costs (may differ slightly from targetGM due to roundUp)
+    // Achieved GM% — identical COGS definition as Repair Calculator:
+    // COGS = partsAtCost + techLabor + commission  (financing excluded, same as RepairCalculator.tsx line 186)
     const actualTechLaborForGM = laborMode === "dollars"
       ? hoursVal * numTechsVal * actualTechRate * (afterHours ? 1.5 : 1) * (1 + burdenRate)
       : 0;
-    const totalAllCogs = totalPartsAtCost + actualTechLaborForGM + commissionCost + financingCost;
+    const totalAllCogs = totalPartsAtCost + actualTechLaborForGM + commissionCost;
     const grossMarginAmount = price - totalAllCogs;
     const grossMarginPercent = price > 0 ? (grossMarginAmount / price) * 100 : 0;
     const mePercent = price > 0 ? (totalPartsAtCost / price) * 100 : 0;
