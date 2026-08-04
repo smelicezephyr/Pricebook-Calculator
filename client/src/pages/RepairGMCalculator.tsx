@@ -126,7 +126,10 @@ export default function RepairGMCalculator() {
   const partsVal = parseFloat(partsCost) || 0;
   const laborRateVal = parseFloat(laborRate) || 0;
   const highestTechRateVal = parseFloat(highestTechRate) || 0;
-  const effectiveLaborRate = highestTechRateVal > 0 ? highestTechRateVal : laborRateVal;
+  // Always use the billing rate for both the price formula and the GM% display.
+  // The highest tech rate is informational (used to derive the recommended billing rate)
+  // but the solve-for-price calculation is anchored to what we actually bill.
+  const effectiveLaborRate = laborRateVal;
   const hoursVal = parseFloat(laborHours) || 0;
   const numTechsVal = Math.max(1, parseFloat(numTechs) || 1);
   const burdenRate = ZEPHYR_STANDARDS.LABOR_BURDEN_PCT / 100;
