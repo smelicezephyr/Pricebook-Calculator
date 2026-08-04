@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Trash2, Edit, MapPin, ArrowLeft, Search } from "lucide-react";
+import { Loader2, Plus, Trash2, Edit, MapPin, ArrowLeft } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import type { Location } from "@shared/schema";
@@ -18,8 +18,6 @@ export default function Locations() {
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [name, setName] = useState("");
   const [salesTaxPercent, setSalesTaxPercent] = useState("");
-  const [zipLookup, setZipLookup] = useState("");
-  const [zipLooking, setZipLooking] = useState(false);
 
   const { data: locations = [], isLoading } = useQuery<Location[]>({
     queryKey: ["/api/locations"],
@@ -72,7 +70,6 @@ export default function Locations() {
     setEditingLocation(null);
     setName("");
     setSalesTaxPercent("");
-    setZipLookup("");
     setIsOpen(true);
   };
 
@@ -80,28 +77,7 @@ export default function Locations() {
     setEditingLocation(loc);
     setName(loc.name);
     setSalesTaxPercent(loc.salesTaxPercent);
-    setZipLookup("");
     setIsOpen(true);
-  };
-
-  const handleZipLookup = async () => {
-    if (!/^\d{5}$/.test(zipLookup.trim())) {
-      toast({ title: "Enter a valid 5-digit zip code", variant: "destructive" });
-      return;
-    }
-    setZipLooking(true);
-    try {
-      const res = await fetch(`/api/tax-rate/${zipLookup.trim()}`, { credentials: "include" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Lookup failed");
-      setSalesTaxPercent(data.combinedRate.toFixed(2));
-      if (!name.trim()) setName(`${data.city}, ${data.state}`);
-      toast({ title: `Tax rate found: ${data.combinedRate}%`, description: `${data.city}, ${data.state}` });
-    } catch (err: any) {
-      toast({ title: "Lookup failed", description: err.message, variant: "destructive" });
-    } finally {
-      setZipLooking(false);
-    }
   };
 
   const handleSubmit = () => {
@@ -208,29 +184,6 @@ export default function Locations() {
             <DialogTitle>{editingLocation ? "Edit Location" : "Add Location"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Lookup by Zip Code</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={zipLookup}
-                  onChange={(e) => setZipLookup(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleZipLookup()}
-                  placeholder="e.g., 20877"
-                  maxLength={5}
-                  data-testid="input-zip-lookup"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleZipLookup}
-                  disabled={zipLooking}
-                  className="shrink-0"
-                >
-                  {zipLooking ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">Auto-fills name and tax rate from the zip code.</p>
-            </div>
             <div className="space-y-2">
               <Label htmlFor="locationName">Location Name</Label>
               <Input
