@@ -474,24 +474,6 @@ export default function RepairGMCalculator() {
                 data-testid="input-parts-cost"
               />
               <div className="space-y-1">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Parts Markup %</Label>
-                <div className="relative group">
-                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
-                    <span className="text-xs font-mono">%</span>
-                  </div>
-                  <Input
-                    type="number"
-                    step="5"
-                    min="0"
-                    value={materialMarkup}
-                    onChange={(e) => setMaterialMarkup(e.target.value)}
-                    data-testid="input-material-markup"
-                    className="pl-8 h-9 text-sm font-medium bg-background border-border shadow-sm"
-                  />
-                </div>
-                <p className="text-[10px] text-muted-foreground">Auto: 200% (≤$500) · 150% (&gt;$500)</p>
-              </div>
-              <div className="space-y-1">
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sales Tax %</Label>
                 <div className="relative group">
                   <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
