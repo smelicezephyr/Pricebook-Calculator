@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useTenants } from "@/hooks/use-tenants";
 import { useQuery } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,12 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTenantSchema, updateTenantSchema } from "@shared/schema";
-import { Loader2, Plus, Trash2, Edit, Building2, ArrowLeft, Plug, CheckCircle2, XCircle, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, MapPin, Search } from "lucide-react";
+import { Loader2, Plus, Trash2, Edit, Building2, ArrowLeft, Plug, CheckCircle2, XCircle, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, MapPin } from "lucide-react";
 import { useLocation } from "wouter";
 import { z } from "zod";
 import type { Tenant, Location } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 
 type CreateTenantFormValues = z.infer<typeof insertTenantSchema>;
 type UpdateTenantFormValues = z.infer<typeof updateTenantSchema>;
@@ -29,10 +27,6 @@ interface TestResult {
 export default function Tenants() {
   const { tenants, isLoading, createTenant, updateTenant, deleteTenant, reorderTenants, isCreating, isUpdating, isReordering } = useTenants();
   const { data: locationsList = [] } = useQuery<Location[]>({ queryKey: ["/api/locations"] });
-  const { toast } = useToast();
-  const [zipInput, setZipInput] = useState("");
-  const [zipLooking, setZipLooking] = useState(false);
-
   const moveUp = (index: number) => {
     if (index <= 0) return;
     const newOrder = [...tenants.map(t => t.id)];
@@ -83,42 +77,8 @@ export default function Tenants() {
     },
   });
 
-  const handleZipLookup = async () => {
-    if (!/^\d{5}$/.test(zipInput.trim())) {
-      toast({ title: "Enter a valid 5-digit zip code", variant: "destructive" });
-      return;
-    }
-    setZipLooking(true);
-    try {
-      const res = await fetch(`/api/tax-rate/${zipInput.trim()}`, { credentials: "include" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Lookup failed");
-
-      // Create a new location entry with the looked-up rate
-      const locRes = await apiRequest("POST", "/api/locations", {
-        name: `${data.city}, ${data.state}`,
-        salesTaxPercent: data.combinedRate.toFixed(2),
-      });
-      const newLoc: Location = await locRes.json();
-
-      // Refresh the locations list then select the new entry
-      await queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
-      form.setValue("locationId" as any, newLoc.id);
-      setZipInput("");
-      toast({
-        title: `Location created: ${data.combinedRate}% sales tax`,
-        description: `${data.city}, ${data.state}`,
-      });
-    } catch (err: any) {
-      toast({ title: "Lookup failed", description: err.message, variant: "destructive" });
-    } finally {
-      setZipLooking(false);
-    }
-  };
-
   const openCreate = () => {
     setEditingTenant(null);
-    setZipInput("");
     form.reset({
       name: "",
       tenantId: "",
@@ -133,7 +93,6 @@ export default function Tenants() {
   };
 
   const openEdit = async (tenant: Tenant) => {
-    setZipInput("");
     setEditingTenant(tenant);
     try {
       const response = await fetch(`/api/tenants/${tenant.id}/full`);
@@ -486,27 +445,6 @@ export default function Tenants() {
                     </Select>
                     <FormDescription>Assigns a sales tax rate to this tenant</FormDescription>
                     <FormMessage />
-                    {/* Zip code lookup — creates a new location and auto-selects it */}
-                    <div className="flex gap-2 pt-1">
-                      <Input
-                        value={zipInput}
-                        onChange={(e) => setZipInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleZipLookup())}
-                        placeholder="Lookup by zip code…"
-                        maxLength={5}
-                        className="h-8 text-sm"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleZipLookup}
-                        disabled={zipLooking}
-                        className="shrink-0 h-8 px-3"
-                      >
-                        {zipLooking ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-                      </Button>
-                    </div>
                   </FormItem>
                 )}
               />

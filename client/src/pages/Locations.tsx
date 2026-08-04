@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Trash2, Edit, MapPin, ArrowLeft } from "lucide-react";
+import { Loader2, Plus, Trash2, Edit, MapPin, ArrowLeft, Search } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import type { Location } from "@shared/schema";
@@ -18,6 +18,8 @@ export default function Locations() {
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [name, setName] = useState("");
   const [salesTaxPercent, setSalesTaxPercent] = useState("");
+  const [zipInput, setZipInput] = useState("");
+  const [zipLooking, setZipLooking] = useState(false);
 
   const { data: locations = [], isLoading } = useQuery<Location[]>({
     queryKey: ["/api/locations"],
@@ -70,6 +72,7 @@ export default function Locations() {
     setEditingLocation(null);
     setName("");
     setSalesTaxPercent("");
+    setZipInput("");
     setIsOpen(true);
   };
 
@@ -77,7 +80,28 @@ export default function Locations() {
     setEditingLocation(loc);
     setName(loc.name);
     setSalesTaxPercent(loc.salesTaxPercent);
+    setZipInput("");
     setIsOpen(true);
+  };
+
+  const handleZipLookup = async () => {
+    if (!/^\d{5}$/.test(zipInput.trim())) {
+      toast({ title: "Enter a valid 5-digit zip code", variant: "destructive" });
+      return;
+    }
+    setZipLooking(true);
+    try {
+      const res = await fetch(`/api/tax-rate/${zipInput.trim()}`, { credentials: "include" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Lookup failed");
+      setSalesTaxPercent(data.combinedRate.toFixed(2));
+      if (!name.trim()) setName(`${data.city}, ${data.state}`);
+      toast({ title: `Rate found: ${data.combinedRate}%`, description: `${data.city}, ${data.state}` });
+    } catch (err: any) {
+      toast({ title: "Lookup failed", description: err.message, variant: "destructive" });
+    } finally {
+      setZipLooking(false);
+    }
   };
 
   const handleSubmit = () => {
@@ -196,16 +220,37 @@ export default function Locations() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="locationTax">Sales Tax %</Label>
-              <Input
-                id="locationTax"
-                type="number"
-                step="0.01"
-                min="0"
-                value={salesTaxPercent}
-                onChange={(e) => setSalesTaxPercent(e.target.value)}
-                placeholder="e.g., 6.35"
-                data-testid="input-location-tax"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="locationTax"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={salesTaxPercent}
+                  onChange={(e) => setSalesTaxPercent(e.target.value)}
+                  placeholder="e.g., 6.35"
+                  data-testid="input-location-tax"
+                />
+                <Input
+                  value={zipInput}
+                  onChange={(e) => setZipInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleZipLookup())}
+                  placeholder="Zip"
+                  maxLength={5}
+                  className="w-24"
+                  data-testid="input-zip-lookup"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleZipLookup}
+                  disabled={zipLooking}
+                  className="shrink-0"
+                >
+                  {zipLooking ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Enter a zip code and click search to auto-fill the tax rate.</p>
             </div>
           </div>
           <DialogFooter>
