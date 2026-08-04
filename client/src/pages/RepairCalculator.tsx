@@ -645,24 +645,31 @@ export default function RepairCalculator() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-muted-foreground font-medium">
-                          ({formatPercent(totalPrice > 0 ? (burdenedLaborCost / totalPrice) * 100 : 0)})
+                          ({formatPercent(totalPrice > 0 ? (burdenedTechLabor / totalPrice) * 100 : 0)})
                         </span>
                         <span className="font-mono text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                          {formatCurrency(burdenedLaborCost)}
+                          {formatCurrency(burdenedTechLabor)}
                         </span>
                       </div>
                     </div>
-                    <div className="ml-5 space-y-0.5 pt-1 border-l-2 border-emerald-100/50 dark:border-emerald-900/30 pl-3">
-                      {[
-                        { label: numTechsVal > 1 ? `Labor (${numTechsVal} techs × ${laborHoursVal} hrs × ${formatCurrency(laborRateVal)}/hr)` : `Labor (${laborHoursVal} hrs × ${formatCurrency(laborRateVal)}/hr)`, value: directLaborCost },
-                        { label: `Labor Burden (${ZEPHYR_STANDARDS.LABOR_BURDEN_PCT}%)`, value: laborBurden },
-                      ].map((sub) => (
-                        <div key={sub.label} className="flex justify-between items-center py-0.5">
-                          <span className="text-xs text-muted-foreground">{sub.label}</span>
-                          <span className="text-xs font-mono text-muted-foreground">{formatCurrency(sub.value)}</span>
+                    {(() => {
+                      const displayTechRate = (highestTechRateVal > 0 ? highestTechRateVal : baseLaborRateVal) * (afterHours ? 1.5 : 1);
+                      const directTechCost = displayTechRate * laborHoursVal * numTechsVal;
+                      const techBurden = directTechCost * burdenRate;
+                      return (
+                        <div className="ml-5 space-y-0.5 pt-1 border-l-2 border-emerald-100/50 dark:border-emerald-900/30 pl-3">
+                          {[
+                            { label: numTechsVal > 1 ? `Labor (${numTechsVal} techs × ${laborHoursVal} hrs × ${formatCurrency(displayTechRate)}/hr)` : `Labor (${laborHoursVal} hrs × ${formatCurrency(displayTechRate)}/hr)`, value: directTechCost },
+                            { label: `Labor Burden (${ZEPHYR_STANDARDS.LABOR_BURDEN_PCT}%)`, value: techBurden },
+                          ].map((sub) => (
+                            <div key={sub.label} className="flex justify-between items-center py-0.5">
+                              <span className="text-xs text-muted-foreground">{sub.label}</span>
+                              <span className="text-xs font-mono text-muted-foreground">{formatCurrency(sub.value)}</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
