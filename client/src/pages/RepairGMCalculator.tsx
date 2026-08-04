@@ -126,7 +126,10 @@ export default function RepairGMCalculator() {
   const partsVal = parseFloat(partsCost) || 0;
   const laborRateVal = parseFloat(laborRate) || 0;
   const highestTechRateVal = parseFloat(highestTechRate) || 0;
-  const effectiveLaborRate = highestTechRateVal > 0 ? highestTechRateVal : laborRateVal;
+  // Billing rate drives the price formula (what we charge the customer per hour).
+  // Actual tech pay rate drives the GM% display (what we truly spend).
+  const effectiveLaborRate = laborRateVal;
+  const actualCostRate = highestTechRateVal > 0 ? highestTechRateVal : laborRateVal;
   const hoursVal = parseFloat(laborHours) || 0;
   const numTechsVal = Math.max(1, parseFloat(numTechs) || 1);
   const burdenRate = ZEPHYR_STANDARDS.LABOR_BURDEN_PCT / 100;
@@ -215,7 +218,11 @@ export default function RepairGMCalculator() {
       ? effectiveLaborRate * (afterHours ? 1.5 : 1)
       : 0;
 
-    const totalAllCogs = totalParts + laborCost + commissionCost + financingCost;
+    // GM% uses actual tech pay rate as the true labor cost (not the billing rate)
+    const actualLaborForGM = laborMode === "dollars"
+      ? hoursVal * numTechsVal * actualCostRate * (afterHours ? 1.5 : 1) * (1 + burdenRate)
+      : 0;
+    const totalAllCogs = totalParts + actualLaborForGM + commissionCost + financingCost;
     const grossMarginAmount = price - totalAllCogs;
     const grossMarginPercent = price > 0 ? (grossMarginAmount / price) * 100 : 0;
     const mePercent = price > 0 ? (totalParts / price) * 100 : 0;
@@ -236,7 +243,7 @@ export default function RepairGMCalculator() {
       metrics: { grossMarginPercent, grossMarginAmount, mePercent },
     });
   }, [
-    partsVal, taxRate, laborMode, hoursVal, numTechsVal, effectiveLaborRate,
+    partsVal, taxRate, laborMode, hoursVal, numTechsVal, effectiveLaborRate, actualCostRate,
     burdenRate, commissionRate, financingRate, g, roundUp, afterHours, afterHoursPricingMultiplier,
   ]);
 
