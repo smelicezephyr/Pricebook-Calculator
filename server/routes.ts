@@ -423,14 +423,22 @@ export async function registerRoutes(
     const limit = Math.min(Number(req.query.limit) || 200, 500);
     const events = await storage.listLoginEvents(limit);
 
+    const tenantId = req.query.tenantId ? Number(req.query.tenantId) : undefined;
+
     if (req.user!.role === "manager") {
-      const tenantId = req.query.tenantId ? Number(req.query.tenantId) : undefined;
       const allowedIds = await storage.getUserTenantIds(req.user!.id);
       const targetTenantId = tenantId !== undefined ? tenantId : allowedIds[0];
       if (targetTenantId === undefined || !allowedIds.includes(targetTenantId)) {
         return res.json([]);
       }
       const teamUsers = await storage.getUsersByTenant(targetTenantId);
+      const teamUserIds = new Set(teamUsers.map(u => u.id));
+      return res.json(events.filter(e => e.userId !== null && teamUserIds.has(e.userId)));
+    }
+
+    // Admin: apply tenant filter when one is selected
+    if (tenantId !== undefined && !isNaN(tenantId)) {
+      const teamUsers = await storage.getUsersByTenant(tenantId);
       const teamUserIds = new Set(teamUsers.map(u => u.id));
       return res.json(events.filter(e => e.userId !== null && teamUserIds.has(e.userId)));
     }
