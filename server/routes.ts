@@ -692,6 +692,33 @@ export async function registerRoutes(
     createdAt: tenant.createdAt,
   });
 
+  // Tax rate lookup proxy (no API key needed — salestaxzip.com free tier)
+  app.get("/api/tax-rate/:zip", requireAdmin, async (req, res) => {
+    const zip = req.params.zip.trim();
+    if (!/^\d{5}$/.test(zip)) {
+      return res.status(400).json({ message: "Enter a valid 5-digit zip code" });
+    }
+    try {
+      const upstream = await fetch(`https://salestaxzip.com/api/v1/rate/${zip}`);
+      if (!upstream.ok) {
+        return res.status(502).json({ message: "Tax rate lookup failed" });
+      }
+      const data = await upstream.json() as any;
+      if (!data.success) {
+        return res.status(404).json({ message: "No tax data found for that zip code" });
+      }
+      const combined = data.data.rates.combined as number;
+      res.json({
+        zip,
+        city: data.data.city,
+        state: data.data.state,
+        combinedRate: parseFloat((combined * 100).toFixed(4)),
+      });
+    } catch {
+      res.status(502).json({ message: "Tax rate lookup failed" });
+    }
+  });
+
   // Location Routes
   app.get("/api/locations", requireUserOrAdmin, async (_req, res) => {
     const allLocations = await storage.getLocations();
