@@ -176,8 +176,9 @@ export default function RepairGMCalculator() {
 
     const c = commissionRate * (1 + burdenRate);
     const f = financingRate;
-    const denomBase = 1 - c - f;          // Repair-Calculator-style denominator (no target GM)
-    const denomGM = 1 - g - c - f;        // GM-solve denominator
+    // Same denominator as the Repair Calculator — target GM% is a display reference only,
+    // not a solve input. Price = (markedUpParts + billingRateLabor) / (1 - commission - financing).
+    const denom = 1 - c - f;
 
     // Billing rate → drives the selling price formula (what we charge per hour)
     // Tech rate   → drives the actual GM% display (what we truly spend per hour)
@@ -190,47 +191,29 @@ export default function RepairGMCalculator() {
     if (laborMode === "dollars") {
       const baseBillingDirect = hoursVal * numTechsVal * laborRateVal;
       const baseBillingLabor = baseBillingDirect * (1 + burdenRate);
-      const baseTechDirect = hoursVal * numTechsVal * actualTechRate;
-      const baseTechLabor = baseTechDirect * (1 + burdenRate);
 
-      if (denomBase > 0) {
-        // Base price: parts markup + billing rate labor (matches Repair Calculator structure)
-        const regularBasePrice = (markedUpParts + baseBillingLabor) / denomBase;
-        // GM-target price: solve using actual tech cost so achieved GM% = target GM%
-        const regularGMPrice = g > 0 && denomGM > 0 ? (totalPartsAtCost + baseTechLabor) / denomGM : 0;
+      if (denom > 0) {
+        const regularPrice = (markedUpParts + baseBillingLabor) / denom;
 
         if (afterHours) {
           const ahBillingDirect = baseBillingDirect * 1.5;
           const ahBillingLabor = ahBillingDirect * (1 + burdenRate);
-          const ahTechDirect = baseTechDirect * 1.5;
-          const ahTechLabor = ahTechDirect * (1 + burdenRate);
-
-          const ahBasePrice = Math.max(
-            regularBasePrice * afterHoursPricingMultiplier,
-            (markedUpParts + ahBillingLabor) / denomBase,
-          );
-          const ahGMPrice = g > 0 && denomGM > 0 ? Math.max(
-            regularGMPrice * afterHoursPricingMultiplier,
-            (totalPartsAtCost + ahTechLabor) / denomGM,
-          ) : 0;
-
-          price = Math.max(ahBasePrice, ahGMPrice);
+          const ahSolvedPrice = (markedUpParts + ahBillingLabor) / denom;
+          const multipliedPrice = regularPrice * afterHoursPricingMultiplier;
+          price = Math.max(multipliedPrice, ahSolvedPrice);
           directLaborCost = ahBillingDirect;
           laborCost = ahBillingLabor;
         } else {
-          // Final price: whichever is higher — markup+billing floor, or GM-target ceiling
-          price = Math.max(regularBasePrice, regularGMPrice);
+          price = regularPrice;
           directLaborCost = baseBillingDirect;
           laborCost = baseBillingLabor;
         }
       }
     } else {
       // Percent / production-pay mode: no hourly labor
-      if (denomBase > 0) {
-        const regularBasePrice = markedUpParts / denomBase;
-        const regularGMPrice = g > 0 && denomGM > 0 ? totalPartsAtCost / denomGM : 0;
-        const raw = Math.max(regularBasePrice, regularGMPrice);
-        price = afterHours ? raw * afterHoursPricingMultiplier : raw;
+      if (denom > 0) {
+        const regularPrice = markedUpParts / denom;
+        price = afterHours ? regularPrice * afterHoursPricingMultiplier : regularPrice;
       }
       directLaborCost = 0;
       laborCost = 0;
@@ -273,7 +256,7 @@ export default function RepairGMCalculator() {
   }, [
     partsVal, taxRate, materialMarkup, laborMode, hoursVal, numTechsVal,
     laborRateVal, highestTechRateVal, burdenRate, commissionRate, financingRate,
-    g, roundUp, afterHours, afterHoursPricingMultiplier,
+    roundUp, afterHours, afterHoursPricingMultiplier,
   ]);
 
   const downloadImage = async () => {
@@ -420,7 +403,7 @@ export default function RepairGMCalculator() {
         <Target size={28} className="text-primary shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-xs font-bold text-primary uppercase tracking-wider">Target GM</p>
-          <p className="text-sm text-muted-foreground">Price is built from parts markup + billing rate, then raised to hit this target GM if needed.</p>
+          <p className="text-sm text-muted-foreground">Your margin goal — price is built from parts markup + billing rate. Adjust markup or hours to hit this target.</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <div className="relative group">
@@ -577,7 +560,7 @@ export default function RepairGMCalculator() {
                 <p className="text-3xl font-bold text-primary" data-testid="text-selling-price">
                   {results.price > 0 ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(results.price) : "—"}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">Markup + billing rate · target {targetGm || "—"}% GM</p>
+                <p className="text-xs text-muted-foreground mt-1">Markup + billing rate · goal: {targetGm || "—"}% GM</p>
               </div>
               <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-center">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Achieved GM %</p>
