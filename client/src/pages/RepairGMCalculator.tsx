@@ -68,6 +68,7 @@ export default function RepairGMCalculator() {
   const [commissionPercent, setCommissionPercent] = useState("10.00");
   const [financingFeePercent, setFinancingFeePercent] = useState("4.00");
   const [targetGm, setTargetGm] = useState("");
+  const [materialMarkup, setMaterialMarkup] = useState("200");
   const [roundUp, setRoundUp] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
 
@@ -100,8 +101,20 @@ export default function RepairGMCalculator() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings?.highestTechRate, settings?.laborHourlyRate]);
 
+  // Auto-switch markup: 200% for parts ≤ $500, 150% for parts > $500
+  useEffect(() => {
+    const parts = parseFloat(partsCost) || 0;
+    const current = parseFloat(materialMarkup) || 200;
+    // Only auto-switch between the two standard values; leave custom values alone
+    if (current === 200 || current === 150) {
+      setMaterialMarkup(parts > 500 ? "150" : "200");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partsCost]);
+
   const resetInputs = () => {
     setPartsCost("");
+    setMaterialMarkup("200");
     setLaborHours("");
     setNumTechs("1");
     setLaborMode("dollars");
@@ -126,10 +139,6 @@ export default function RepairGMCalculator() {
   const partsVal = parseFloat(partsCost) || 0;
   const laborRateVal = parseFloat(laborRate) || 0;
   const highestTechRateVal = parseFloat(highestTechRate) || 0;
-  // Always use the billing rate for both the price formula and the GM% display.
-  // The highest tech rate is informational (used to derive the recommended billing rate)
-  // but the solve-for-price calculation is anchored to what we actually bill.
-  const effectiveLaborRate = laborRateVal;
   const hoursVal = parseFloat(laborHours) || 0;
   const numTechsVal = Math.max(1, parseFloat(numTechs) || 1);
   const burdenRate = ZEPHYR_STANDARDS.LABOR_BURDEN_PCT / 100;
@@ -161,51 +170,70 @@ export default function RepairGMCalculator() {
 
   useEffect(() => {
     const tax = partsVal * taxRate;
-    const totalParts = partsVal + tax;
+    const totalPartsAtCost = partsVal + tax;  // actual cost basis — used for GM% calculation
+    const markupRateVal = (parseFloat(materialMarkup) || 200) / 100;
+    const markedUpParts = totalPartsAtCost * (1 + markupRateVal);  // markup revenue — used for base price
+
     const c = commissionRate * (1 + burdenRate);
     const f = financingRate;
-    const denom = 1 - g - c - f;
+    const denomBase = 1 - c - f;          // Repair-Calculator-style denominator (no target GM)
+    const denomGM = 1 - g - c - f;        // GM-solve denominator
+
+    // Billing rate → drives the selling price formula (what we charge per hour)
+    // Tech rate   → drives the actual GM% display (what we truly spend per hour)
+    const actualTechRate = highestTechRateVal > 0 ? highestTechRateVal : laborRateVal;
 
     let price = 0;
-    let laborCost = 0;
     let directLaborCost = 0;
+    let laborCost = 0;
 
     if (laborMode === "dollars") {
-      // Regular (non-AH) labor cost
-      const baseDirectLabor = hoursVal * numTechsVal * effectiveLaborRate;
-      const baseLaborCost = baseDirectLabor * (1 + burdenRate);
+      const baseBillingDirect = hoursVal * numTechsVal * laborRateVal;
+      const baseBillingLabor = baseBillingDirect * (1 + burdenRate);
+      const baseTechDirect = hoursVal * numTechsVal * actualTechRate;
+      const baseTechLabor = baseTechDirect * (1 + burdenRate);
 
-      if (denom > 0) {
-        const regularPrice = (totalParts + baseLaborCost) / denom;
+      if (denomBase > 0) {
+        // Base price: parts markup + billing rate labor (matches Repair Calculator structure)
+        const regularBasePrice = (markedUpParts + baseBillingLabor) / denomBase;
+        // GM-target price: solve using actual tech cost so achieved GM% = target GM%
+        const regularGMPrice = g > 0 && denomGM > 0 ? (totalPartsAtCost + baseTechLabor) / denomGM : 0;
 
         if (afterHours) {
-          // 1.5x labor rate for after-hours costs
-          const ahDirectLabor = baseDirectLabor * 1.5;
-          const ahLaborCost = ahDirectLabor * (1 + burdenRate);
-          // Price needed to hit target GM with higher AH labor cost
-          const ahSolvedPrice = (totalParts + ahLaborCost) / denom;
-          // Pricing multiplier applied to regular price
-          const multipliedPrice = regularPrice * afterHoursPricingMultiplier;
-          // Use the higher of the two: if multiplied price already covers AH costs
-          // at target GM, keep it (higher GM is fine); otherwise use AH solved price
-          price = Math.max(multipliedPrice, ahSolvedPrice);
-          // Labor breakdown uses AH costs (what we actually pay the tech)
-          directLaborCost = ahDirectLabor;
-          laborCost = ahLaborCost;
+          const ahBillingDirect = baseBillingDirect * 1.5;
+          const ahBillingLabor = ahBillingDirect * (1 + burdenRate);
+          const ahTechDirect = baseTechDirect * 1.5;
+          const ahTechLabor = ahTechDirect * (1 + burdenRate);
+
+          const ahBasePrice = Math.max(
+            regularBasePrice * afterHoursPricingMultiplier,
+            (markedUpParts + ahBillingLabor) / denomBase,
+          );
+          const ahGMPrice = g > 0 && denomGM > 0 ? Math.max(
+            regularGMPrice * afterHoursPricingMultiplier,
+            (totalPartsAtCost + ahTechLabor) / denomGM,
+          ) : 0;
+
+          price = Math.max(ahBasePrice, ahGMPrice);
+          directLaborCost = ahBillingDirect;
+          laborCost = ahBillingLabor;
         } else {
-          price = regularPrice;
-          directLaborCost = baseDirectLabor;
-          laborCost = baseLaborCost;
+          // Final price: whichever is higher — markup+billing floor, or GM-target ceiling
+          price = Math.max(regularBasePrice, regularGMPrice);
+          directLaborCost = baseBillingDirect;
+          laborCost = baseBillingLabor;
         }
       }
     } else {
-      laborCost = 0;
-      directLaborCost = 0;
-      if (denom > 0) {
-        const regularPrice = totalParts / denom;
-        // In percent mode, no hourly labor to 1.5x — just apply pricing multiplier
-        price = afterHours ? regularPrice * afterHoursPricingMultiplier : regularPrice;
+      // Percent / production-pay mode: no hourly labor
+      if (denomBase > 0) {
+        const regularBasePrice = markedUpParts / denomBase;
+        const regularGMPrice = g > 0 && denomGM > 0 ? totalPartsAtCost / denomGM : 0;
+        const raw = Math.max(regularBasePrice, regularGMPrice);
+        price = afterHours ? raw * afterHoursPricingMultiplier : raw;
       }
+      directLaborCost = 0;
+      laborCost = 0;
     }
 
     if (roundUp) price = Math.ceil(price);
@@ -214,20 +242,24 @@ export default function RepairGMCalculator() {
     const financingCost = price * f;
     const estimatedLabor = laborCost + commissionCost + tax + financingCost;
     const totalHours = hoursVal * numTechsVal;
-    const laborRate = laborMode === "dollars" && totalHours > 0
-      ? effectiveLaborRate * (afterHours ? 1.5 : 1)
+    const laborRateResult = laborMode === "dollars" && totalHours > 0
+      ? laborRateVal * (afterHours ? 1.5 : 1)
       : 0;
 
-    const totalAllCogs = totalParts + laborCost + commissionCost + financingCost;
+    // GM% — always uses actual tech rate as true labor cost
+    const actualTechLaborForGM = laborMode === "dollars"
+      ? hoursVal * numTechsVal * actualTechRate * (afterHours ? 1.5 : 1) * (1 + burdenRate)
+      : 0;
+    const totalAllCogs = totalPartsAtCost + actualTechLaborForGM + commissionCost + financingCost;
     const grossMarginAmount = price - totalAllCogs;
     const grossMarginPercent = price > 0 ? (grossMarginAmount / price) * 100 : 0;
-    const mePercent = price > 0 ? (totalParts / price) * 100 : 0;
+    const mePercent = price > 0 ? (totalPartsAtCost / price) * 100 : 0;
 
     setResults({
       price,
       estimatedLabor,
       directLaborCost,
-      laborRate,
+      laborRate: laborRateResult,
       breakdown: {
         materials: partsVal,
         equipment: 0,
@@ -239,8 +271,9 @@ export default function RepairGMCalculator() {
       metrics: { grossMarginPercent, grossMarginAmount, mePercent },
     });
   }, [
-    partsVal, taxRate, laborMode, hoursVal, numTechsVal, effectiveLaborRate, actualCostRate,
-    burdenRate, commissionRate, financingRate, g, roundUp, afterHours, afterHoursPricingMultiplier,
+    partsVal, taxRate, materialMarkup, laborMode, hoursVal, numTechsVal,
+    laborRateVal, highestTechRateVal, burdenRate, commissionRate, financingRate,
+    g, roundUp, afterHours, afterHoursPricingMultiplier,
   ]);
 
   const downloadImage = async () => {
@@ -387,7 +420,7 @@ export default function RepairGMCalculator() {
         <Target size={28} className="text-primary shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-xs font-bold text-primary uppercase tracking-wider">Target GM</p>
-          <p className="text-sm text-muted-foreground">From your Settings — the selling price is solved to hit this margin exactly.</p>
+          <p className="text-sm text-muted-foreground">Price is built from parts markup + billing rate, then raised to hit this target GM if needed.</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <div className="relative group">
@@ -440,6 +473,24 @@ export default function RepairGMCalculator() {
                 onChange={(e) => setPartsCost(e.target.value)}
                 data-testid="input-parts-cost"
               />
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Parts Markup %</Label>
+                <div className="relative group">
+                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+                    <span className="text-xs font-mono">%</span>
+                  </div>
+                  <Input
+                    type="number"
+                    step="5"
+                    min="0"
+                    value={materialMarkup}
+                    onChange={(e) => setMaterialMarkup(e.target.value)}
+                    data-testid="input-material-markup"
+                    className="pl-8 h-9 text-sm font-medium bg-background border-border shadow-sm"
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground">Auto: 200% (≤$500) · 150% (&gt;$500)</p>
+              </div>
               <div className="space-y-1">
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sales Tax %</Label>
                 <div className="relative group">
@@ -544,7 +595,7 @@ export default function RepairGMCalculator() {
                 <p className="text-3xl font-bold text-primary" data-testid="text-selling-price">
                   {results.price > 0 ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(results.price) : "—"}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">Solved to hit {targetGm || "—"}% GM</p>
+                <p className="text-xs text-muted-foreground mt-1">Markup + billing rate · target {targetGm || "—"}% GM</p>
               </div>
               <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-center">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Achieved GM %</p>
@@ -575,7 +626,7 @@ export default function RepairGMCalculator() {
                   ? {
                       hours: hoursVal,
                       numTechs: numTechsVal,
-                      hourlyRate: effectiveLaborRate * (afterHours ? 1.5 : 1),
+                      hourlyRate: laborRateVal * (afterHours ? 1.5 : 1),
                       burdenPercent: ZEPHYR_STANDARDS.LABOR_BURDEN_PCT,
                     }
                   : undefined
