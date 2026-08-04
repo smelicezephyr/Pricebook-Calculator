@@ -14,6 +14,7 @@ interface ResultsCardProps {
   oemRebate?: number;
   utilityRebate?: number;
   partsOnly?: boolean;
+  breakdownOnly?: boolean;
   laborBreakdown?: {
     hours: number;
     numTechs: number;
@@ -44,7 +45,7 @@ const formatCurrency = (val: number) =>
 const formatPercent = (val: number) => 
   `${val.toFixed(2)}%`;
 
-export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTaxRate, discount = 0, roundUp = false, onRoundUpChange, grossMarginMinPercent = 52, oemRebate = 0, utilityRebate = 0, partsOnly = false, laborBreakdown }: ResultsCardProps) {
+export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTaxRate, discount = 0, roundUp = false, onRoundUpChange, grossMarginMinPercent = 52, oemRebate = 0, utilityRebate = 0, partsOnly = false, breakdownOnly = false, laborBreakdown }: ResultsCardProps) {
   // price is already rounded if roundUp is enabled (handled in Calculator)
   const totalOtherCogs = (breakdown.financing || 0) + (breakdown.subcontractor || 0) + (breakdown.crane || 0) + (breakdown.permit || 0);
   const mAndECost = (breakdown.materials || 0) + (breakdown.equipment || 0) + (breakdown.tax || 0);
@@ -107,6 +108,7 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
   return (
     <div className="space-y-4">
       {/* Primary Result - Two Cards Side by Side */}
+      {!breakdownOnly && (
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="md:col-span-3 bg-primary text-primary-foreground rounded-xl p-5 shadow-xl shadow-primary/20 relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -166,7 +168,10 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
         </div>
       </div>
 
-      {/* Metrics Row */}
+      )}
+
+      {/* Metrics Row - only when not in breakdownOnly mode */}
+      {!breakdownOnly && (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
           <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Gross Margin</p>
@@ -186,6 +191,7 @@ export function ResultsCard({ price, estimatedLabor, breakdown, metrics, salesTa
           <p className="text-lg font-bold text-foreground">{formatCurrency(totalOtherCogs)}</p>
         </div>
       </div>
+      )}
 
       {/* Chart & Detailed Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

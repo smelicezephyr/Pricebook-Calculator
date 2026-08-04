@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Target, Loader2, Save, Moon } from "lucide-react";
+import { RefreshCw, Target, Loader2, Save, Moon, DollarSign } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toPng } from "html-to-image";
 import { useToast } from "@/hooks/use-toast";
@@ -327,6 +327,15 @@ export default function RepairGMCalculator() {
     setRevealedKey(priceKey);
   };
 
+  const gmMarginHealth = (() => {
+    const gm = results.metrics.grossMarginPercent;
+    const min = targetGmVal;
+    if (gm >= min) return { label: 'Margin Health: Strong', color: 'bg-emerald-500', textColor: 'text-emerald-600', glow: '0 0 8px 2px rgba(16, 185, 129, 0.6)' };
+    if (gm >= min - 2) return { label: 'Margin Health: Caution', color: 'bg-amber-500', textColor: 'text-amber-600', glow: '0 0 8px 2px rgba(245, 158, 11, 0.6)' };
+    return { label: 'Margin Health: Low', color: 'bg-red-500', textColor: 'text-red-600', glow: '0 0 8px 2px rgba(239, 68, 68, 0.6)' };
+  })();
+  const fmtCurrency = (v: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(v);
+
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -551,35 +560,94 @@ export default function RepairGMCalculator() {
             </div>
           )}
           <RevealPriceGate locked={locked} onReveal={handleReveal} isSaving={createQuote.isPending}>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="col-span-2 bg-primary/5 border border-primary/20 rounded-xl p-4 flex flex-col justify-center">
-                <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-1">Selling Price</p>
-                <p className="text-3xl font-bold text-primary" data-testid="text-selling-price">
-                  {results.price > 0 ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(results.price) : "—"}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">Solved to hit {targetGm || "—"}% GM · markup auto-adjusted</p>
+            {/* Price + Achieved GM% — same layout as RepairCalculator */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <div className="md:col-span-3 bg-primary text-primary-foreground rounded-xl p-5 shadow-xl shadow-primary/20 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <DollarSign size={100} />
+                </div>
+                <div className="relative z-10">
+                  <div className="mb-3" data-testid="margin-health-bar">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-sm font-medium text-primary-foreground/90">{gmMarginHealth.label}</span>
+                    </div>
+                    <div className="h-1.5 w-1/2 bg-primary-foreground/20 rounded-full overflow-visible">
+                      <div className={`h-full rounded-full transition-all duration-300 ${gmMarginHealth.color}`} style={{ width: '100%', boxShadow: gmMarginHealth.glow }} />
+                    </div>
+                  </div>
+                  <h2 className="text-5xl font-display font-bold tracking-tight" data-testid="text-total-price">
+                    {results.price > 0 ? fmtCurrency(results.price) : "—"}
+                  </h2>
+                  <p className="text-xs text-primary-foreground/70 mt-1">Solved to hit {targetGm || "—"}% GM</p>
+                  <div className="flex items-center gap-2 mt-4 pt-3 border-t border-primary-foreground/20">
+                    <Switch
+                      id="round-up-toggle-gm"
+                      checked={roundUp}
+                      onCheckedChange={setRoundUp}
+                      data-testid="switch-round-up"
+                      className="data-[state=checked]:bg-primary-foreground data-[state=unchecked]:bg-primary-foreground/30"
+                    />
+                    <Label htmlFor="round-up-toggle-gm" className="text-sm text-primary-foreground/90 cursor-pointer">
+                      Round up to whole dollar
+                    </Label>
+                  </div>
+                </div>
               </div>
-              <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-center">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Achieved GM %</p>
-                <p className="text-2xl font-bold text-foreground" data-testid="text-achieved-gm">
-                  {results.price > 0 ? `${results.metrics.grossMarginPercent.toFixed(2)}%` : "—"}
-                </p>
-              </div>
-              <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-center">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Auto Markup %</p>
-                <p className="text-2xl font-bold text-foreground" data-testid="text-auto-markup">
-                  {results.price > 0 && partsVal > 0 ? `${results.solvedMarkupPct.toFixed(0)}%` : "—"}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">on parts + tax</p>
+              <div className="md:col-span-2 bg-card border border-border rounded-xl p-5 shadow-lg shadow-black/5 relative overflow-hidden group">
+                <div className="relative z-10">
+                  <p className="text-muted-foreground font-medium text-sm mb-1">Gross Margin</p>
+                  <h2 className={`text-4xl font-display font-bold tracking-tight ${gmMarginHealth.textColor}`} data-testid="text-achieved-gm">
+                    {results.price > 0 ? `${results.metrics.grossMarginPercent.toFixed(2)}%` : "—"}
+                  </h2>
+                  {results.price > 0 && (
+                    <p className="text-sm text-muted-foreground mt-2">{fmtCurrency(results.metrics.grossMarginAmount)} profit</p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Target: {targetGm || "—"}% · Auto markup: {results.price > 0 && partsVal > 0 ? `${results.solvedMarkupPct.toFixed(0)}%` : "—"}
+                  </p>
+                </div>
               </div>
             </div>
 
+            {/* 4 stat tiles — same as RepairCalculator */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
+                <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">COGS</p>
+                <p className="text-lg font-bold text-foreground" data-testid="text-cogs">
+                  {results.price > 0 ? fmtCurrency(results.price - results.metrics.grossMarginAmount) : "—"}
+                </p>
+              </div>
+              <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
+                <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Labor & Comm.</p>
+                <p className="text-lg font-bold text-foreground">
+                  {results.price > 0
+                    ? fmtCurrency(Math.max(0, (results.price - results.metrics.grossMarginAmount) - (results.breakdown.materials + results.breakdown.tax)))
+                    : "—"}
+                </p>
+              </div>
+              <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
+                <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Parts + Tax</p>
+                <p className="text-lg font-bold text-foreground">
+                  {fmtCurrency(results.breakdown.materials + results.breakdown.tax)}
+                </p>
+              </div>
+              <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
+                <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Auto Markup %</p>
+                <p className="text-lg font-bold text-foreground" data-testid="text-auto-markup">
+                  {results.price > 0 && partsVal > 0 ? `${results.solvedMarkupPct.toFixed(0)}%` : "—"}
+                </p>
+                <p className="text-xs text-muted-foreground">on parts + tax</p>
+              </div>
+            </div>
+
+            {/* Cost breakdown only — price/metrics handled above */}
             <ResultsCard
               price={results.price}
               estimatedLabor={results.estimatedLabor}
               breakdown={results.breakdown}
               metrics={results.metrics}
               partsOnly
+              breakdownOnly
               salesTaxRate={salesTaxPercent}
               roundUp={roundUp}
               onRoundUpChange={setRoundUp}
