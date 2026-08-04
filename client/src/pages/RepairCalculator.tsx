@@ -508,18 +508,6 @@ export default function RepairCalculator() {
                 data-testid="input-financing-fee"
               />
               <p className="text-xs text-muted-foreground -mt-1 col-span-full">Financing fee and/or credit card processing fee</p>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <Label htmlFor="roundUp" className="text-sm font-medium cursor-pointer">
-                  Round Up
-                </Label>
-                <Switch
-                  id="roundUp"
-                  checked={roundUp}
-                  onCheckedChange={setRoundUp}
-                  data-testid="switch-round-up"
-                />
-              </div>
             </div>
           </div>
         </div>
@@ -557,6 +545,21 @@ export default function RepairCalculator() {
                     Before rounding: {formatCurrency(totalBeforeRounding)}
                   </p>
                 )}
+                <div className="flex items-center gap-2 mt-4 pt-3 border-t border-primary-foreground/20">
+                  <Switch
+                    id="round-up-toggle"
+                    checked={roundUp}
+                    onCheckedChange={setRoundUp}
+                    data-testid="switch-round-up"
+                    className="data-[state=checked]:bg-primary-foreground data-[state=unchecked]:bg-primary-foreground/30"
+                  />
+                  <Label
+                    htmlFor="round-up-toggle"
+                    className="text-sm text-primary-foreground/90 cursor-pointer"
+                  >
+                    Round up to whole dollar
+                  </Label>
+                </div>
               </div>
             </div>
 
