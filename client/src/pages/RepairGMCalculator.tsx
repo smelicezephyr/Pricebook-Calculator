@@ -196,11 +196,11 @@ export default function RepairGMCalculator() {
       directLaborCost = totalHours * laborRateVal * ahMultiplier;
       laborCost = billingLaborBurdened;
 
-      // Back-compute implied markup:
-      // price = (partsAtCost × (1+m) + billingLabor) / denomBilling
-      // → (1+m) = (price × denomBilling − billingLabor) / partsAtCost
-      if (totalPartsAtCost > 0 && denomBilling > 0) {
-        const impliedMarkedUpParts = price * denomBilling - billingLaborBurdened;
+      // Back-compute implied markup using the same formula as the forward solve:
+      // price = (partsAtCost × (1+m) + techLaborBurdened) / denomGM
+      // → partsAtCost × (1+m) = price × denomGM − techLaborBurdened
+      if (totalPartsAtCost > 0) {
+        const impliedMarkedUpParts = price * denomGM - techLaborBurdened;
         solvedMarkupPct = (impliedMarkedUpParts / totalPartsAtCost - 1) * 100;
       }
     } else if (laborMode === "percent" && denomGM > 0) {
@@ -208,10 +208,8 @@ export default function RepairGMCalculator() {
       price = totalPartsAtCost / denomGM;
       directLaborCost = 0;
       laborCost = 0;
-      if (totalPartsAtCost > 0 && denomBilling > 0) {
-        const impliedMarkedUpParts = price * denomBilling;
-        solvedMarkupPct = (impliedMarkedUpParts / totalPartsAtCost - 1) * 100;
-      }
+      // In percent mode markup is not applicable (no parts-vs-labor split)
+      solvedMarkupPct = 0;
     }
 
     if (roundUp) price = Math.ceil(price);
@@ -602,9 +600,7 @@ export default function RepairGMCalculator() {
                   {results.price > 0 && (
                     <p className="text-sm text-muted-foreground mt-2">{fmtCurrency(results.metrics.grossMarginAmount)} profit</p>
                   )}
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Target: {targetGm || "—"}% · Auto markup: {results.price > 0 && partsVal > 0 ? `${results.solvedMarkupPct.toFixed(0)}%` : "—"}
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">Target: {targetGm || "—"}%</p>
                 </div>
               </div>
             </div>
@@ -632,11 +628,10 @@ export default function RepairGMCalculator() {
                 </p>
               </div>
               <div className="bg-white dark:bg-card rounded-lg p-3 border border-border shadow-sm">
-                <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Auto Markup %</p>
-                <p className="text-lg font-bold text-foreground" data-testid="text-auto-markup">
-                  {results.price > 0 && partsVal > 0 ? `${results.solvedMarkupPct.toFixed(0)}%` : "—"}
+                <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Finance Fee</p>
+                <p className="text-lg font-bold text-foreground" data-testid="text-finance-fee">
+                  {fmtCurrency(results.breakdown.financing)}
                 </p>
-                <p className="text-xs text-muted-foreground">on parts + tax</p>
               </div>
             </div>
 
