@@ -3,8 +3,34 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTenants, useServiceTitan } from "@/hooks/use-tenants";
 import { useSettings } from "@/hooks/use-settings";
 import { useAuth } from "@/contexts/AuthContext";
-import type { Location } from "@shared/schema";
+import type { Location, Settings } from "@shared/schema";
 import { ZEPHYR_STANDARDS } from "@shared/schema";
+
+function safeNum(raw: string | null | undefined, fallback: number): number {
+  const n = parseFloat(raw ?? "");
+  return Number.isNaN(n) ? fallback : n;
+}
+
+function computeRecommendedLaborRate(s: Settings): number {
+  const highestTechRate = safeNum(s.highestTechRate, 0);
+  if (highestTechRate <= 0) return safeNum(s.laborHourlyRate, 0);
+  const annualPaidHours = ZEPHYR_STANDARDS.ANNUAL_PAID_HOURS;
+  const billableUtil = ZEPHYR_STANDARDS.BILLABLE_UTILIZATION_PCT / 100;
+  const annualTruckCost = ZEPHYR_STANDARDS.ANNUAL_TRUCK_FIELD_COST;
+  const roundingIncrement = ZEPHYR_STANDARDS.ROUNDING_INCREMENT;
+  const overheadPct = safeNum(s.targetOverheadPercent, 35) / 100;
+  const opProfitPct = safeNum(s.targetOperatingProfitPercent, 14) / 100;
+  const burdenPct = safeNum(s.laborBurdenPercent, 20) / 100;
+  const annualBillableHours = annualPaidHours * billableUtil;
+  const burdenedHourlyWage = highestTechRate * (1 + burdenPct);
+  const laborCostPerBillableHour = burdenedHourlyWage / billableUtil;
+  const truckCostPerBillableHour = annualBillableHours > 0 ? annualTruckCost / annualBillableHours : 0;
+  const directCostPerBillableHour = laborCostPerBillableHour + truckCostPerBillableHour;
+  const recoveryMargin = 1 - overheadPct - opProfitPct;
+  if (recoveryMargin <= 0) return safeNum(s.laborHourlyRate, 0);
+  const rawLaborRate = directCostPerBillableHour / recoveryMargin;
+  return Math.ceil(rawLaborRate / roundingIncrement) * roundingIncrement;
+}
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -181,7 +207,7 @@ export default function PushToServiceTitan() {
       setTargetMePercent(settings.targetMePercent);
       setSalesTaxPercent(settings.salesTaxPercent);
       setLaborMode(settings.laborMode as "hours" | "percent");
-      setLaborHourlyRate(settings.laborHourlyRate);
+      setLaborHourlyRate(computeRecommendedLaborRate(settings).toFixed(2));
       setLaborPercent(settings.laborPercent);
       setLaborBurdenPercent(settings.laborBurdenPercent);
       setCommissionPercent(settings.commissionPercent);
@@ -194,8 +220,8 @@ export default function PushToServiceTitan() {
       setRepairUpdateBurdenPercent(settings.laborBurdenPercent);
       setRepairUpdateCommissionPercent(settings.commissionPercent);
       setRepairUpdateFinancingFeePercent(settings.financingFeePercent);
-      setRepairLaborRate(settings.laborHourlyRate);
-      setRepairUpdateLaborHourlyRate(settings.laborHourlyRate);
+      setRepairLaborRate(computeRecommendedLaborRate(settings).toFixed(2));
+      setRepairUpdateLaborHourlyRate(computeRecommendedLaborRate(settings).toFixed(2));
       if (parseFloat(settings.highestTechRate || "0") > 0) {
         setRepairHighestTechRate(settings.highestTechRate);
       }
@@ -697,7 +723,7 @@ export default function PushToServiceTitan() {
     setRepairAllowDiscounts(true);
     setRepairAllowMembership(true);
     setRepairLaborHours("1");
-    setRepairLaborRate("175");
+    setRepairLaborRate(settings ? computeRecommendedLaborRate(settings).toFixed(2) : "175.00");
     setRepairGlAccount("Revenue");
     setRepairCategoryId(null);
     setRepairMaterialsCost("0");
