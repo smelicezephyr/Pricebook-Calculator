@@ -319,6 +319,7 @@ export default function PushToServiceTitan() {
   const [newTaskCodeError, setNewTaskCodeError] = useState<string | null>(null);
   const [newTaskName, setNewTaskName] = useState("");
   const [newTaskDescription, setNewTaskDescription] = useState("");
+  const [newTaskDescriptionError, setNewTaskDescriptionError] = useState<string | null>(null);
   const [newTaskWarranty, setNewTaskWarranty] = useState("");
   const [newTaskTaxable, setNewTaskTaxable] = useState(true);
   const [newTaskAllowDiscounts, setNewTaskAllowDiscounts] = useState(true);
@@ -338,6 +339,7 @@ export default function PushToServiceTitan() {
   const [repairCodeError, setRepairCodeError] = useState<string | null>(null);
   const [repairName, setRepairName] = useState("");
   const [repairDescription, setRepairDescription] = useState("");
+  const [repairDescriptionError, setRepairDescriptionError] = useState<string | null>(null);
   const [repairWarranty, setRepairWarranty] = useState("");
   const [repairTaxable, setRepairTaxable] = useState(true);
   const [repairAllowDiscounts, setRepairAllowDiscounts] = useState(true);
@@ -623,6 +625,7 @@ export default function PushToServiceTitan() {
     setNewTaskCode("");
     setNewTaskName("");
     setNewTaskDescription("");
+    setNewTaskDescriptionError(null);
     setNewTaskWarranty("");
     setNewTaskTaxable(true);
     setNewTaskAllowDiscounts(true);
@@ -650,6 +653,13 @@ export default function PushToServiceTitan() {
       toast({ title: "Error", description: "Name is required", variant: "destructive" });
       return;
     }
+    if (!newTaskDescription.trim()) {
+      const message = "Description is required by ServiceTitan.";
+      setNewTaskDescriptionError(message);
+      document.getElementById("newTaskDescription")?.focus();
+      toast({ title: "Add a description", description: message, variant: "destructive" });
+      return;
+    }
     if (!newTaskCategoryId) {
       toast({ title: "Error", description: "Please select a category", variant: "destructive" });
       return;
@@ -667,7 +677,7 @@ export default function PushToServiceTitan() {
       const serviceData: any = {
         code,
         displayName: name,
-        description: newTaskDescription.trim() || undefined,
+        description: newTaskDescription.trim(),
         warranty: newTaskWarranty.trim() ? { duration: 0, description: newTaskWarranty.trim() } : undefined,
         taxable: newTaskTaxable,
         active: true,
@@ -805,6 +815,7 @@ export default function PushToServiceTitan() {
     setRepairCode("");
     setRepairName("");
     setRepairDescription("");
+    setRepairDescriptionError(null);
     setRepairWarranty("");
     setRepairTaxable(true);
     setRepairAllowDiscounts(true);
@@ -843,6 +854,13 @@ export default function PushToServiceTitan() {
       toast({ title: "Error", description: "Name is required", variant: "destructive" });
       return;
     }
+    if (!repairDescription.trim()) {
+      const message = "Description is required by ServiceTitan.";
+      setRepairDescriptionError(message);
+      document.getElementById("repairDescription")?.focus();
+      toast({ title: "Add a description", description: message, variant: "destructive" });
+      return;
+    }
     if (!repairCategoryId) {
       toast({ title: "Error", description: "Please select a category", variant: "destructive" });
       return;
@@ -860,7 +878,7 @@ export default function PushToServiceTitan() {
       const serviceData: any = {
         code,
         displayName: name,
-        description: repairDescription.trim() || undefined,
+        description: repairDescription.trim(),
         warranty: repairWarranty.trim() ? { duration: 0, description: repairWarranty.trim() } : undefined,
         taxable: repairTaxable,
         active: true,
@@ -2748,15 +2766,24 @@ export default function PushToServiceTitan() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="newTaskDescription">Item Description</Label>
+                      <Label htmlFor="newTaskDescription">Item Description *</Label>
                       <Textarea
                         id="newTaskDescription"
                         value={newTaskDescription}
-                        onChange={(e) => setNewTaskDescription(e.target.value)}
+                        onChange={(e) => {
+                          setNewTaskDescription(e.target.value);
+                          if (e.target.value.trim()) setNewTaskDescriptionError(null);
+                        }}
                         placeholder="Enter a description of the service..."
                         rows={3}
+                        required
+                        aria-invalid={Boolean(newTaskDescriptionError)}
+                        className={newTaskDescriptionError ? "border-destructive focus-visible:ring-destructive" : undefined}
                         data-testid="input-new-task-description"
                       />
+                      {newTaskDescriptionError && (
+                        <p className="text-sm text-destructive" role="alert">{newTaskDescriptionError}</p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -3249,15 +3276,24 @@ export default function PushToServiceTitan() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="repairDescription">Description</Label>
+                      <Label htmlFor="repairDescription">Description *</Label>
                       <Textarea
                         id="repairDescription"
                         value={repairDescription}
-                        onChange={(e) => setRepairDescription(e.target.value)}
+                        onChange={(e) => {
+                          setRepairDescription(e.target.value);
+                          if (e.target.value.trim()) setRepairDescriptionError(null);
+                        }}
                         placeholder="Enter repair description..."
                         rows={3}
+                        required
+                        aria-invalid={Boolean(repairDescriptionError)}
+                        className={repairDescriptionError ? "border-destructive focus-visible:ring-destructive" : undefined}
                         data-testid="input-repair-description"
                       />
+                      {repairDescriptionError && (
+                        <p className="text-sm text-destructive" role="alert">{repairDescriptionError}</p>
+                      )}
                     </div>
 
                     <div className="space-y-2">

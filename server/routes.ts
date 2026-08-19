@@ -1120,7 +1120,7 @@ export async function registerRoutes(
   const createServiceSchema = z.object({
     code: z.string().min(1, "Code is required").max(31, "Code must be 31 characters or less"),
     displayName: z.string().min(1, "Name is required"),
-    description: z.string().optional(),
+    description: z.string().trim().min(1, "Description is required"),
     warranty: z.object({ duration: z.number(), description: z.string() }).optional(),
     taxable: z.boolean().optional(),
     active: z.boolean().optional(),

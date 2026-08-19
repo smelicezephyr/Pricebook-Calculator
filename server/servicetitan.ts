@@ -98,6 +98,58 @@ interface PricebookEquipment {
 
 const tokenCache: Map<number, { token: string; expiresAt: number }> = new Map();
 
+const serviceTitanFieldLabels: Record<string, string> = {
+  account: "General ledger account",
+  categories: "Category",
+  code: "Code",
+  description: "Description",
+  displayname: "Name",
+  hours: "Labor hours",
+  price: "Price",
+  warranty: "Warranty",
+};
+
+function formatServiceTitanValidationErrors(errors: unknown): string | null {
+  if (!errors || typeof errors !== "object" || Array.isArray(errors)) {
+    return null;
+  }
+
+  const issues = Object.entries(errors)
+    .flatMap(([field, messages]) => {
+      const normalizedField = field.toLowerCase();
+      const label = serviceTitanFieldLabels[normalizedField]
+        ?? field.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase());
+
+      return (Array.isArray(messages) ? messages : [messages]).flatMap((message) => {
+        const detail = String(message)
+          .replace(/\s*Path\s+['"].*$/i, "")
+          .trim();
+
+        // ServiceTitan adds this generic wrapper error whenever a required
+        // property is missing; the field-specific error below is actionable.
+        if (normalizedField === "request" && /request field is required/i.test(detail)) {
+          return [];
+        }
+
+        if (/required property|field is required/i.test(detail)) {
+          return [`${label} is required.`];
+        }
+
+        return [`${label}: ${detail}`];
+      });
+    });
+
+  const uniqueIssues = [...new Set(issues)];
+  if (uniqueIssues.length === 0) {
+    return null;
+  }
+
+  const heading = uniqueIssues.length === 1
+    ? "Please fix this before trying again:"
+    : "Please fix these before trying again:";
+  return `${heading} ${uniqueIssues.join(" ")}`;
+}
+
 export class ServiceTitanAPI {
   private tenant: Tenant;
   private baseUrl = "https://api.servicetitan.io";
@@ -168,7 +220,10 @@ export class ServiceTitanAPI {
         let friendlyMessage = `ServiceTitan API error (${response.status})`;
         try {
           const errorJson = JSON.parse(errorText);
-          if (errorJson.title) {
+          const validationMessage = formatServiceTitanValidationErrors(errorJson.errors);
+          if (validationMessage) {
+            friendlyMessage = validationMessage;
+          } else if (errorJson.title) {
             friendlyMessage = errorJson.title;
           } else if (errorJson.RawException) {
             const rawEx = errorJson.RawException;
@@ -179,7 +234,7 @@ export class ServiceTitanAPI {
           } else if (errorJson.detail) {
             friendlyMessage = errorJson.detail;
           }
-          if (errorJson.errors && typeof errorJson.errors === 'object') {
+          if (!validationMessage && errorJson.errors && typeof errorJson.errors === 'object') {
             const fieldErrors = Object.entries(errorJson.errors)
               .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
               .join('; ');
