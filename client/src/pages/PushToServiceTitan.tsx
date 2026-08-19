@@ -5,6 +5,27 @@ import { useSettings } from "@/hooks/use-settings";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Location, Settings } from "@shared/schema";
 import { ZEPHYR_STANDARDS } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign, ArrowUp, Plus, ImagePlus, Search, Check, ChevronsUpDown, Wrench, MapPin, Edit, Trash2, ListOrdered, Info, Moon } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+
+const PUSH_IMAGE_HEIGHT = 450;
 
 function safeNum(raw: string | null | undefined, fallback: number): number {
   const n = parseFloat(raw ?? "");
@@ -31,27 +52,77 @@ function computeRecommendedLaborRate(s: Settings): number {
   const rawLaborRate = directCostPerBillableHour / recoveryMargin;
   return Math.ceil(rawLaborRate / roundingIncrement) * roundingIncrement;
 }
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, CheckCircle2, XCircle, Upload, Building2, ChevronRight, ChevronDown, ArrowLeft, RefreshCw, Percent, Clock, DollarSign, ArrowUp, Plus, ImagePlus, Search, Check, ChevronsUpDown, Wrench, MapPin, Edit, Trash2, ListOrdered, Info, Moon } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { useLocation } from "wouter";
-import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
-import { queryClient, apiRequest } from "@/lib/queryClient";
 
+function getOutputImageType(file: File): "image/jpeg" | "image/png" | "image/webp" {
+  if (file.type === "image/png" || file.type === "image/webp" || file.type === "image/jpeg") {
+    return file.type;
+  }
+  return "image/jpeg";
+}
 
+function getResizedImageName(filename: string, mimeType: string): string {
+  const extension = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
+  const baseName = filename.replace(/\.[^/.]+$/, "") || "service-image";
+  return `${baseName}-${PUSH_IMAGE_HEIGHT}px.${extension}`;
+}
+
+async function resizeImageForPush(file: File): Promise<File> {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Please choose an image file.");
+  }
+
+  const imageUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const source = new Image();
+      source.onload = () => resolve(source);
+      source.onerror = () => reject(new Error("This image could not be read. Please try another image."));
+      source.src = imageUrl;
+    });
+
+    if (!image.naturalWidth || !image.naturalHeight) {
+      throw new Error("This image has invalid dimensions.");
+    }
+
+    const outputWidth = Math.max(1, Math.round(image.naturalWidth * (PUSH_IMAGE_HEIGHT / image.naturalHeight)));
+    const canvas = document.createElement("canvas");
+    canvas.width = outputWidth;
+    canvas.height = PUSH_IMAGE_HEIGHT;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("Your browser could not prepare this image for upload.");
+    }
+
+    context.drawImage(image, 0, 0, outputWidth, PUSH_IMAGE_HEIGHT);
+    const outputType = getOutputImageType(file);
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (result) => result ? resolve(result) : reject(new Error("Unable to resize this image.")),
+        outputType,
+        outputType === "image/png" ? undefined : 0.9,
+      );
+    });
+
+    return new File(
+      [blob],
+      getResizedImageName(file.name, outputType),
+      { type: outputType, lastModified: file.lastModified },
+    );
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => typeof reader.result === "string"
+      ? resolve(reader.result)
+      : reject(new Error("Unable to read this image."));
+    reader.onerror = () => reject(new Error("Unable to read this image."));
+    reader.readAsDataURL(file);
+  });
+}
 
 interface Category {
   id: number;
@@ -530,15 +601,21 @@ export default function PushToServiceTitan() {
     }
   };
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setNewTaskImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setNewTaskImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    try {
+      const resizedImage = await resizeImageForPush(file);
+      setNewTaskImage(resizedImage);
+      setNewTaskImagePreview(await readFileAsDataUrl(resizedImage));
+    } catch (error: any) {
+      e.target.value = "";
+      toast({
+        title: "Image not added",
+        description: error.message || "Unable to prepare this image for upload.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -642,7 +719,7 @@ export default function PushToServiceTitan() {
             reader.readAsDataURL(newTaskImage);
           });
 
-          await fetch(`/api/servicetitan/${selectedTenantId}/services/${createdService.id}/image`, {
+          const imageResponse = await fetch(`/api/servicetitan/${selectedTenantId}/services/${createdService.id}/image`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -651,6 +728,10 @@ export default function PushToServiceTitan() {
               mimeType: newTaskImage.type,
             }),
           });
+          if (!imageResponse.ok) {
+            const error = await imageResponse.json().catch(() => ({}));
+            throw new Error(error.message || "ServiceTitan rejected the image upload.");
+          }
         } catch (imgErr) {
           console.error("Failed to upload image:", imgErr);
           toast({
@@ -702,15 +783,21 @@ export default function PushToServiceTitan() {
   };
 
   // Repair Task Handlers
-  const handleRepairImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRepairImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setRepairImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setRepairImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    try {
+      const resizedImage = await resizeImageForPush(file);
+      setRepairImage(resizedImage);
+      setRepairImagePreview(await readFileAsDataUrl(resizedImage));
+    } catch (error: any) {
+      e.target.value = "";
+      toast({
+        title: "Image not added",
+        description: error.message || "Unable to prepare this image for upload.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -825,7 +912,7 @@ export default function PushToServiceTitan() {
             reader.readAsDataURL(repairImage);
           });
 
-          await fetch(`/api/servicetitan/${selectedTenantId}/services/${createdService.id}/image`, {
+          const imageResponse = await fetch(`/api/servicetitan/${selectedTenantId}/services/${createdService.id}/image`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -834,6 +921,10 @@ export default function PushToServiceTitan() {
               mimeType: repairImage.type,
             }),
           });
+          if (!imageResponse.ok) {
+            const error = await imageResponse.json().catch(() => ({}));
+            throw new Error(error.message || "ServiceTitan rejected the image upload.");
+          }
         } catch (imgErr) {
           console.error("Failed to upload image:", imgErr);
           toast({
@@ -2820,6 +2911,9 @@ export default function PushToServiceTitan() {
                     {/* Image Upload */}
                     <div className="space-y-2">
                       <Label>Image (optional)</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Any image size is accepted and resized to 450px high before upload.
+                      </p>
                       <div className="flex items-start gap-4">
                         <div className="flex-1">
                           <label
@@ -3295,6 +3389,9 @@ export default function PushToServiceTitan() {
                     {/* Image Upload */}
                     <div className="space-y-2">
                       <Label>Image (optional)</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Any image size is accepted and resized to 450px high before upload.
+                      </p>
                       <div className="flex items-start gap-4">
                         <div className="flex-1">
                           <label
