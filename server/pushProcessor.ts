@@ -138,19 +138,32 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
         }
 
         let addedCount = 0;
+        let unverifiableCount = 0;
         for (const service of services) {
           // Deduplicate: skip services we've already added from another category query
           if (seenServiceIds.has(service.id)) {
             continue;
           }
 
-          // Determine the service's actual category
-          const serviceCatId = service.categoryId 
-            || (service.categories && service.categories.length > 0 ? service.categories[0].id : null);
-
-          // Only include services whose category exactly matches one of the selected categories
-          // This prevents including services from unselected child/parent categories
-          if (serviceCatId && !selectedCategorySet.has(serviceCatId)) {
+          // ServiceTitan's category filter can return a broad/hierarchical result set.
+          // Require category metadata that explicitly matches a selected category;
+          // records without category metadata cannot be safely updated.
+          const serviceCategoryIds = new Set<number>();
+          if (typeof service.categoryId === 'number') {
+            serviceCategoryIds.add(service.categoryId);
+          }
+          if (Array.isArray(service.categories)) {
+            for (const category of service.categories) {
+              if (typeof category?.id === 'number') {
+                serviceCategoryIds.add(category.id);
+              }
+            }
+          }
+          if (serviceCategoryIds.size === 0) {
+            unverifiableCount++;
+            continue;
+          }
+          if (![...serviceCategoryIds].some(id => selectedCategorySet.has(id))) {
             continue;
           }
 
@@ -165,7 +178,7 @@ export async function processPush(params: PushParams, tenant: Tenant): Promise<P
           }
         }
 
-        console.log(`[Push] Category ${categoryId}: ${addedCount} services matched (filtered from ${services.length})`);
+        console.log(`[Push] Category ${categoryId}: ${addedCount} services matched (filtered from ${services.length}; ${unverifiableCount} lacked category metadata)`);
         emitProgress(tenantId, 'services', `Loaded ${allServices.length} services from ${i + 1}/${categoriesToQuery.length} categories`, i + 1, categoriesToQuery.length);
       } catch (err: any) {
         console.log(`[Push] Failed to fetch services for category ${categoryId}: ${err.message}`);
@@ -603,14 +616,31 @@ export async function processRepairPush(params: RepairPushParams, tenant: Tenant
       const categoryId = categoriesToQuery[i];
       try {
         const services = await stApi.getServices(categoryId);
+        let unverifiableCount = 0;
+        let addedCount = 0;
         for (const service of services) {
           if (seenServiceIds.has(service.id)) continue;
-          const serviceCatId = service.categoryId
-            || (service.categories && service.categories.length > 0 ? service.categories[0].id : null);
-          if (serviceCatId && !selectedCategorySet.has(serviceCatId)) continue;
+          const serviceCategoryIds = new Set<number>();
+          if (typeof service.categoryId === 'number') {
+            serviceCategoryIds.add(service.categoryId);
+          }
+          if (Array.isArray(service.categories)) {
+            for (const category of service.categories) {
+              if (typeof category?.id === 'number') {
+                serviceCategoryIds.add(category.id);
+              }
+            }
+          }
+          if (serviceCategoryIds.size === 0) {
+            unverifiableCount++;
+            continue;
+          }
+          if (![...serviceCategoryIds].some(id => selectedCategorySet.has(id))) continue;
           seenServiceIds.add(service.id);
           allServices.push(service);
+          addedCount++;
         }
+        console.log(`[RepairPush] Category ${categoryId}: ${addedCount} services matched (filtered from ${services.length}; ${unverifiableCount} lacked category metadata)`);
         emitProgress(tenantId, 'services', `Loaded ${allServices.length} services from ${i + 1}/${categoriesToQuery.length} categories`, i + 1, categoriesToQuery.length);
       } catch (err: any) {
         results.errors.push(`Failed to fetch category ${categoryId}: ${err.message}`);
