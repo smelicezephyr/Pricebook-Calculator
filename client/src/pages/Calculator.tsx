@@ -49,6 +49,7 @@ export default function Calculator() {
 
   const [commissionPercent, setCommissionPercent] = useState("");
   const [financingFeePercent, setFinancingFeePercent] = useState("");
+  const [standaloneEquipment, setStandaloneEquipment] = useState(false);
 
   // Initialize defaults from settings only once on first load (not on every settings change)
   useEffect(() => {
@@ -299,9 +300,10 @@ export default function Calculator() {
     setRevealedKey(priceKey);
   };
 
-  // Generate target M&E options: 15% to 30% with 0.5% intervals
+  // Generate target M&E options in 0.5% intervals.
+  // Stand-alone equipment can be priced as low as 10%; systems remain at 15%+.
   const targetMeOptions = [];
-  for (let i = 15; i <= 30; i += 0.5) {
+  for (let i = standaloneEquipment ? 10 : 15; i <= 30; i += 0.5) {
     targetMeOptions.push(i.toFixed(1));
   }
 
@@ -463,6 +465,27 @@ export default function Calculator() {
                 onChange={(e) => setEquipment(e.target.value)}
                 data-testid="input-equipment"
               />
+              <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-2">
+                <div>
+                  <Label htmlFor="standalone-equipment" className="text-xs font-semibold cursor-pointer">
+                    Stand-Alone Equipment
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Allows Target M&E down to 10%
+                  </p>
+                </div>
+                <Switch
+                  id="standalone-equipment"
+                  checked={standaloneEquipment}
+                  onCheckedChange={(checked) => {
+                    setStandaloneEquipment(checked);
+                    if (!checked && parseFloat(targetMe) < 15) {
+                      setTargetMe("15.0");
+                    }
+                  }}
+                  data-testid="switch-standalone-equipment"
+                />
+              </div>
               <div className="space-y-1">
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Sales Tax %

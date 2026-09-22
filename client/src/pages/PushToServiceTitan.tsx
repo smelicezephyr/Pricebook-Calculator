@@ -246,6 +246,7 @@ export default function PushToServiceTitan() {
   const [commissionBurdenPercent, setCommissionBurdenPercent] = useState<string>("20.00");
   const [financingFeePercent, setFinancingFeePercent] = useState<string>("6.00");
   const [roundUp, setRoundUp] = useState<boolean>(false);
+  const [standaloneEquipment, setStandaloneEquipment] = useState<boolean>(false);
   const [skipZeroEquipment, setSkipZeroEquipment] = useState<boolean>(() => {
     try { return localStorage.getItem("push_skipZeroEquipment") === "true"; } catch { return false; }
   });
@@ -1656,7 +1657,10 @@ export default function PushToServiceTitan() {
                         data-testid="select-target-me-percent"
                         className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-medium ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {Array.from({ length: 31 }, (_, i) => (15 + i * 0.5).toFixed(1)).map((opt) => (
+                        {Array.from(
+                          { length: Math.round((30 - (standaloneEquipment ? 10 : 15)) / 0.5) + 1 },
+                          (_, i) => ((standaloneEquipment ? 10 : 15) + i * 0.5).toFixed(1)
+                        ).map((opt) => (
                           <option key={opt} value={opt}>
                             {opt}%
                           </option>
@@ -1665,6 +1669,27 @@ export default function PushToServiceTitan() {
                       <p className="text-xs text-muted-foreground">
                         Materials & Equipment as a percentage of total price
                       </p>
+                      <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-2">
+                        <div>
+                          <Label htmlFor="push-standalone-equipment" className="text-sm font-medium cursor-pointer">
+                            Stand-Alone Equipment
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Allows Target M&E to go as low as 10%
+                          </p>
+                        </div>
+                        <Switch
+                          id="push-standalone-equipment"
+                          checked={standaloneEquipment}
+                          onCheckedChange={(checked) => {
+                            setStandaloneEquipment(checked);
+                            if (!checked && parseFloat(targetMePercent) < 15) {
+                              setTargetMePercent("15.0");
+                            }
+                          }}
+                          data-testid="switch-push-standalone-equipment"
+                        />
+                      </div>
                     </div>
 
                     <div className="space-y-2">
