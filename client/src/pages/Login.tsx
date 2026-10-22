@@ -116,7 +116,7 @@ export default function Login({ authCheckFailed = false }: { authCheckFailed?: b
 
             <div className="mt-8 border-t border-slate-200 pt-6">
               <p className="text-center text-xs leading-5 text-slate-500">
-                New here? Your account will be created when you sign in. An administrator can then assign the appropriate access.
+                New here? Your private workspace is created when you sign in. Access to ServiceTitan tenants is assigned separately.
               </p>
             </div>
           </div>

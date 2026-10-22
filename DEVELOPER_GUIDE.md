@@ -1042,7 +1042,7 @@ All authentication is Google OAuth only — there are no passwords or PINs for p
 2. Google redirects back to `/auth/google/callback`
 3. Passport `GoogleStrategy` upserts a `users` row using Google's stable subject ID (creates on first login, updates profile details on subsequent logins; matching email addresses do not merge accounts)
 4. A `login_events` row is inserted for audit trail
-5. New accounts receive the `everyone` role and no tenant assignments; an admin must grant access. Existing roles and explicit tenant assignments are preserved.
+5. New accounts receive the non-admin `user` role, their own default settings row, and no ServiceTitan tenant assignments. Existing roles and explicit tenant assignments are preserved.
 6. Session is persisted server-side (express-session + PostgreSQL session store)
 
 **Environment variables required:** `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
@@ -1055,7 +1055,7 @@ For users outside the Google Cloud project's organization, set the OAuth consent
 
 | Role | Description | Calculators | Push | Admin Pages |
 |------|-------------|------------|------|-------------|
-| `everyone` | Newly signed-up, not yet approved | None (holding screen) | No | No |
+| `everyone` | Restricted legacy/on-hold account | None (holding screen) | No | No |
 | `user` | Standard user | Yes (with Reveal Price gate) | Yes (per `pushPermission`) | No |
 | `manager` | Reporting/read-only (not currently used in UI) | Yes | No | No |
 | `admin` | Full access | Yes | Yes | Yes |

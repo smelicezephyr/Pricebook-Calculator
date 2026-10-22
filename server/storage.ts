@@ -313,10 +313,16 @@ export class DatabaseStorage implements IStorage {
       return updated;
     }
 
-    const [created] = await db.insert(users)
-      .values({ ...userData, role: "everyone" })
-      .returning();
-    return created;
+    return await db.transaction(async (tx) => {
+      const [created] = await tx.insert(users)
+        .values({ ...userData, role: "user" })
+        .returning();
+
+      // Give each new account its own settings row instead of exposing a
+      // legacy global settings row as its initial calculator configuration.
+      await tx.insert(settings).values({ userId: created.id });
+      return created;
+    });
   }
 
   async listUsers(): Promise<User[]> {
