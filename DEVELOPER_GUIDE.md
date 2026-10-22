@@ -1033,19 +1033,23 @@ A Switch component labeled "Production Pay" toggles between two modes:
 
 ### Google OAuth (Passport.js)
 
-**Files**: `server/routes.ts` (Passport strategy setup), `client/src/hooks/use-auth.ts`
+**Files**: `server/auth.ts` (Passport Google strategy), `server/routes.ts` (OAuth routes), `client/src/contexts/AuthContext.tsx`
 
 All authentication is Google OAuth only — there are no passwords or PINs for page access.
 
 **Flow:**
 1. User visits `/auth/google` → redirected to Google consent screen
 2. Google redirects back to `/auth/google/callback`
-3. Passport `GoogleStrategy` upserts a `users` row (creates on first login, updates name/avatar on subsequent logins)
+3. Passport `GoogleStrategy` upserts a `users` row using Google's stable subject ID (creates on first login, updates profile details on subsequent logins; matching email addresses do not merge accounts)
 4. A `login_events` row is inserted for audit trail
-5. If the user's role is `everyone`, they are shown a "pending approval" screen and cannot access any data
+5. New accounts receive the `everyone` role and no tenant assignments; an admin must grant access. Existing roles and explicit tenant assignments are preserved.
 6. Session is persisted server-side (express-session + PostgreSQL session store)
 
 **Environment variables required:** `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+
+The application requests only `openid`, `email`, and `profile` scopes and does not enforce a Google Workspace domain. Login does not assign tenant access based on email-domain similarity.
+
+For users outside the Google Cloud project's organization, set the OAuth consent-screen audience to **External**, publish the app for general use (rather than leaving it in Testing with a limited test-user list), and register the exact callback URL shown in the server startup log as an authorized redirect URI.
 
 ### Role-Based Access Control (RBAC)
 

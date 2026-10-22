@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import clsx from "clsx";
 import horizontalLogo from "@assets/Logo_-_Horizontal_1772750848213.png";
 import stackedLogo from "@assets/Logo_-_Stacked_1772750848213.png";
-import { useAuth } from "@/contexts/AuthContext";
+import { clearAuthSessionMarker, useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { queryClient } from "@/lib/queryClient";
@@ -60,6 +60,7 @@ export function Navigation() {
   const [reportingExpanded, setReportingExpanded] = useState(() => location.startsWith("/reporting"));
 
   const handleSignOut = async () => {
+    clearAuthSessionMarker();
     try {
       await fetch("/auth/logout", { method: "POST", credentials: "include" });
     } catch {

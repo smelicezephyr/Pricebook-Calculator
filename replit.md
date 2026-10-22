@@ -57,8 +57,10 @@ Preferred communication style: Simple, everyday language.
 ## Key Design Decisions
 
 ### Authentication & RBAC
-- Google OAuth only (no passwords). Callback URL configured via `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
-- Three roles: `admin` (full access), `user` (calculators + push), `everyone` (limbo — no data access until promoted).
+- Google OAuth 2.0 / OpenID Connect only (no passwords). New accounts are matched by Google's stable subject ID and start with the restricted `everyone` role; existing roles are preserved.
+- Roles: `admin` (full access), `manager` (scoped reporting), `user` (calculators + assigned tenant access), `everyone` (restricted until access is assigned).
+- Tenant access is assigned explicitly; Google email domains do not grant tenant access or administrative privileges.
+- OAuth client ID and secret are stored as `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`. The Google Cloud OAuth audience must be External for accounts outside the owner's organization.
 - Tenant access is scoped per user via `user_tenant_access`; admins see all tenants.
 - Push permission is a separate flag on `users`: `both` (reprice + add new), `reprice_only`, or `add_new_only`.
 - `emailNotifications` boolean on `users` controls whether the user receives an email when a push they initiated completes.

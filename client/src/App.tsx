@@ -87,7 +87,7 @@ function AppRouter() {
 }
 
 function Router() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, authCheckFailed } = useAuth();
   const [location] = useLocation();
   usePrefetchTechRates(user?.id);
 
@@ -102,7 +102,9 @@ function Router() {
   if (!user) {
     return (
       <Switch>
-        <Route path="/login" component={Login} />
+        <Route path="/login">
+          <Login authCheckFailed={authCheckFailed} />
+        </Route>
         <Route>
           <Redirect to="/login" />
         </Route>

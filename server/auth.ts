@@ -11,7 +11,7 @@ declare global {
       email: string;
       name: string;
       avatarUrl: string | null;
-      role: "everyone" | "user" | "admin";
+      role: "everyone" | "user" | "manager" | "admin";
       pushPermission: "both" | "reprice_only" | "add_new_only";
       emailNotifications: boolean;
       createdAt: Date | null;
@@ -56,29 +56,31 @@ export function configurePassport() {
         clientSecret,
         callbackURL,
         proxy: true,
+        state: true,
       },
       async (_accessToken, _refreshToken, profile, done) => {
         try {
           const email = profile.emails?.[0]?.value ?? "";
+          if (!profile.id || !email) {
+            console.warn("[Auth] Google profile did not include a stable ID and email");
+            return done(null, false);
+          }
           const avatarUrl = profile.photos?.[0]?.value ?? undefined;
           const user = await storage.upsertUser({
+            // Google profile.id is the stable OpenID Connect subject (sub).
             googleId: profile.id,
             email,
-            name: profile.displayName,
+            name: profile.displayName || email,
             avatarUrl,
           });
-          // Auto-assign tenant access based on email domain (e.g. psihomeservices.com → PSI).
-          // Runs on every login so existing users get picked up too. Fire-and-forget.
-          storage.autoGrantTenantByDomain(user.id, email).catch(err =>
-            console.error("[Auth] Failed to auto-grant tenant by domain:", err)
-          );
           // Fire-and-forget login event — never block auth on this
           storage.logLoginEvent(user.id, user.email, user.name).catch(err =>
             console.error("[Auth] Failed to log login event:", err)
           );
           done(null, user);
         } catch (err) {
-          done(err as Error);
+          console.error("[Auth] Google sign-in failed:", err);
+          done(null, false);
         }
       }
     )

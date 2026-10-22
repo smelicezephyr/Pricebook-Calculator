@@ -1,5 +1,15 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
+
+const AUTH_MARKER_KEY = "pricebookcalc.authenticated";
+
+export function clearAuthSessionMarker() {
+  try {
+    window.sessionStorage.removeItem(AUTH_MARKER_KEY);
+  } catch {
+    // Session storage may be unavailable in hardened browser contexts.
+  }
+}
 
 export interface CurrentUser {
   id: number;
@@ -23,17 +33,19 @@ interface AuthContextType {
   isReporting: boolean;
   isPriceGated: boolean;
   isEveryone: boolean;
+  authCheckFailed: boolean;
+  sessionExpired: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { data: user, isLoading } = useQuery<CurrentUser | null>({
+  const { data: user, isLoading, error } = useQuery<CurrentUser | null>({
     queryKey: ["/api/auth/me"],
     queryFn: async () => {
       const res = await fetch("/api/auth/me", { credentials: "include" });
       if (res.status === 401) return null;
-      if (!res.ok) return null;
+      if (!res.ok) throw new Error("Unable to check your sign-in session");
       return res.json();
     },
     staleTime: 60_000,
@@ -41,6 +53,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const resolvedUser = user ?? null;
+  const authCheckFailed = !isLoading && Boolean(error);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  useEffect(() => {
+    if (isLoading) return;
+    try {
+      if (resolvedUser) {
+        window.sessionStorage.setItem(AUTH_MARKER_KEY, "1");
+        setSessionExpired(false);
+      } else {
+        setSessionExpired(window.sessionStorage.getItem(AUTH_MARKER_KEY) === "1");
+      }
+    } catch {
+      setSessionExpired(false);
+    }
+  }, [isLoading, resolvedUser]);
 
   return (
     <AuthContext.Provider
@@ -54,6 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isReporting: resolvedUser?.role === "admin" || resolvedUser?.role === "manager",
         isPriceGated: resolvedUser?.role === "everyone" || resolvedUser?.role === "user",
         isEveryone: resolvedUser?.role === "everyone",
+        authCheckFailed,
+        sessionExpired,
       }}
     >
       {children}

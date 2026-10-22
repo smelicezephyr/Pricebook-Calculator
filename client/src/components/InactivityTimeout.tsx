@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { clearAuthSessionMarker, useAuth } from "@/contexts/AuthContext";
 import { queryClient } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ export function InactivityTimeout() {
   const doLogout = useCallback(async () => {
     clearAllTimers();
     setShowWarning(false);
+    clearAuthSessionMarker();
     try {
       await fetch("/auth/logout", { method: "POST", credentials: "include" });
     } catch {

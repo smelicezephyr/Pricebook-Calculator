@@ -61,14 +61,12 @@ export interface IStorage {
   getUserById(id: number): Promise<User | undefined>;
   upsertUser(userData: { googleId: string; email: string; name: string; avatarUrl?: string }): Promise<User>;
   listUsers(): Promise<User[]>;
-  countUsers(): Promise<number>;
   updateUserRole(id: number, role: "everyone" | "user" | "manager" | "admin"): Promise<User>;
   updateUserPushPermission(id: number, pushPermission: "both" | "reprice_only" | "add_new_only"): Promise<User>;
   deleteUser(id: number): Promise<void>;
   getUserTenantIds(userId: number): Promise<number[]>;
   setUserTenantAccess(userId: number, tenantIds: number[]): Promise<void>;
   grantTenantAccess(userId: number, tenantId: number): Promise<void>;
-  autoGrantTenantByDomain(userId: number, email: string): Promise<void>;
   getUsersByTenant(tenantId: number): Promise<User[]>;
   getQuotesByUserIds(userIds: number[]): Promise<Quote[]>;
 
@@ -315,23 +313,14 @@ export class DatabaseStorage implements IStorage {
       return updated;
     }
 
-    // Check if this is the very first user — auto-promote to admin
-    const count = await this.countUsers();
-    const role = count === 0 ? "admin" : "everyone";
-
     const [created] = await db.insert(users)
-      .values({ ...userData, role })
+      .values({ ...userData, role: "everyone" })
       .returning();
     return created;
   }
 
   async listUsers(): Promise<User[]> {
     return await db.select().from(users).orderBy(asc(users.createdAt));
-  }
-
-  async countUsers(): Promise<number> {
-    const result = await db.select().from(users);
-    return result.length;
   }
 
   async updateUserRole(id: number, role: "everyone" | "user" | "manager" | "admin"): Promise<User> {
@@ -375,39 +364,6 @@ export class DatabaseStorage implements IStorage {
     await db.insert(userTenantAccess)
       .values({ userId, tenantId })
       .onConflictDoNothing();
-  }
-
-  async autoGrantTenantByDomain(userId: number, email: string): Promise<void> {
-    const domain = (email.split("@")[1] ?? "").toLowerCase();
-    if (!domain) return;
-    // Use only the part before the first dot: "bluevalleyenergy.com" → "bluevalleyenergy"
-    const domainRoot = domain.split(".")[0];
-    const domainKey = domainRoot.replace(/[^a-z0-9]/g, "");
-
-    const commonPrefixLen = (a: string, b: string) => {
-      let i = 0;
-      while (i < a.length && i < b.length && a[i] === b[i]) i++;
-      return i;
-    };
-
-    const allTenants = await this.getTenants();
-    for (const tenant of allTenants) {
-      const tenantKey = (tenant.name ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
-      if (!tenantKey) continue;
-      // Three-way match: substring contains OR shared prefix of ≥6 chars
-      // Examples:
-      //   bonsby ⊂ michaelbonsbyhvac…          → contains ✓
-      //   bluevalleyenergy vs bluevalleyhorizon → prefix "bluevalley" (10) ✓
-      //   degreeheatingandcooling vs degreeheatingcooling → prefix "degreeheating" (13) ✓
-      //   zephyrlocal vs zephyrtesting          → prefix "zephyr" (6) ✓
-      const isMatch =
-        domainKey.includes(tenantKey) ||
-        tenantKey.includes(domainKey) ||
-        commonPrefixLen(domainKey, tenantKey) >= 6;
-      if (isMatch) {
-        await this.grantTenantAccess(userId, tenant.id);
-      }
-    }
   }
 
   async getUsersByTenant(tenantId: number): Promise<User[]> {

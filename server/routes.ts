@@ -87,9 +87,9 @@ export async function registerRoutes(
 
   app.get("/auth/google", (req, res, next) => {
     if (!googleOAuthEnabled) {
-      return res.status(503).json({ message: "Google OAuth is not configured on this server" });
+      return res.redirect("/login?error=oauth_unavailable");
     }
-    passport.authenticate("google", { scope: ["profile", "email"] })(req, res, next);
+    passport.authenticate("google", { scope: ["openid", "email", "profile"] })(req, res, next);
   });
 
   app.get(
@@ -519,8 +519,8 @@ export async function registerRoutes(
   // Backfill tenant_id on quotes that were saved without one.
   // Two-pass strategy:
   //   1. Single-tenant access: if the user is assigned to exactly one tenant, use it.
-  //   2. Domain matching: normalize the email domain against tenant names using the
-  //      same logic as autoGrantTenantByDomain (no guessing on multi-match).
+  //   2. Match email domain to a tenant name only when this admin-started backfill
+  //      finds exactly one match. This does not grant tenant access.
   // Safe to run multiple times — only touches rows where tenant_id IS NULL.
   app.post("/api/admin/backfill-quote-tenants", requireAdmin, async (_req, res) => {
     try {
@@ -547,7 +547,7 @@ export async function registerRoutes(
         if (row.cnt === "1") singleTenantMap.set(row.user_id, row.tenant_id);
       }
 
-      // Domain-match helper — mirrors the updated autoGrantTenantByDomain logic.
+      // Domain-match helper for this explicit historical quote backfill only.
       // Three-way match: substring contains OR shared prefix ≥6 chars.
       const commonPrefixLen = (a: string, b: string) => {
         let i = 0;
